@@ -7,8 +7,10 @@ An AI-powered training analyst for cyclists that provides personalized, context-
 - **Dashboard** with fitness metrics (CTL, ATL, TSB)
 - **PMC Chart** showing fitness trends over time
 - **Sessions Table** with recent training activities
-- **AI Coach** chat panel powered by Claude
+- **AI Coach** chat panel powered by Claude (streaming)
 - **intervals.icu Integration** for automatic data sync
+- **FIT File Upload** drag & drop with metrics calculation
+- **Supabase Auth** optional login/signup (graceful fallback)
 
 ## Tech Stack
 
@@ -28,16 +30,19 @@ npm install
 
 ### 2. Configure Environment
 
-Copy `.env.local.example` to `.env.local` and add your credentials:
+Create `.env.local` with your credentials:
 
 ```bash
 # Anthropic API (for AI chat)
 ANTHROPIC_API_KEY=your_key_here
 
-# intervals.icu OAuth (optional, for real data)
-INTERVALS_ICU_CLIENT_ID=your_client_id
-INTERVALS_ICU_CLIENT_SECRET=your_client_secret
-INTERVALS_ICU_REDIRECT_URI=http://localhost:3001/api/auth/intervals/callback
+# intervals.icu - API Key method (recommended)
+INTERVALS_ICU_API_KEY=your_api_key
+INTERVALS_ICU_ATHLETE_ID=i123456
+
+# Supabase (optional - for authentication)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
 ### 3. Run Development Server
@@ -46,7 +51,7 @@ INTERVALS_ICU_REDIRECT_URI=http://localhost:3001/api/auth/intervals/callback
 npm run dev
 ```
 
-Open http://localhost:3001
+Open http://localhost:3000
 
 ## Project Structure
 
@@ -82,10 +87,10 @@ src/
 
 ## intervals.icu Setup
 
-1. Go to https://intervals.icu/settings
-2. Create an OAuth application
-3. Set redirect URI: `http://localhost:3001/api/auth/intervals/callback`
-4. Copy Client ID and Secret to `.env.local`
+1. Go to https://intervals.icu → Settings → Developer Settings
+2. Copy your **API Key**
+3. Note your **Athlete ID** (format: `i123456`)
+4. Add both to `.env.local`
 
 ## Key Metrics
 
@@ -102,9 +107,10 @@ The app works without intervals.icu connection, showing sample data. Connect you
 
 ## Future Enhancements
 
-- [ ] Supabase authentication
-- [ ] Multi-user support
-- [ ] FIT file upload
+- [x] Supabase authentication
+- [x] FIT file upload
+- [ ] Multi-user support (database storage)
 - [ ] Event countdown mode
 - [ ] Proactive alerts
 - [ ] Dark mode
+- [ ] Mobile responsive

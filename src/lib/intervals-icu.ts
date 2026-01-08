@@ -67,32 +67,29 @@ export interface IntervalsWellness {
 }
 
 class IntervalsICUClient {
-  private accessToken: string | null = null
+  private apiKey: string | null = null
   private athleteId: string | null = null
 
   constructor() {}
 
-  setCredentials(accessToken: string, athleteId: string) {
-    this.accessToken = accessToken
-    this.athleteId = athleteId
-  }
-
-  // For API key auth (simpler for testing)
-  setApiKey(apiKey: string, athleteId: string) {
-    this.accessToken = apiKey
+  setCredentials(apiKey: string, athleteId: string) {
+    this.apiKey = apiKey
     this.athleteId = athleteId
   }
 
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (!this.accessToken) {
-      throw new Error('No access token set. Call setCredentials() first.')
+    if (!this.apiKey) {
+      throw new Error('No API key set. Call setCredentials() first.')
     }
 
     const url = `${BASE_URL}${endpoint}`
+    // intervals.icu uses Basic Auth with API_KEY as username and the key as password
+    const basicAuth = Buffer.from(`API_KEY:${this.apiKey}`).toString('base64')
+
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
+        'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },

@@ -4,8 +4,16 @@ import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
 
 export async function GET() {
   const cookieStore = await cookies()
-  const accessToken = cookieStore.get('intervals_access_token')?.value
-  const athleteId = cookieStore.get('intervals_athlete_id')?.value
+
+  // Try OAuth tokens first (from cookie), then fall back to API key from env
+  let accessToken = cookieStore.get('intervals_access_token')?.value
+  let athleteId = cookieStore.get('intervals_athlete_id')?.value
+
+  // Fall back to API key from environment variables
+  if (!accessToken || !athleteId) {
+    accessToken = process.env.INTERVALS_ICU_API_KEY
+    athleteId = process.env.INTERVALS_ICU_ATHLETE_ID
+  }
 
   if (!accessToken || !athleteId) {
     return NextResponse.json(
@@ -51,13 +59,19 @@ export async function GET() {
 
     // Build PMC data from wellness
     const pmcData = wellness
-      .filter((_, i) => i % 7 === 0 || i === wellness.length - 1) // Weekly points
-      .map(w => ({
-        date: new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        ctl: Math.round(w.ctl),
-        atl: Math.round(w.atl),
-        tsb: Math.round(w.ctl - w.atl),
-      }))
+      .filter(w => w.date) // Only include entries with valid dates
+      .filter((_, i, arr) => i % 7 === 0 || i === arr.length - 1) // Weekly points
+      .map(w => {
+        // Handle date format - intervals.icu uses YYYY-MM-DD
+        const dateStr = w.date
+        const date = new Date(dateStr + 'T00:00:00') // Add time to avoid timezone issues
+        return {
+          date: isNaN(date.getTime()) ? dateStr : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          ctl: Math.round(w.ctl || 0),
+          atl: Math.round(w.atl || 0),
+          tsb: Math.round((w.ctl || 0) - (w.atl || 0)),
+        }
+      })
 
     // Calculate CTL trend (this week vs last week)
     const ctlTrend = wellness.length > 7

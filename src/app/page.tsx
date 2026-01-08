@@ -1,11 +1,14 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { FitnessMetrics } from '@/components/dashboard/fitness-metrics'
 import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { PMCChart, generateDemoPMCData } from '@/components/dashboard/pmc-chart'
 import { AICoachPanel } from '@/components/dashboard/ai-coach-panel'
+import { FileUpload } from '@/components/dashboard/file-upload'
 import { Button } from '@/components/ui/button'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
+import { useUser } from '@/hooks/use-user'
 import type { CurrentFitness, Session } from '@/types'
 
 // Demo data - used when not connected to intervals.icu
@@ -76,6 +79,7 @@ const demoSessions: Session[] = [
 const demoPmcData = generateDemoPMCData()
 
 export default function Dashboard() {
+  const { user, signOut } = useUser()
   const {
     connected,
     loading,
@@ -87,11 +91,23 @@ export default function Dashboard() {
     connect,
   } = useIntervalsData()
 
+  // Local state for uploaded sessions
+  const [uploadedSessions, setUploadedSessions] = useState<Session[]>([])
+
+  const handleSessionUploaded = useCallback((session: Session) => {
+    setUploadedSessions(prev => [session, ...prev])
+  }, [])
+
+  // Combine intervals.icu sessions with uploaded sessions
+  const allSessions = [...uploadedSessions, ...(connected ? sessions : demoSessions)]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
   // Use real data if connected, otherwise demo data
   const displayFitness = connected && currentFitness ? currentFitness : demoFitness
-  const displaySessions = connected && sessions.length > 0 ? sessions : demoSessions
+  const displaySessions = allSessions.length > 0 ? allSessions : demoSessions
   const displayPmcData = connected && pmcData.length > 0 ? pmcData : demoPmcData
   const displayCtlTrend = connected ? ctlTrend : 3
+  const athleteFtp = athlete?.ftp || 250
 
   // Build context string for AI
   const athleteContextString = JSON.stringify(
@@ -132,6 +148,11 @@ export default function Dashboard() {
                 {loading ? 'Checking...' : 'Connect intervals.icu'}
               </Button>
             )}
+            {user && (
+              <Button variant="ghost" size="sm" onClick={signOut}>
+                Sign out
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -144,12 +165,15 @@ export default function Dashboard() {
             {/* Demo mode banner */}
             {!connected && !loading && (
               <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                <strong>Demo Mode:</strong> Showing sample data. Connect your intervals.icu account to see your real training data.
+                <strong>Demo Mode:</strong> Showing sample data. Connect your intervals.icu account or upload a .FIT file.
               </div>
             )}
 
-            {/* Fitness Metrics */}
-            <FitnessMetrics fitness={displayFitness} />
+            {/* File Upload + Fitness Metrics Row */}
+            <div className="grid gap-6 md:grid-cols-[1fr_300px]">
+              <FitnessMetrics fitness={displayFitness} />
+              <FileUpload onSessionUploaded={handleSessionUploaded} ftp={athleteFtp} />
+            </div>
 
             {/* PMC Chart */}
             <PMCChart data={displayPmcData} ctlTrend={displayCtlTrend} />
