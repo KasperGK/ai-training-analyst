@@ -110,10 +110,51 @@ export interface CurrentFitness {
   event_name?: string
 }
 
-// Chat message types
+// Chat message types (for UI)
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+}
+
+// Goals
+export interface Goal {
+  id: string
+  athlete_id: string
+  event_id: string | null
+  title: string
+  description: string | null
+  target_type: string
+  target_value: number | null
+  current_value: number | null
+  deadline: string | null
+  status: 'active' | 'completed' | 'abandoned'
+  created_at: string
+  updated_at: string
+}
+
+// Integration (OAuth)
+export interface Integration {
+  id: string
+  athlete_id: string
+  provider: string
+  external_athlete_id: string | null
+  token_expires_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Workout suggestion from AI
+export interface WorkoutSuggestion {
+  type: 'recovery' | 'endurance' | 'tempo' | 'threshold' | 'intervals'
+  duration_minutes: number
+  description: string
+  target_tss: number
+  intervals?: {
+    sets: number
+    duration_seconds: number
+    rest_seconds: number
+    target_power_percent: number // % of FTP
+  }
 }

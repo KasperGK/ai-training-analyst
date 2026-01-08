@@ -187,6 +187,7 @@ export default function Dashboard() {
         <div className="w-[420px] border-l bg-background">
           <AICoachPanel
             athleteContext={athleteContextString}
+            athleteId={user?.id}
             className="h-full rounded-none border-0"
           />
         </div>
