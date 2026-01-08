@@ -7,17 +7,20 @@ An AI-powered training analyst for cyclists that provides personalized, context-
 - **Dashboard** with fitness metrics (CTL, ATL, TSB)
 - **PMC Chart** showing fitness trends over time
 - **Sessions Table** with recent training activities
-- **AI Coach** chat panel powered by Claude (streaming)
+- **AI Coach** chat panel powered by Claude with function calling
+- **AI Tools** for workout suggestions, trend analysis, goal tracking
 - **intervals.icu Integration** for automatic data sync
 - **FIT File Upload** drag & drop with metrics calculation
 - **Supabase Auth** optional login/signup (graceful fallback)
+- **Multi-user Database** schema ready (Supabase)
 
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router, Turbopack)
 - **UI:** Shadcn/ui + Tailwind CSS
 - **Charts:** Recharts
-- **AI:** Claude API via AI SDK
+- **AI:** Claude API via AI SDK 6 (with tool calling)
+- **Database:** Supabase (PostgreSQL)
 - **Data Source:** intervals.icu OAuth API
 
 ## Getting Started
@@ -40,12 +43,20 @@ ANTHROPIC_API_KEY=your_key_here
 INTERVALS_ICU_API_KEY=your_api_key
 INTERVALS_ICU_ATHLETE_ID=i123456
 
-# Supabase (optional - for authentication)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# Supabase (for multi-user + persistence)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-### 3. Run Development Server
+### 3. Setup Database (Optional)
+
+Run the SQL migrations in your Supabase dashboard:
+1. Go to SQL Editor
+2. Run `supabase/migrations/001_schema.sql`
+3. Run `supabase/migrations/002_rls.sql`
+4. Run `supabase/migrations/003_triggers.sql`
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
@@ -61,36 +72,52 @@ src/
 │   ├── page.tsx                    # Main dashboard
 │   ├── layout.tsx                  # Root layout
 │   └── api/
-│       ├── chat/route.ts           # AI chat endpoint
+│       ├── chat/route.ts           # AI chat endpoint with tools
 │       ├── auth/intervals/         # OAuth flow
-│       │   ├── connect/route.ts
-│       │   └── callback/route.ts
-│       └── intervals/
-│           └── data/route.ts       # Fetch intervals.icu data
+│       └── intervals/data/         # Fetch intervals.icu data
 ├── components/
 │   ├── dashboard/
-│   │   ├── metric-card.tsx         # Fitness metric cards
 │   │   ├── fitness-metrics.tsx     # CTL/ATL/TSB display
 │   │   ├── pmc-chart.tsx           # Performance Management Chart
 │   │   ├── sessions-table.tsx      # Recent sessions list
-│   │   └── ai-coach-panel.tsx      # AI chat interface
+│   │   └── ai-coach-panel.tsx      # AI chat with tool rendering
 │   └── ui/                         # Shadcn components
 ├── hooks/
 │   └── use-intervals-data.ts       # intervals.icu data hook
 ├── lib/
-│   ├── intervals-icu.ts            # API client
+│   ├── db/                         # Data access layer
+│   │   ├── athletes.ts             # User profiles
+│   │   ├── sessions.ts             # Training sessions
+│   │   ├── fitness.ts              # CTL/ATL/TSB history
+│   │   ├── events.ts               # Races/events
+│   │   ├── goals.ts                # Training goals
+│   │   ├── chat.ts                 # Chat history
+│   │   └── integrations.ts         # OAuth tokens
 │   ├── ai/system-prompt.ts         # AI coaching prompt
-│   └── supabase/                   # Supabase client (for future)
+│   └── supabase/                   # Supabase clients
 └── types/
     └── index.ts                    # TypeScript types
 ```
 
-## intervals.icu Setup
+## AI Tools
 
-1. Go to https://intervals.icu → Settings → Developer Settings
-2. Copy your **API Key**
-3. Note your **Athlete ID** (format: `i123456`)
-4. Add both to `.env.local`
+The AI coach can use these tools to provide better analysis:
+
+- **getDetailedSession** - Fetch full workout data with zone analysis
+- **queryHistoricalTrends** - Analyze training patterns over time
+- **getAthleteGoals** - Get goals, events, and periodization phase
+- **suggestWorkout** - Generate structured workout recommendations
+
+## Database Schema
+
+7 tables with Row Level Security:
+- `athletes` - User profiles (linked to Supabase auth)
+- `sessions` - Training activities
+- `fitness_history` - Daily CTL/ATL/TSB snapshots
+- `events` - Races and target events
+- `goals` - Training goals
+- `chat_messages` - Persisted conversations
+- `integrations` - OAuth tokens
 
 ## Key Metrics
 
@@ -103,14 +130,16 @@ src/
 
 ## Demo Mode
 
-The app works without intervals.icu connection, showing sample data. Connect your account to see real training data.
+The app works without database connection, showing sample data. Connect Supabase and intervals.icu for full functionality.
 
 ## Future Enhancements
 
 - [x] Supabase authentication
 - [x] FIT file upload
-- [ ] Multi-user support (database storage)
-- [ ] Event countdown mode
-- [ ] Proactive alerts
-- [ ] Dark mode
+- [x] Multi-user database schema
+- [x] AI function calling (tools)
+- [ ] Settings page (profile, integrations)
+- [ ] Events/goals management UI
+- [ ] Chat history persistence (UI)
+- [ ] Dark mode toggle
 - [ ] Mobile responsive
