@@ -6,9 +6,17 @@ import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { PMCChart, generateDemoPMCData } from '@/components/dashboard/pmc-chart'
 import { AICoachPanel } from '@/components/dashboard/ai-coach-panel'
 import { FileUpload } from '@/components/dashboard/file-upload'
+import {
+  FitnessMetricsSkeleton,
+  PMCChartSkeleton,
+  SessionsTableSkeleton,
+  FileUploadSkeleton,
+} from '@/components/dashboard/skeletons'
 import { Button } from '@/components/ui/button'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useUser } from '@/hooks/use-user'
+import { Settings } from 'lucide-react'
+import Link from 'next/link'
 import type { CurrentFitness, Session } from '@/types'
 
 // Demo data - used when not connected to intervals.icu
@@ -148,6 +156,12 @@ export default function Dashboard() {
                 {loading ? 'Checking...' : 'Connect intervals.icu'}
               </Button>
             )}
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/settings">
+                <Settings className="h-5 w-5" />
+                <span className="sr-only">Settings</span>
+              </Link>
+            </Button>
             {user && (
               <Button variant="ghost" size="sm" onClick={signOut}>
                 Sign out
@@ -170,16 +184,31 @@ export default function Dashboard() {
             )}
 
             {/* File Upload + Fitness Metrics Row */}
-            <div className="grid gap-6 md:grid-cols-[1fr_300px]">
-              <FitnessMetrics fitness={displayFitness} />
-              <FileUpload onSessionUploaded={handleSessionUploaded} ftp={athleteFtp} />
-            </div>
+            {loading ? (
+              <div className="grid gap-6 md:grid-cols-[1fr_300px]">
+                <FitnessMetricsSkeleton />
+                <FileUploadSkeleton />
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-[1fr_300px]">
+                <FitnessMetrics fitness={displayFitness} />
+                <FileUpload onSessionUploaded={handleSessionUploaded} ftp={athleteFtp} />
+              </div>
+            )}
 
             {/* PMC Chart */}
-            <PMCChart data={displayPmcData} ctlTrend={displayCtlTrend} />
+            {loading ? (
+              <PMCChartSkeleton />
+            ) : (
+              <PMCChart data={displayPmcData} ctlTrend={displayCtlTrend} />
+            )}
 
             {/* Recent Sessions */}
-            <SessionsTable sessions={displaySessions} />
+            {loading ? (
+              <SessionsTableSkeleton />
+            ) : (
+              <SessionsTable sessions={displaySessions} />
+            )}
           </div>
         </div>
 

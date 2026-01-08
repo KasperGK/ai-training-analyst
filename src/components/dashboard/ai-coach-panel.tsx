@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import type { WorkoutSuggestion } from '@/types'
-import { Dumbbell, TrendingUp, Target, Calendar } from 'lucide-react'
+import { Dumbbell, TrendingUp, Target, Calendar, Bot, User, Send } from 'lucide-react'
 
 interface AICoachPanelProps {
   athleteContext?: string // JSON string of athlete data for context
@@ -188,9 +189,19 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     ? [{
         id: 'welcome',
         role: 'assistant' as const,
+        createdAt: new Date(),
         parts: [{ type: 'text' as const, text: "Hi! I'm your AI training analyst. I can help you understand your training data, analyze your fitness trends, suggest workouts, and provide personalized recommendations. What would you like to know?" }],
       }]
     : messages
+
+  // Format timestamp
+  const formatTime = (date: Date | undefined) => {
+    if (!date) return ''
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
 
   return (
     <Card className={cn('flex h-full flex-col', className)}>
@@ -203,37 +214,71 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
             {displayMessages.map((message) => {
               const text = getMessageText(message)
               const toolResults = message.role === 'assistant' ? getToolResults(message) : []
+              const isUser = message.role === 'user'
+              const timestamp = 'createdAt' in message ? formatTime(message.createdAt as Date) : ''
 
               return (
                 <div
                   key={message.id}
                   className={cn(
-                    'flex flex-col',
-                    message.role === 'user' ? 'items-end' : 'items-start'
+                    'flex gap-3',
+                    isUser ? 'flex-row-reverse' : 'flex-row'
                   )}
                 >
-                  <div
-                    className={cn(
-                      'max-w-[90%] rounded-lg px-4 py-2 text-sm',
-                      message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
+                  {/* Avatar */}
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className={cn(
+                      isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                    )}>
+                      {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Message content */}
+                  <div className={cn(
+                    'flex flex-col gap-1',
+                    isUser ? 'items-end' : 'items-start'
+                  )}>
+                    <div
+                      className={cn(
+                        'max-w-[280px] rounded-lg px-3 py-2 text-sm',
+                        isUser
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      )}
+                    >
+                      {text && <p className="whitespace-pre-wrap">{text}</p>}
+                      {toolResults.map((tr, idx) => (
+                        <div key={idx}>
+                          {renderToolResult(tr.toolName, tr.result)}
+                        </div>
+                      ))}
+                    </div>
+                    {timestamp && (
+                      <span className="text-[10px] text-muted-foreground px-1">
+                        {timestamp}
+                      </span>
                     )}
-                  >
-                    {text && <p className="whitespace-pre-wrap">{text}</p>}
-                    {toolResults.map((tr, idx) => (
-                      <div key={idx}>
-                        {renderToolResult(tr.toolName, tr.result)}
-                      </div>
-                    ))}
                   </div>
                 </div>
               )
             })}
             {isLoading && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-lg bg-muted px-4 py-2 text-sm">
-                  <p className="text-muted-foreground animate-pulse">Analyzing...</p>
+              <div className="flex gap-3">
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="bg-muted">
+                    <Bot className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="rounded-lg bg-muted px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-muted-foreground">Thinking...</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -256,8 +301,14 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
               disabled={isLoading}
               className="flex-1"
             />
-            <Button type="submit" disabled={isLoading || !input.trim()}>
-              Send
+            <Button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              size="icon"
+              className="shrink-0"
+            >
+              <Send className="h-4 w-4" />
+              <span className="sr-only">Send</span>
             </Button>
           </form>
 
