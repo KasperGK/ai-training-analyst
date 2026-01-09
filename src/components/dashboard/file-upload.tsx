@@ -8,9 +8,10 @@ import type { Session } from '@/types'
 interface FileUploadProps {
   onSessionUploaded: (session: Session) => void
   ftp?: number
+  compact?: boolean
 }
 
-export function FileUpload({ onSessionUploaded, ftp = 250 }: FileUploadProps) {
+export function FileUpload({ onSessionUploaded, ftp = 250, compact = false }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -87,6 +88,50 @@ export function FileUpload({ onSessionUploaded, ftp = 250 }: FileUploadProps) {
       classes += 'cursor-pointer hover:border-primary/50'
     }
     return classes
+  }
+
+  // Compact square version matching MetricCard style
+  if (compact) {
+    return (
+      <Card
+        className="aspect-square flex flex-col p-5 cursor-pointer hover:border-primary/50 transition-colors relative"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <input
+          type="file"
+          accept=".fit"
+          onChange={handleInputChange}
+          className="absolute inset-0 cursor-pointer opacity-0"
+          disabled={isUploading}
+        />
+        <div className="flex items-start justify-between">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Upload
+          </span>
+          <Upload className="h-4 w-4 text-muted-foreground/50" />
+        </div>
+
+        <div className="flex-1 flex items-center justify-center">
+          {isUploading ? (
+            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+          ) : message?.type === 'success' ? (
+            <FileCheck className="h-10 w-10 text-green-600" />
+          ) : message?.type === 'error' ? (
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          ) : (
+            <Upload className={`h-10 w-10 ${isDragging ? 'text-primary' : 'text-muted-foreground/30'}`} />
+          )}
+        </div>
+
+        <div className="h-10 text-center">
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {isUploading ? 'Processing...' : message?.text || 'Drop .FIT file'}
+          </p>
+        </div>
+      </Card>
+    )
   }
 
   return (

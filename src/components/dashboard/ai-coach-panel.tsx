@@ -3,7 +3,6 @@
 import { useRef, useEffect, useState, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -20,16 +19,8 @@ interface AICoachPanelProps {
 
 // Tool result rendering components
 function WorkoutCard({ workout, context }: { workout: WorkoutSuggestion; context: { currentTSB: number; selectedBecause: string; ftp: number } }) {
-  const typeColors: Record<string, string> = {
-    recovery: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400',
-    endurance: 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400',
-    tempo: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-400',
-    threshold: 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-400',
-    intervals: 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400',
-  }
-
   return (
-    <div className={cn('rounded-lg border p-3 mt-2', typeColors[workout.type] || 'bg-muted')}>
+    <div className="rounded-lg border bg-muted p-3 mt-2">
       <div className="flex items-center gap-2 mb-2">
         <Dumbbell className="h-4 w-4" />
         <span className="font-medium capitalize">{workout.type} Workout</span>
@@ -204,11 +195,8 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   }
 
   return (
-    <Card className={cn('flex h-full flex-col', className)}>
-      <CardHeader className="border-b pb-3">
-        <CardTitle className="text-lg">AI Coach</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col p-0">
+    <div className={cn('flex h-full flex-col', className)}>
+      <div className="flex flex-1 flex-col">
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           <div className="space-y-4">
             {displayMessages.map((message) => {
@@ -331,8 +319,8 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
             />
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 

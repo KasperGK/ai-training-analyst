@@ -31,16 +31,14 @@ function getCTLStatus(trend: 'up' | 'down' | 'stable'): 'good' | 'warning' | 'ba
 }
 
 export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
-  // Handle empty state
+  // Handle empty state - show 3 placeholder cards
   if (!fitness) {
     return (
-      <Card className="bg-muted/50">
-        <CardContent className="flex items-center justify-center py-8">
-          <p className="text-muted-foreground text-sm">
-            No fitness data available. Connect intervals.icu or upload activities.
-          </p>
-        </CardContent>
-      </Card>
+      <>
+        <MetricCard title="Fitness (CTL)" value="—" description="Connect to see data" status="neutral" />
+        <MetricCard title="Fatigue (ATL)" value="—" description="Connect to see data" status="neutral" />
+        <MetricCard title="Form (TSB)" value="—" description="Connect to see data" status="neutral" />
+      </>
     )
   }
 
@@ -48,13 +46,13 @@ export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
   const ctlStatus = getCTLStatus(fitness.ctl_trend)
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <>
       <MetricCard
         title="Fitness (CTL)"
         value={Math.round(fitness.ctl)}
         description="42-day training load"
         trend={fitness.ctl_trend}
-        trendValue={fitness.ctl_trend === 'up' ? '+3 this week' : fitness.ctl_trend === 'down' ? '-2 this week' : 'Stable'}
+        trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : ''}
         status={ctlStatus}
       />
       <MetricCard
@@ -69,14 +67,6 @@ export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
         description={getTSBDescription(fitness.tsb)}
         status={tsbStatus}
       />
-      {fitness.days_until_event !== undefined && (
-        <MetricCard
-          title="Next Event"
-          value={`${fitness.days_until_event}d`}
-          description={fitness.event_name}
-          status={fitness.days_until_event < 14 ? 'warning' : 'neutral'}
-        />
-      )}
-    </div>
+    </>
   )
 }

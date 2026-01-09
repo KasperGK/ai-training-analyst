@@ -19,26 +19,45 @@ import {
 
 export function MetricCardSkeleton() {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-10 w-16 mt-1" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-3 w-32" />
-      </CardContent>
+    <Card className="aspect-square flex flex-col p-5">
+      <div className="flex items-start justify-between">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-4 w-4" />
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <Skeleton className="h-12 w-16" />
+      </div>
+      <div className="h-10 text-center">
+        <Skeleton className="h-3 w-24 mx-auto" />
+      </div>
     </Card>
   )
 }
 
 export function FitnessMetricsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <>
       <MetricCardSkeleton />
       <MetricCardSkeleton />
       <MetricCardSkeleton />
-      <MetricCardSkeleton />
-    </div>
+    </>
+  )
+}
+
+export function FileUploadSkeletonCompact() {
+  return (
+    <Card className="aspect-square flex flex-col p-5">
+      <div className="flex items-start justify-between">
+        <Skeleton className="h-3 w-14" />
+        <Skeleton className="h-4 w-4" />
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <Skeleton className="h-10 w-10 rounded" />
+      </div>
+      <div className="h-10 text-center">
+        <Skeleton className="h-3 w-20 mx-auto" />
+      </div>
+    </Card>
   )
 }
 

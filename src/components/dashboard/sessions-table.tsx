@@ -51,18 +51,8 @@ function formatDateTime(dateStr: string): { date: string; time: string } {
 function getWorkoutTypeBadge(type?: string) {
   if (!type) return null
 
-  const colors: Record<string, string> = {
-    endurance: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
-    tempo: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100',
-    sweetspot: 'bg-orange-100 text-orange-700 hover:bg-orange-100',
-    threshold: 'bg-red-100 text-red-700 hover:bg-red-100',
-    vo2max: 'bg-purple-100 text-purple-700 hover:bg-purple-100',
-    recovery: 'bg-green-100 text-green-700 hover:bg-green-100',
-    race: 'bg-zinc-900 text-white hover:bg-zinc-900',
-  }
-
   return (
-    <Badge variant="secondary" className={colors[type] || ''}>
+    <Badge variant="secondary" className="bg-muted text-muted-foreground hover:bg-muted">
       {type}
     </Badge>
   )
