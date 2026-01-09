@@ -52,7 +52,7 @@ export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
         value={Math.round(fitness.ctl)}
         description="42-day training load"
         trend={fitness.ctl_trend}
-        trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : ''}
+        trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : '0'}
         status={ctlStatus}
       />
       <MetricCard

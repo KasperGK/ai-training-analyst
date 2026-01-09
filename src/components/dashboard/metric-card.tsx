@@ -62,13 +62,15 @@ export function MetricCard({
         )}
       </div>
 
-      {trend && trend !== 'stable' && (
+      {trend && (
         <div className={cn(
           'absolute bottom-3 left-3 flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded',
-          trend === 'up' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'
+          trend === 'up' && 'bg-green-500/10 text-green-600',
+          trend === 'down' && 'bg-red-500/10 text-red-600',
+          trend === 'stable' && 'bg-muted text-muted-foreground'
         )}>
           <TrendIcon className="h-3 w-3" />
-          <span>{trendValue || (trend === 'up' ? '+' : '-')}</span>
+          <span>{trendValue || (trend === 'up' ? '+' : trend === 'down' ? '-' : '~')}</span>
         </div>
       )}
     </Card>
