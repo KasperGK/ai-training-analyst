@@ -6,12 +6,14 @@ An AI-powered training analyst for cyclists that provides personalized, context-
 
 - **Dashboard** with fitness metrics (CTL, ATL, TSB)
 - **PMC Chart** showing fitness trends over time
-- **Sessions Table** with recent training activities
+- **Sessions Table** with clickable workouts showing date/time
+- **Workout Detail Page** with power/HR charts, zone breakdowns
 - **AI Coach** chat panel powered by Claude with function calling
 - **AI Tools** for workout suggestions, trend analysis, goal tracking
-- **intervals.icu Integration** for automatic data sync
+- **intervals.icu Integration** for automatic data sync (auto-refresh every 5 min)
 - **FIT File Upload** drag & drop with metrics calculation
-- **Supabase Auth** optional login/signup (graceful fallback)
+- **Supabase Auth** login/signup with profile persistence
+- **Events & Goals** management UI
 - **Multi-user Database** schema ready (Supabase)
 
 ## Tech Stack
@@ -71,29 +73,33 @@ src/
 ├── app/
 │   ├── page.tsx                    # Main dashboard
 │   ├── layout.tsx                  # Root layout
+│   ├── events/page.tsx             # Events & Goals management
+│   ├── settings/page.tsx           # User settings
+│   ├── workouts/[id]/page.tsx      # Workout detail page
 │   └── api/
 │       ├── chat/route.ts           # AI chat endpoint with tools
+│       ├── athletes/route.ts       # User profile CRUD
+│       ├── events/route.ts         # Events CRUD
+│       ├── goals/route.ts          # Goals CRUD
+│       ├── sessions/[id]/route.ts  # Workout details + streams
 │       ├── auth/intervals/         # OAuth flow
 │       └── intervals/data/         # Fetch intervals.icu data
 ├── components/
 │   ├── dashboard/
 │   │   ├── fitness-metrics.tsx     # CTL/ATL/TSB display
 │   │   ├── pmc-chart.tsx           # Performance Management Chart
-│   │   ├── sessions-table.tsx      # Recent sessions list
+│   │   ├── sessions-table.tsx      # Recent sessions list (clickable)
 │   │   └── ai-coach-panel.tsx      # AI chat with tool rendering
+│   ├── workouts/
+│   │   ├── stream-chart.tsx        # Power/HR line charts
+│   │   └── zone-bar.tsx            # Zone distribution bars
 │   └── ui/                         # Shadcn components
 ├── hooks/
-│   └── use-intervals-data.ts       # intervals.icu data hook
+│   └── use-intervals-data.ts       # intervals.icu data hook (auto-refresh)
 ├── lib/
 │   ├── db/                         # Data access layer
-│   │   ├── athletes.ts             # User profiles
-│   │   ├── sessions.ts             # Training sessions
-│   │   ├── fitness.ts              # CTL/ATL/TSB history
-│   │   ├── events.ts               # Races/events
-│   │   ├── goals.ts                # Training goals
-│   │   ├── chat.ts                 # Chat history
-│   │   └── integrations.ts         # OAuth tokens
 │   ├── ai/system-prompt.ts         # AI coaching prompt
+│   ├── intervals-icu.ts            # intervals.icu API client
 │   └── supabase/                   # Supabase clients
 └── types/
     └── index.ts                    # TypeScript types
@@ -128,9 +134,13 @@ The AI coach can use these tools to provide better analysis:
 - **IF (Intensity Factor):** Session intensity relative to FTP
 - **NP (Normalized Power):** Weighted average power
 
-## Demo Mode
+## Data Sources
 
-The app works without database connection, showing sample data. Connect Supabase and intervals.icu for full functionality.
+**intervals.icu** - Primary data source for training activities. Supports:
+- Direct connections: UPLOAD (Zwift direct), GARMIN_CONNECT
+- Note: STRAVA activities are blocked by Strava's API terms
+
+Connect Zwift directly to intervals.icu (not via Strava) for best results.
 
 ## Future Enhancements
 
@@ -138,8 +148,10 @@ The app works without database connection, showing sample data. Connect Supabase
 - [x] FIT file upload
 - [x] Multi-user database schema
 - [x] AI function calling (tools)
-- [ ] Settings page (profile, integrations)
-- [ ] Events/goals management UI
+- [x] Settings page (profile, integrations)
+- [x] Events/goals management UI
+- [x] Workout detail page with charts
+- [x] Auto-refresh data (5 min interval + tab focus)
 - [ ] Chat history persistence (UI)
 - [ ] Dark mode toggle
 - [ ] Mobile responsive

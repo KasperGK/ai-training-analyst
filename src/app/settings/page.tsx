@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,10 +22,12 @@ interface AthleteProfile {
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user, signOut } = useUser()
+  const { user, signOut, loading: userLoading } = useUser()
   const [loading, setLoading] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [intervalsConnected, setIntervalsConnected] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   const [profile, setProfile] = useState<AthleteProfile>({
     name: '',
@@ -36,6 +38,34 @@ export default function SettingsPage() {
     resting_hr: null,
     weekly_hours_available: 10,
   })
+
+  // Load profile from database
+  const loadProfile = useCallback(async () => {
+    if (!user) {
+      setProfileLoading(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/athletes')
+      if (res.ok) {
+        const data = await res.json()
+        setProfile({
+          name: data.name || '',
+          ftp: data.ftp || 200,
+          weight_kg: data.weight_kg || 75,
+          max_hr: data.max_hr || 190,
+          lthr: data.lthr || 165,
+          resting_hr: data.resting_hr ?? null,
+          weekly_hours_available: data.weekly_hours_available || 10,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error)
+    } finally {
+      setProfileLoading(false)
+    }
+  }, [user])
 
   // Check intervals.icu connection status
   useEffect(() => {
@@ -51,25 +81,30 @@ export default function SettingsPage() {
     checkConnection()
   }, [])
 
-  // TODO: Load profile from database when API is ready
-  // useEffect(() => { loadProfile() }, [user])
+  // Load profile when user is available
+  useEffect(() => {
+    if (!userLoading) {
+      loadProfile()
+    }
+  }, [user, userLoading, loadProfile])
 
   const handleSave = async () => {
     setLoading(true)
     setSaved(false)
 
     try {
-      // TODO: Save to database via API
-      // await fetch('/api/athletes', {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(profile),
-      // })
+      const res = await fetch('/api/athletes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      })
 
-      // Simulate save for now
-      await new Promise(resolve => setTimeout(resolve, 500))
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      if (res.ok) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } else {
+        console.error('Failed to save profile:', await res.text())
+      }
     } catch (error) {
       console.error('Failed to save profile:', error)
     } finally {
@@ -82,8 +117,22 @@ export default function SettingsPage() {
   }
 
   const handleDisconnectIntervals = async () => {
-    // TODO: Implement disconnect
-    setIntervalsConnected(false)
+    setDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/disconnect', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'intervals_icu' }),
+      })
+
+      if (res.ok) {
+        setIntervalsConnected(false)
+      }
+    } catch (error) {
+      console.error('Failed to disconnect:', error)
+    } finally {
+      setDisconnecting(false)
+    }
   }
 
   return (
@@ -122,6 +171,12 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {profileLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="name">Display Name</Label>
@@ -223,7 +278,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleSave} disabled={loading}>
+                  <Button onClick={handleSave} disabled={loading || !user}>
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -239,6 +294,13 @@ export default function SettingsPage() {
                     )}
                   </Button>
                 </div>
+                {!user && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    Sign in to save your profile
+                  </p>
+                )}
+                </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -266,9 +328,13 @@ export default function SettingsPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" onClick={handleDisconnectIntervals}>
-                      <Unlink className="mr-2 h-4 w-4" />
-                      Disconnect
+                    <Button variant="outline" onClick={handleDisconnectIntervals} disabled={disconnecting}>
+                      {disconnecting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Unlink className="mr-2 h-4 w-4" />
+                      )}
+                      {disconnecting ? 'Disconnecting...' : 'Disconnect'}
                     </Button>
                   </div>
                 ) : (

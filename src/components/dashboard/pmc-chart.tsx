@@ -48,6 +48,25 @@ const chartConfig = {
 export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
   const trendUp = ctlTrend > 0
 
+  // Handle empty state
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance Management</CardTitle>
+          <CardDescription>
+            Fitness, fatigue, and form over the last 6 weeks
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[250px] text-muted-foreground text-sm">
+            No PMC data available. Connect intervals.icu to see your fitness trends.
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -140,39 +159,3 @@ export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
   )
 }
 
-// Generate demo PMC data for the last 6 weeks
-export function generateDemoPMCData(): PMCDataPoint[] {
-  const data: PMCDataPoint[] = []
-  const today = new Date()
-
-  let ctl = 65
-  let atl = 60
-
-  for (let i = 42; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-
-    // Simulate training load variations
-    const dailyTSS = Math.random() > 0.3 ? 40 + Math.random() * 80 : 0
-
-    // Update CTL (42-day average)
-    ctl = ctl + (dailyTSS - ctl) / 42
-
-    // Update ATL (7-day average)
-    atl = atl + (dailyTSS - atl) / 7
-
-    const tsb = ctl - atl
-
-    // Only add weekly data points for cleaner chart
-    if (i % 7 === 0 || i === 0) {
-      data.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        ctl: Math.round(ctl),
-        atl: Math.round(atl),
-        tsb: Math.round(tsb),
-      })
-    }
-  }
-
-  return data
-}

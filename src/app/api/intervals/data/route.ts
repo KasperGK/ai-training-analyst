@@ -36,34 +36,40 @@ export async function GET() {
       intervalsClient.getWellness(oldest, newest),
     ])
 
-    // Get today's fitness data
-    const today = wellness.find(w => w.date === newest) || wellness[wellness.length - 1]
+    // Get today's fitness data (wellness uses 'id' field for date, not 'date')
+    const today = wellness.find(w => w.id === newest) || wellness[wellness.length - 1]
 
     // Transform activities to our format
-    const sessions = activities.slice(0, 10).map(activity => ({
-      id: activity.id,
-      athlete_id: athleteId,
-      date: activity.start_date_local,
-      duration_seconds: activity.moving_time,
-      distance_meters: activity.distance,
-      sport: activity.type.toLowerCase().includes('ride') ? 'cycling' : 'other',
-      avg_power: activity.average_watts,
-      normalized_power: activity.weighted_average_watts,
-      tss: activity.icu_training_load,
-      intensity_factor: activity.icu_intensity,
-      avg_hr: activity.average_heartrate,
-      max_hr: activity.max_heartrate,
-      source: 'intervals_icu',
-      external_id: activity.id,
-    }))
+    // Filter out STRAVA activities (blocked by Strava's API terms)
+    // Keep: UPLOAD (Zwift direct), GARMIN_CONNECT, and any other direct sources
+    const sessions = activities
+      .filter(activity => activity.source !== 'STRAVA' && activity.type && activity.moving_time)
+      .slice(0, 20)
+      .map(activity => ({
+        id: activity.id,
+        athlete_id: athleteId,
+        date: activity.start_date_local,
+        duration_seconds: activity.moving_time,
+        distance_meters: activity.distance,
+        sport: (activity.type || '').toLowerCase().includes('ride') ? 'cycling' : 'other',
+        workout_type: activity.name,
+        avg_power: activity.icu_average_watts || activity.average_watts,
+        normalized_power: activity.icu_weighted_avg_watts || activity.weighted_average_watts,
+        tss: activity.icu_training_load,
+        intensity_factor: activity.icu_intensity,
+        avg_hr: activity.average_heartrate,
+        max_hr: activity.max_heartrate,
+        source: 'intervals_icu',
+        external_id: activity.id,
+      }))
 
-    // Build PMC data from wellness
+    // Build PMC data from wellness (uses 'id' field for date)
     const pmcData = wellness
-      .filter(w => w.date) // Only include entries with valid dates
+      .filter(w => w.id) // Only include entries with valid dates
       .filter((_, i, arr) => i % 7 === 0 || i === arr.length - 1) // Weekly points
       .map(w => {
-        // Handle date format - intervals.icu uses YYYY-MM-DD
-        const dateStr = w.date
+        // Handle date format - intervals.icu uses YYYY-MM-DD in 'id' field
+        const dateStr = w.id
         const date = new Date(dateStr + 'T00:00:00') // Add time to avoid timezone issues
         return {
           date: isNaN(date.getTime()) ? dateStr : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import {
   Card,
   CardContent,
@@ -31,13 +32,20 @@ function formatDuration(seconds: number): string {
   return `${minutes}m`
 }
 
-function formatDate(dateStr: string): string {
+function formatDateTime(dateStr: string): { date: string; time: string } {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
+  return {
+    date: date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    }),
+    time: date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }),
+  }
 }
 
 function getWorkoutTypeBadge(type?: string) {
@@ -61,6 +69,8 @@ function getWorkoutTypeBadge(type?: string) {
 }
 
 export function SessionsTable({ sessions }: SessionsTableProps) {
+  const router = useRouter()
+
   if (sessions.length === 0) {
     return (
       <Card>
@@ -101,26 +111,34 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sessions.map((session) => (
-              <TableRow key={session.id} className="cursor-pointer">
-                <TableCell className="font-medium">
-                  {formatDate(session.date)}
-                </TableCell>
-                <TableCell>{getWorkoutTypeBadge(session.workout_type)}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatDuration(session.duration_seconds)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {session.tss ?? '-'}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {session.normalized_power ? `${session.normalized_power}W` : '-'}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {session.intensity_factor?.toFixed(2) ?? '-'}
-                </TableCell>
-              </TableRow>
-            ))}
+            {sessions.map((session) => {
+              const { date, time } = formatDateTime(session.date)
+              return (
+                <TableRow
+                  key={session.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => router.push(`/workouts/${session.id}`)}
+                >
+                  <TableCell className="font-medium">
+                    <div>{date}</div>
+                    <div className="text-xs text-muted-foreground">{time}</div>
+                  </TableCell>
+                  <TableCell>{getWorkoutTypeBadge(session.workout_type)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatDuration(session.duration_seconds)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {session.tss ?? '-'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {session.normalized_power ? `${session.normalized_power}W` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {session.intensity_factor?.toFixed(2) ?? '-'}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </CardContent>

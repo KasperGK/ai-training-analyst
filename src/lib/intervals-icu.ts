@@ -31,17 +31,65 @@ export interface IntervalsActivity {
   total_elevation_gain: number
   average_watts: number
   weighted_average_watts: number // NP
+  icu_weighted_avg_watts: number // NP (intervals.icu field)
+  icu_average_watts: number // avg power (intervals.icu field)
   max_watts: number
   average_heartrate: number
   max_heartrate: number
+  average_cadence?: number
   icu_training_load: number // TSS
   icu_intensity: number // IF
   icu_ctl: number
   icu_atl: number
   icu_ftp: number
+  source: string // STRAVA, UPLOAD, GARMIN_CONNECT, etc.
   pace_zone_times?: number[]
   hr_zone_times?: number[]
   power_zone_times?: number[]
+  // Zone breakdown
+  icu_zone_times?: { id: string; secs: number }[]
+  icu_hr_zone_times?: number[]
+  // Additional metrics
+  icu_joules?: number
+  trimp?: number
+  decoupling?: number
+  calories?: number
+  interval_summary?: string[]
+}
+
+// Raw stream item from API
+interface IntervalsStreamItem {
+  type: string
+  data: number[]
+}
+
+// Activity streams (time-series data)
+export interface IntervalsStreams {
+  time?: number[]      // seconds from start
+  watts?: number[]     // power
+  heartrate?: number[] // HR
+  cadence?: number[]   // cadence
+  distance?: number[]  // cumulative distance
+  altitude?: number[]  // elevation
+  velocity_smooth?: number[] // speed
+}
+
+// Helper to convert API response to our format
+function parseStreamsResponse(items: IntervalsStreamItem[]): IntervalsStreams {
+  const streams: IntervalsStreams = {}
+  if (!items || !Array.isArray(items)) return streams
+
+  for (const item of items) {
+    if (!item || !item.data) continue
+    if (item.type === 'time') streams.time = item.data
+    else if (item.type === 'watts') streams.watts = item.data
+    else if (item.type === 'heartrate') streams.heartrate = item.data
+    else if (item.type === 'cadence') streams.cadence = item.data
+    else if (item.type === 'distance') streams.distance = item.data
+    else if (item.type === 'altitude') streams.altitude = item.data
+    else if (item.type === 'velocity_smooth') streams.velocity_smooth = item.data
+  }
+  return streams
 }
 
 export interface IntervalsWellness {
@@ -135,6 +183,18 @@ class IntervalsICUClient {
   // Get activity details
   async getActivity(activityId: string): Promise<IntervalsActivity> {
     return this.fetch<IntervalsActivity>(`/api/v1/activity/${activityId}`)
+  }
+
+  // Get activity streams (time-series data for charts)
+  async getActivityStreams(
+    activityId: string,
+    types: string[] = ['time', 'watts', 'heartrate', 'cadence']
+  ): Promise<IntervalsStreams> {
+    const typesParam = types.join(',')
+    const items = await this.fetch<IntervalsStreamItem[]>(
+      `/api/v1/activity/${activityId}/streams?types=${typesParam}`
+    )
+    return parseStreamsResponse(items)
   }
 }
 

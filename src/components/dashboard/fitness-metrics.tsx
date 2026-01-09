@@ -1,10 +1,11 @@
 'use client'
 
 import { MetricCard } from './metric-card'
+import { Card, CardContent } from '@/components/ui/card'
 import type { CurrentFitness } from '@/types'
 
 interface FitnessMetricsProps {
-  fitness: CurrentFitness
+  fitness: CurrentFitness | null | undefined
 }
 
 function getTSBStatus(tsb: number): 'good' | 'warning' | 'bad' | 'neutral' {
@@ -30,6 +31,19 @@ function getCTLStatus(trend: 'up' | 'down' | 'stable'): 'good' | 'warning' | 'ba
 }
 
 export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
+  // Handle empty state
+  if (!fitness) {
+    return (
+      <Card className="bg-muted/50">
+        <CardContent className="flex items-center justify-center py-8">
+          <p className="text-muted-foreground text-sm">
+            No fitness data available. Connect intervals.icu or upload activities.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const tsbStatus = getTSBStatus(fitness.tsb)
   const ctlStatus = getCTLStatus(fitness.ctl_trend)
 
