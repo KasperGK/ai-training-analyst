@@ -33,8 +33,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useUser } from '@/hooks/use-user'
-import { Settings, Calendar, GripVertical, BookOpen, Check, Link2 } from 'lucide-react'
+import { Settings, Calendar, GripVertical, GripHorizontal, BookOpen, Check, Link2 } from 'lucide-react'
 import Link from 'next/link'
+import { Logo } from '@/components/ui/logo'
 import type { Session } from '@/types'
 
 const STORAGE_KEY = 'dashboard-order-v2'
@@ -96,6 +97,63 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false)
   const [chatHeight, setChatHeight] = useState(DEFAULT_CHAT_HEIGHT)
   const chatCardRef = useRef<HTMLDivElement>(null)
+  const leftColumnRef = useRef<HTMLDivElement>(null)
+
+  // Calculate snap points based on left column card heights
+  const getSnapPoints = useCallback(() => {
+    if (!leftColumnRef.current) return [400, 550, 800] // fallbacks
+
+    const children = leftColumnRef.current.children
+    const gap = 16 // space-y-4
+    const snapPoints: number[] = []
+    let cumulative = 0
+
+    for (let i = 0; i < children.length; i++) {
+      cumulative += children[i].getBoundingClientRect().height
+      if (i > 0) cumulative += gap
+      snapPoints.push(Math.round(cumulative))
+    }
+
+    return snapPoints
+  }, [])
+
+  // Snap to nearest point if within threshold
+  const snapToNearest = useCallback((height: number, points: number[]) => {
+    const SNAP_THRESHOLD = 30 // px
+
+    for (const point of points) {
+      if (Math.abs(height - point) <= SNAP_THRESHOLD) {
+        return point
+      }
+    }
+    return height
+  }, [])
+
+  // Custom resize handler with snapping
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startHeight = chatHeight
+    let currentHeight = startHeight
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY
+      const newHeight = Math.max(400, startHeight + deltaY)
+      const snapPoints = getSnapPoints()
+      const snappedHeight = snapToNearest(newHeight, snapPoints)
+      currentHeight = snappedHeight
+      setChatHeight(snappedHeight)
+    }
+
+    const handleMouseUp = () => {
+      localStorage.setItem(CHAT_HEIGHT_KEY, currentHeight.toString())
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [chatHeight, getSnapPoints, snapToNearest])
 
   useEffect(() => {
     setMounted(true)
@@ -106,24 +164,7 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Track resize changes and persist to localStorage
-  useEffect(() => {
-    if (!mounted || !chatCardRef.current) return
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newHeight = Math.round(entry.contentRect.height)
-        if (newHeight !== chatHeight && newHeight >= 400) {
-          setChatHeight(newHeight)
-          localStorage.setItem(CHAT_HEIGHT_KEY, newHeight.toString())
-        }
-      }
-    })
-
-    observer.observe(chatCardRef.current)
-    return () => observer.disconnect()
-  }, [mounted, chatHeight])
-
+  
   const [leftOrder, setLeftOrder] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY)
@@ -251,7 +292,7 @@ export default function Dashboard() {
     ai: (
       <Card
         ref={chatCardRef}
-        className="min-h-[400px] max-h-[90vh] flex flex-col resize-y overflow-hidden"
+        className="min-h-[400px] max-h-[90vh] flex flex-col overflow-hidden relative"
         style={{ height: chatHeight }}
       >
         <CardHeader className="pb-3">
@@ -264,6 +305,13 @@ export default function Dashboard() {
             className="h-full rounded-none border-0 shadow-none"
           />
         </CardContent>
+        {/* Custom resize handle */}
+        <div
+          onMouseDown={handleResizeStart}
+          className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center hover:bg-muted/50 transition-colors"
+        >
+          <GripHorizontal className="h-3 w-3 text-muted-foreground" />
+        </div>
       </Card>
     ),
   }
@@ -273,13 +321,9 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Training Analyst</h1>
-            <p className="text-sm text-muted-foreground">
-              {connected && athlete
-                ? `Welcome back, ${athlete.name}`
-                : 'AI-powered insights for your training'}
-            </p>
+          <div className="flex items-center gap-3">
+            <Logo className="h-8 w-8" />
+            <h1 className="text-xl font-semibold tracking-tight">Conundrum.</h1>
           </div>
           <div className="flex items-center gap-1">
             {connected ? (
@@ -331,7 +375,7 @@ export default function Dashboard() {
           )}
 
           {/* Dashboard Grid */}
-          <div className="grid grid-cols-12 gap-6">
+          <div className="grid grid-cols-12 gap-4">
             {/* Left Column */}
             <div className="col-span-12 lg:col-span-8">
               {mounted ? (
@@ -341,7 +385,7 @@ export default function Dashboard() {
                   onDragEnd={handleLeftDragEnd}
                 >
                   <SortableContext items={leftOrder} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-6">
+                    <div ref={leftColumnRef} className="space-y-4">
                       {leftOrder.map((id) => (
                         <SortableCard key={id} id={id}>
                           {leftCards[id]}
@@ -351,7 +395,7 @@ export default function Dashboard() {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {leftOrder.map((id) => (
                     <div key={id}>{leftCards[id]}</div>
                   ))}
@@ -368,7 +412,7 @@ export default function Dashboard() {
                   onDragEnd={handleRightDragEnd}
                 >
                   <SortableContext items={rightOrder} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {rightOrder.map((id) => (
                         <SortableCard key={id} id={id}>
                           {rightCards[id]}
@@ -378,7 +422,7 @@ export default function Dashboard() {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {rightOrder.map((id) => (
                     <div key={id}>{rightCards[id]}</div>
                   ))}
