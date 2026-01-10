@@ -107,12 +107,12 @@ src/
 
 ## AI Tools
 
-The AI coach can use these tools to provide better analysis:
+The AI coach can use these tools to provide better analysis (queries intervals.icu directly):
 
-- **getDetailedSession** - Fetch full workout data with zone analysis
-- **queryHistoricalTrends** - Analyze training patterns over time
-- **getAthleteGoals** - Get goals, events, and periodization phase
-- **suggestWorkout** - Generate structured workout recommendations
+- **getDetailedSession** - Fetch full workout data with zone analysis, decoupling
+- **queryHistoricalTrends** - Analyze training patterns over time (week/month/3mo/6mo/year)
+- **getAthleteGoals** - Get goals, events, periodization phase, and current fitness
+- **suggestWorkout** - Generate structured workout recommendations based on current form
 
 ## Database Schema
 
@@ -153,5 +153,5 @@ Connect Zwift directly to intervals.icu (not via Strava) for best results.
 - [x] Workout detail page with charts
 - [x] Auto-refresh data (5 min interval + tab focus)
 - [ ] Chat history persistence (UI)
-- [ ] Dark mode toggle
+- [x] Dark mode toggle
 - [ ] Mobile responsive

@@ -1,12 +1,17 @@
 import { anthropic } from '@ai-sdk/anthropic'
-import { streamText } from 'ai'
+import { streamText, stepCountIs } from 'ai'
 import { z } from 'zod'
+import { cookies } from 'next/headers'
 import { buildSystemPrompt } from '@/lib/ai/system-prompt'
-import { getSession, getSessions } from '@/lib/db/sessions'
-import { getFitnessHistory, getCurrentFitness } from '@/lib/db/fitness'
+import { intervalsClient, getDateRange, formatDateForApi } from '@/lib/intervals-icu'
 import { getUpcomingEvents, getNextAEvent } from '@/lib/db/events'
 import { getActiveGoals } from '@/lib/db/goals'
-import type { WorkoutSuggestion } from '@/types'
+import { getSessions, getSession } from '@/lib/db/sessions'
+import { getFitnessHistory, getCurrentFitness } from '@/lib/db/fitness'
+import type { WorkoutSuggestion, Session } from '@/types'
+
+// Feature flag for using local Supabase data first
+const USE_LOCAL_DATA = process.env.FEATURE_LOCAL_DATA === 'true'
 
 export const maxDuration = 30
 
@@ -20,6 +25,23 @@ interface UIMessage {
 export async function POST(req: Request) {
   const { messages, athleteContext, athleteId } = await req.json()
 
+  // Get intervals.icu credentials (same pattern as /api/intervals/data)
+  const cookieStore = await cookies()
+  let accessToken = cookieStore.get('intervals_access_token')?.value
+  let intervalsAthleteId = cookieStore.get('intervals_athlete_id')?.value
+
+  // Fallback to env vars
+  if (!accessToken || !intervalsAthleteId) {
+    accessToken = process.env.INTERVALS_ICU_API_KEY
+    intervalsAthleteId = process.env.INTERVALS_ICU_ATHLETE_ID
+  }
+
+  // Set credentials if available
+  const intervalsConnected = !!(accessToken && intervalsAthleteId)
+  if (intervalsConnected) {
+    intervalsClient.setCredentials(accessToken!, intervalsAthleteId!)
+  }
+
   const systemPrompt = buildSystemPrompt(athleteContext)
 
   // Convert UI messages (with parts) to API messages (with content)
@@ -32,6 +54,7 @@ export async function POST(req: Request) {
     model: anthropic('claude-sonnet-4-20250514'),
     system: systemPrompt,
     messages: convertedMessages,
+    stopWhen: stepCountIs(5), // Allow up to 5 tool call + response cycles
     tools: {
       // Tool 1: Get detailed session data
       getDetailedSession: {
@@ -40,22 +63,117 @@ export async function POST(req: Request) {
           sessionId: z.string().describe('The session ID to fetch details for'),
         }),
         execute: async ({ sessionId }: { sessionId: string }) => {
-          const session = await getSession(sessionId)
-          if (!session) {
-            return { error: 'Session not found' }
+          // Helper to build response from session data
+          const buildSessionResponse = (session: Session) => {
+            const powerZones = session.power_zones
+            return {
+              session: {
+                id: session.id,
+                date: session.date,
+                name: session.workout_type || session.sport,
+                type: session.sport,
+                duration_seconds: session.duration_seconds,
+                distance_meters: session.distance_meters,
+                tss: session.tss,
+                intensity_factor: session.intensity_factor,
+                normalized_power: session.normalized_power,
+                avg_power: session.avg_power,
+                max_power: session.max_power,
+                avg_hr: session.avg_hr,
+                max_hr: session.max_hr,
+                power_zones: powerZones,
+              },
+              analysis: {
+                isHighIntensity: (session.intensity_factor || 0) > 0.85,
+                isPolarized: powerZones
+                  ? (powerZones.z1 + powerZones.z2) > 70 || (powerZones.z5 + powerZones.z6) > 20
+                  : false,
+                efficiencyFactor: session.normalized_power && session.avg_hr
+                  ? Math.round((session.normalized_power / session.avg_hr) * 100) / 100
+                  : null,
+              },
+              source: 'local',
+            }
           }
-          return {
-            session,
-            analysis: {
-              isHighIntensity: (session.intensity_factor || 0) > 0.85,
-              isPolarized: session.power_zones
-                ? (session.power_zones.z1 + session.power_zones.z2) > 70 ||
-                  (session.power_zones.z5 + (session.power_zones.z6 || 0)) > 20
-                : false,
-              efficiencyFactor: session.normalized_power && session.avg_hr
-                ? Math.round((session.normalized_power / session.avg_hr) * 100) / 100
-                : null,
-            },
+
+          // Try local Supabase first if feature flag is enabled
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const localSession = await getSession(sessionId)
+              if (localSession) {
+                return buildSessionResponse(localSession)
+              }
+            } catch {
+              // Fall through to intervals.icu
+            }
+          }
+
+          // Fall back to intervals.icu
+          if (!intervalsConnected) {
+            return { error: 'intervals.icu not connected. Please connect your account in Settings.' }
+          }
+
+          try {
+            const activity = await intervalsClient.getActivity(sessionId)
+            if (!activity) {
+              return { error: 'Session not found' }
+            }
+
+            // Calculate power zone distribution if available
+            let powerZones = null
+            if (activity.power_zone_times && activity.power_zone_times.length > 0) {
+              const total = activity.power_zone_times.reduce((a, b) => a + b, 0)
+              if (total > 0) {
+                powerZones = {
+                  z1: Math.round((activity.power_zone_times[0] || 0) / total * 100),
+                  z2: Math.round((activity.power_zone_times[1] || 0) / total * 100),
+                  z3: Math.round((activity.power_zone_times[2] || 0) / total * 100),
+                  z4: Math.round((activity.power_zone_times[3] || 0) / total * 100),
+                  z5: Math.round((activity.power_zone_times[4] || 0) / total * 100),
+                  z6: Math.round((activity.power_zone_times[5] || 0) / total * 100),
+                }
+              }
+            }
+
+            const session = {
+              id: activity.id,
+              date: activity.start_date_local,
+              name: activity.name,
+              type: activity.type,
+              duration_seconds: activity.moving_time,
+              distance_meters: activity.distance,
+              tss: activity.icu_training_load,
+              intensity_factor: activity.icu_intensity,
+              normalized_power: activity.icu_weighted_avg_watts || activity.weighted_average_watts,
+              avg_power: activity.icu_average_watts || activity.average_watts,
+              max_power: activity.max_watts,
+              avg_hr: activity.average_heartrate,
+              max_hr: activity.max_heartrate,
+              avg_cadence: activity.average_cadence,
+              elevation_gain: activity.total_elevation_gain,
+              power_zones: powerZones,
+              decoupling: activity.decoupling,
+              calories: activity.calories,
+            }
+
+            return {
+              session,
+              analysis: {
+                isHighIntensity: (activity.icu_intensity || 0) > 0.85,
+                isPolarized: powerZones
+                  ? (powerZones.z1 + powerZones.z2) > 70 || (powerZones.z5 + powerZones.z6) > 20
+                  : false,
+                efficiencyFactor: session.normalized_power && session.avg_hr
+                  ? Math.round((session.normalized_power / session.avg_hr) * 100) / 100
+                  : null,
+                decoupling: activity.decoupling
+                  ? `${activity.decoupling.toFixed(1)}% (${activity.decoupling < 5 ? 'good aerobic fitness' : 'needs more base work'})`
+                  : null,
+              },
+              source: 'intervals_icu',
+            }
+          } catch (error) {
+            return { error: `Failed to fetch session: ${error instanceof Error ? error.message : 'Unknown error'}` }
           }
         },
       },
@@ -68,10 +186,6 @@ export async function POST(req: Request) {
           period: z.enum(['week', 'month', '3months', '6months', 'year']).describe('Time period to analyze'),
         }),
         execute: async ({ metric, period }: { metric: string; period: string }) => {
-          if (!athleteId) {
-            return { error: 'No athlete context available' }
-          }
-
           const daysMap: Record<string, number> = {
             week: 7,
             month: 30,
@@ -80,54 +194,148 @@ export async function POST(req: Request) {
             year: 365,
           }
           const days = daysMap[period]
-
-          // Get sessions for the period
-          const endDate = new Date()
           const startDate = new Date()
           startDate.setDate(startDate.getDate() - days)
+          const startDateStr = formatDateForApi(startDate)
 
-          const sessions = await getSessions(athleteId, {
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-            limit: 500,
-          })
+          // Try local Supabase first if feature flag is enabled
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const [localSessions, localFitness] = await Promise.all([
+                getSessions(athleteId, { startDate: startDateStr, limit: 500 }),
+                metric === 'fitness' ? getFitnessHistory(athleteId, days) : Promise.resolve([]),
+              ])
 
-          if (sessions.length === 0) {
-            return { message: 'No training data found for this period' }
-          }
+              if (localSessions.length > 0) {
+                // Calculate statistics from local data
+                const totalTSS = localSessions.reduce((sum, s) => sum + (s.tss || 0), 0)
+                const totalDuration = localSessions.reduce((sum, s) => sum + s.duration_seconds, 0)
+                const sessionsWithIF = localSessions.filter(s => s.intensity_factor)
+                const avgIF = sessionsWithIF.length > 0
+                  ? sessionsWithIF.reduce((sum, s) => sum + (s.intensity_factor || 0), 0) / sessionsWithIF.length
+                  : 0
 
-          // Calculate statistics based on metric
-          const totalTSS = sessions.reduce((sum, s) => sum + (s.tss || 0), 0)
-          const totalDuration = sessions.reduce((sum, s) => sum + s.duration_seconds, 0)
-          const avgIF = sessions.filter(s => s.intensity_factor).reduce((sum, s, _, arr) =>
-            sum + (s.intensity_factor || 0) / arr.length, 0)
+                // Get fitness trend if requested
+                let fitnessData = null
+                if (metric === 'fitness' && localFitness.length > 0) {
+                  const first = localFitness[0]
+                  const last = localFitness[localFitness.length - 1]
+                  const avgTSB = localFitness.reduce((sum, f) => sum + f.tsb, 0) / localFitness.length
+                  fitnessData = {
+                    startCTL: Math.round(first.ctl),
+                    endCTL: Math.round(last.ctl),
+                    ctlChange: Math.round((last.ctl - first.ctl) * 10) / 10,
+                    avgTSB: Math.round(avgTSB),
+                    currentATL: Math.round(last.atl),
+                    currentTSB: Math.round(last.tsb),
+                  }
+                }
 
-          // Get fitness trend if requested
-          let fitnessData = null
-          if (metric === 'fitness') {
-            const history = await getFitnessHistory(athleteId, days)
-            if (history.length > 0) {
-              const first = history[0]
-              const last = history[history.length - 1]
-              fitnessData = {
-                startCTL: first.ctl,
-                endCTL: last.ctl,
-                ctlChange: Math.round((last.ctl - first.ctl) * 10) / 10,
-                avgTSB: history.reduce((sum, h) => sum + h.tsb, 0) / history.length,
+                // Calculate intensity distribution
+                let intensityDistribution = null
+                if (metric === 'intensity') {
+                  const lowIntensity = localSessions.filter(s => (s.intensity_factor || 0) < 0.75).length
+                  const medIntensity = localSessions.filter(s => (s.intensity_factor || 0) >= 0.75 && (s.intensity_factor || 0) < 0.90).length
+                  const highIntensity = localSessions.filter(s => (s.intensity_factor || 0) >= 0.90).length
+                  intensityDistribution = {
+                    low: Math.round(lowIntensity / localSessions.length * 100),
+                    medium: Math.round(medIntensity / localSessions.length * 100),
+                    high: Math.round(highIntensity / localSessions.length * 100),
+                  }
+                }
+
+                return {
+                  period,
+                  sessionCount: localSessions.length,
+                  totalTSS: Math.round(totalTSS),
+                  avgTSSPerSession: Math.round(totalTSS / localSessions.length),
+                  totalHours: Math.round(totalDuration / 3600 * 10) / 10,
+                  avgHoursPerSession: Math.round(totalDuration / localSessions.length / 3600 * 10) / 10,
+                  avgIntensityFactor: Math.round(avgIF * 100) / 100,
+                  sessionsPerWeek: Math.round(localSessions.length / (days / 7) * 10) / 10,
+                  fitnessData,
+                  intensityDistribution,
+                  source: 'local',
+                }
               }
+            } catch {
+              // Fall through to intervals.icu
             }
           }
 
-          return {
-            period,
-            sessionCount: sessions.length,
-            totalTSS: Math.round(totalTSS),
-            avgTSSPerSession: Math.round(totalTSS / sessions.length),
-            totalHours: Math.round(totalDuration / 3600 * 10) / 10,
-            avgHoursPerSession: Math.round(totalDuration / sessions.length / 3600 * 10) / 10,
-            avgIntensityFactor: Math.round(avgIF * 100) / 100,
-            sessionsPerWeek: Math.round(sessions.length / (days / 7) * 10) / 10,
-            fitnessData,
+          // Fall back to intervals.icu
+          if (!intervalsConnected) {
+            return { error: 'intervals.icu not connected. Please connect your account in Settings.' }
+          }
+
+          const { oldest, newest } = getDateRange(days)
+
+          try {
+            // Fetch activities and wellness data from intervals.icu
+            const [activities, wellness] = await Promise.all([
+              intervalsClient.getActivities(oldest, newest),
+              metric === 'fitness' ? intervalsClient.getWellness(oldest, newest) : Promise.resolve([]),
+            ])
+
+            // Filter out STRAVA activities (same as dashboard)
+            const sessions = activities.filter(a => a.source !== 'STRAVA' && a.type && a.moving_time)
+
+            if (sessions.length === 0) {
+              return { message: 'No training data found for this period' }
+            }
+
+            // Calculate statistics
+            const totalTSS = sessions.reduce((sum, s) => sum + (s.icu_training_load || 0), 0)
+            const totalDuration = sessions.reduce((sum, s) => sum + (s.moving_time || 0), 0)
+            const sessionsWithIF = sessions.filter(s => s.icu_intensity)
+            const avgIF = sessionsWithIF.length > 0
+              ? sessionsWithIF.reduce((sum, s) => sum + (s.icu_intensity || 0), 0) / sessionsWithIF.length
+              : 0
+
+            // Get fitness trend if requested
+            let fitnessData = null
+            if (metric === 'fitness' && wellness.length > 0) {
+              const first = wellness[0]
+              const last = wellness[wellness.length - 1]
+              const avgTSB = wellness.reduce((sum, w) => sum + (w.ctl - w.atl), 0) / wellness.length
+              fitnessData = {
+                startCTL: Math.round(first.ctl),
+                endCTL: Math.round(last.ctl),
+                ctlChange: Math.round((last.ctl - first.ctl) * 10) / 10,
+                avgTSB: Math.round(avgTSB),
+                currentATL: Math.round(last.atl),
+                currentTSB: Math.round(last.ctl - last.atl),
+              }
+            }
+
+            // Calculate intensity distribution
+            let intensityDistribution = null
+            if (metric === 'intensity') {
+              const lowIntensity = sessions.filter(s => (s.icu_intensity || 0) < 0.75).length
+              const medIntensity = sessions.filter(s => (s.icu_intensity || 0) >= 0.75 && (s.icu_intensity || 0) < 0.90).length
+              const highIntensity = sessions.filter(s => (s.icu_intensity || 0) >= 0.90).length
+              intensityDistribution = {
+                low: Math.round(lowIntensity / sessions.length * 100),
+                medium: Math.round(medIntensity / sessions.length * 100),
+                high: Math.round(highIntensity / sessions.length * 100),
+              }
+            }
+
+            return {
+              period,
+              sessionCount: sessions.length,
+              totalTSS: Math.round(totalTSS),
+              avgTSSPerSession: Math.round(totalTSS / sessions.length),
+              totalHours: Math.round(totalDuration / 3600 * 10) / 10,
+              avgHoursPerSession: Math.round(totalDuration / sessions.length / 3600 * 10) / 10,
+              avgIntensityFactor: Math.round(avgIF * 100) / 100,
+              sessionsPerWeek: Math.round(sessions.length / (days / 7) * 10) / 10,
+              fitnessData,
+              intensityDistribution,
+              source: 'intervals_icu',
+            }
+          } catch (error) {
+            return { error: `Failed to fetch trends: ${error instanceof Error ? error.message : 'Unknown error'}` }
           }
         },
       },
@@ -137,16 +345,81 @@ export async function POST(req: Request) {
         description: 'Get the athlete\'s current training goals and upcoming events. Use to provide context-aware recommendations based on their targets.',
         inputSchema: z.object({}),
         execute: async () => {
-          if (!athleteId) {
-            return { error: 'No athlete context available' }
+          // Try to get goals/events from database if user is logged in
+          let goals: Array<{ title: string; target_type: string; target_value: number | null; current_value: number | null; deadline: string | null }> = []
+          let upcomingEvents: Array<{ name: string; date: string; priority: string }> = []
+          let nextAEvent: { name: string; date: string } | null = null
+
+          if (athleteId) {
+            try {
+              const [dbGoals, dbEvents, dbNextAEvent] = await Promise.all([
+                getActiveGoals(athleteId),
+                getUpcomingEvents(athleteId, 5),
+                getNextAEvent(athleteId),
+              ])
+              goals = dbGoals
+              upcomingEvents = dbEvents
+              nextAEvent = dbNextAEvent
+            } catch {
+              // Database not available, continue without goals/events
+            }
           }
 
-          const [goals, upcomingEvents, nextAEvent, currentFitness] = await Promise.all([
-            getActiveGoals(athleteId),
-            getUpcomingEvents(athleteId, 5),
-            getNextAEvent(athleteId),
-            getCurrentFitness(athleteId),
-          ])
+          // Get current fitness - try local Supabase first
+          let currentFitness = null
+          let fitnessSource = 'none'
+
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const localFitness = await getCurrentFitness(athleteId)
+              if (localFitness) {
+                currentFitness = {
+                  ctl: Math.round(localFitness.ctl),
+                  atl: Math.round(localFitness.atl),
+                  tsb: Math.round(localFitness.tsb),
+                }
+                fitnessSource = 'local'
+              }
+            } catch {
+              // Fall through to intervals.icu
+            }
+          }
+
+          // Fall back to intervals.icu if no local fitness
+          if (!currentFitness && intervalsConnected) {
+            try {
+              const today = formatDateForApi(new Date())
+              const wellness = await intervalsClient.getWellnessForDate(today)
+              if (wellness) {
+                currentFitness = {
+                  ctl: Math.round(wellness.ctl),
+                  atl: Math.round(wellness.atl),
+                  tsb: Math.round(wellness.ctl - wellness.atl),
+                }
+                fitnessSource = 'intervals_icu'
+              }
+            } catch {
+              // Fallback to context if available
+              try {
+                const ctx = JSON.parse(athleteContext || '{}')
+                currentFitness = ctx.currentFitness || null
+                fitnessSource = 'context'
+              } catch {
+                // Use null
+              }
+            }
+          }
+
+          // Last resort: try context
+          if (!currentFitness) {
+            try {
+              const ctx = JSON.parse(athleteContext || '{}')
+              currentFitness = ctx.currentFitness || null
+              fitnessSource = 'context'
+            } catch {
+              // Use null
+            }
+          }
 
           // Calculate periodization phase based on next A event
           let periodizationPhase = 'base'
@@ -203,19 +476,54 @@ export async function POST(req: Request) {
         execute: async ({ type, durationMinutes, targetTSS }: { type: string; durationMinutes?: number; targetTSS?: number }) => {
           // Get current fitness to inform recommendation
           let currentTSB = 0
+          let currentCTL = 0
+          let currentATL = 0
           let athleteFTP = 250 // default
+          let fitnessSource = 'default'
 
-          if (athleteId) {
-            const fitness = await getCurrentFitness(athleteId)
-            if (fitness) {
-              currentTSB = fitness.tsb
+          // Try to get FTP from athlete context first
+          try {
+            const ctx = JSON.parse(athleteContext || '{}')
+            athleteFTP = ctx.athlete?.ftp || 250
+            // Also try to get fitness from context as fallback
+            if (ctx.currentFitness) {
+              currentTSB = ctx.currentFitness.tsb || 0
+              currentCTL = ctx.currentFitness.ctl || 0
+              currentATL = ctx.currentFitness.atl || 0
+              fitnessSource = 'context'
             }
-            // Try to get FTP from athlete context
+          } catch {
+            // Use defaults
+          }
+
+          // Try local Supabase first if feature flag is enabled
+          if (USE_LOCAL_DATA && athleteId) {
             try {
-              const ctx = JSON.parse(athleteContext || '{}')
-              athleteFTP = ctx.athlete?.ftp || 250
+              const localFitness = await getCurrentFitness(athleteId)
+              if (localFitness) {
+                currentCTL = localFitness.ctl
+                currentATL = localFitness.atl
+                currentTSB = localFitness.tsb
+                fitnessSource = 'local'
+              }
             } catch {
-              // Use default
+              // Fall through to intervals.icu
+            }
+          }
+
+          // Fall back to intervals.icu if no local data
+          if (fitnessSource !== 'local' && intervalsConnected) {
+            try {
+              const today = formatDateForApi(new Date())
+              const wellness = await intervalsClient.getWellnessForDate(today)
+              if (wellness) {
+                currentCTL = wellness.ctl
+                currentATL = wellness.atl
+                currentTSB = wellness.ctl - wellness.atl
+                fitnessSource = 'intervals_icu'
+              }
+            } catch {
+              // Use fallback values from context
             }
           }
 
@@ -285,9 +593,11 @@ export async function POST(req: Request) {
           return {
             workout,
             context: {
-              currentTSB,
+              currentTSB: Math.round(currentTSB),
+              currentCTL: Math.round(currentCTL),
+              currentATL: Math.round(currentATL),
               selectedBecause: type === 'any'
-                ? `Based on your current form (TSB: ${currentTSB}), a ${selectedType} workout is recommended.`
+                ? `Based on your current form (TSB: ${Math.round(currentTSB)}, CTL: ${Math.round(currentCTL)}), a ${selectedType} workout is recommended.`
                 : `You requested a ${type} workout.`,
               ftp: athleteFTP,
             },

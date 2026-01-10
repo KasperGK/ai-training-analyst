@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/hooks/use-user'
-import { ArrowLeft, Check, Loader2, Link2, Unlink } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { ArrowLeft, Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock } from 'lucide-react'
 
 interface AthleteProfile {
   name: string
@@ -20,14 +21,32 @@ interface AthleteProfile {
   weekly_hours_available: number
 }
 
+interface SyncStatus {
+  connected: boolean
+  syncLog: {
+    lastSyncAt: string | null
+    lastActivityDate: string | null
+    status: 'idle' | 'syncing' | 'error'
+    errorMessage: string | null
+    activitiesSynced: number
+    wellnessSynced: number
+  } | null
+  needsSync: boolean
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const { user, signOut, loading: userLoading } = useUser()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [profileLoading, setProfileLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [intervalsConnected, setIntervalsConnected] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ activitiesSynced: number; wellnessSynced: number } | null>(null)
 
   const [profile, setProfile] = useState<AthleteProfile>({
     name: '',
@@ -67,6 +86,11 @@ export default function SettingsPage() {
     }
   }, [user])
 
+  // Handle hydration for theme
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Check intervals.icu connection status
   useEffect(() => {
     const checkConnection = async () => {
@@ -80,6 +104,52 @@ export default function SettingsPage() {
     }
     checkConnection()
   }, [])
+
+  // Fetch sync status
+  const fetchSyncStatus = useCallback(async () => {
+    if (!user) return
+    try {
+      const res = await fetch('/api/sync')
+      if (res.ok) {
+        const data = await res.json()
+        setSyncStatus(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch sync status:', error)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (user && intervalsConnected) {
+      fetchSyncStatus()
+    }
+  }, [user, intervalsConnected, fetchSyncStatus])
+
+  // Handle sync trigger
+  const handleSync = async (force = false) => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSyncResult({
+          activitiesSynced: data.activitiesSynced,
+          wellnessSynced: data.wellnessSynced,
+        })
+        // Refresh sync status
+        await fetchSyncStatus()
+      }
+    } catch (error) {
+      console.error('Sync failed:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Load profile when user is available
   useEffect(() => {
@@ -158,6 +228,7 @@ export default function SettingsPage() {
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="appearance">Appearance</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
 
@@ -359,6 +430,96 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            {/* Data Sync Card - only show when connected */}
+            {intervalsConnected && user && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Data Sync
+                  </CardTitle>
+                  <CardDescription>
+                    Sync your training data to local storage for faster AI analysis
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Sync Status */}
+                  {syncStatus?.syncLog ? (
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-2 w-2 rounded-full ${
+                            syncStatus.syncLog.status === 'syncing' ? 'bg-yellow-500 animate-pulse' :
+                            syncStatus.syncLog.status === 'error' ? 'bg-red-500' :
+                            'bg-green-500'
+                          }`} />
+                          <span className="text-sm font-medium capitalize">{syncStatus.syncLog.status}</span>
+                        </div>
+                        {syncStatus.syncLog.lastSyncAt && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            Last sync: {new Date(syncStatus.syncLog.lastSyncAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Activities synced:</span>
+                          <span className="ml-2 font-medium">{syncStatus.syncLog.activitiesSynced}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Fitness records:</span>
+                          <span className="ml-2 font-medium">{syncStatus.syncLog.wellnessSynced}</span>
+                        </div>
+                      </div>
+
+                      {syncStatus.syncLog.errorMessage && (
+                        <p className="text-sm text-red-500">{syncStatus.syncLog.errorMessage}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                      No sync data yet. Click &quot;Sync Now&quot; to start.
+                    </div>
+                  )}
+
+                  {/* Sync Result Message */}
+                  {syncResult && (
+                    <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3 text-sm text-green-700 dark:text-green-300">
+                      <Check className="inline h-4 w-4 mr-1" />
+                      Synced {syncResult.activitiesSynced} activities and {syncResult.wellnessSynced} fitness records
+                    </div>
+                  )}
+
+                  {/* Sync Buttons */}
+                  <div className="flex gap-3">
+                    <Button onClick={() => handleSync(false)} disabled={syncing}>
+                      {syncing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Sync Now
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={() => handleSync(true)} disabled={syncing}>
+                      Full Re-sync
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Synced data is stored locally and used by the AI Coach for faster, more reliable analysis.
+                    Enable FEATURE_LOCAL_DATA=true in your environment to use local data.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Other Integrations</CardTitle>
@@ -376,6 +537,55 @@ export default function SettingsPage() {
                     <li>Wahoo Cloud</li>
                   </ul>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Appearance Tab */}
+          <TabsContent value="appearance" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Theme</CardTitle>
+                <CardDescription>
+                  Choose how Conundrum looks to you
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {mounted ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      onClick={() => setTheme('light')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted ${
+                        theme === 'light' ? 'border-foreground/20 bg-muted' : 'border-transparent'
+                      }`}
+                    >
+                      <Sun className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">Light</span>
+                    </button>
+                    <button
+                      onClick={() => setTheme('dark')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted ${
+                        theme === 'dark' ? 'border-foreground/20 bg-muted' : 'border-transparent'
+                      }`}
+                    >
+                      <Moon className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">Dark</span>
+                    </button>
+                    <button
+                      onClick={() => setTheme('system')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted ${
+                        theme === 'system' ? 'border-foreground/20 bg-muted' : 'border-transparent'
+                      }`}
+                    >
+                      <Monitor className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">System</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

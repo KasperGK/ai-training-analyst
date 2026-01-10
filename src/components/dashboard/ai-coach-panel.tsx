@@ -124,6 +124,11 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
 
   const { messages, sendMessage, status, error } = useChat({ transport })
 
+  // Debug: log status changes
+  useEffect(() => {
+    console.log('AI Coach status:', status)
+  }, [status])
+
   const isLoading = status === 'submitted' || status === 'streaming'
 
   // Auto-scroll to bottom on new messages
@@ -150,10 +155,16 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   }
 
   // Helper to extract tool results from message parts
+  // AI SDK 6 uses tool-{toolName} type with state property
   const getToolResults = (message: typeof messages[0]) => {
-    return (message.parts as unknown as Array<{ type: string; toolName?: string; result?: unknown }>).filter((part) => {
-      return part.type === 'tool-result' && part.result
-    }) as Array<{ type: 'tool-result'; toolName: string; result: unknown }>
+    return (message.parts as unknown as Array<{ type: string; state?: string; output?: unknown }>).filter((part) => {
+      // Tool parts have type starting with 'tool-' and state 'output-available'
+      return part.type.startsWith('tool-') && part.state === 'output-available' && part.output
+    }).map(part => ({
+      type: 'tool-result' as const,
+      toolName: part.type.replace('tool-', ''),
+      result: part.output,
+    }))
   }
 
   // Render tool result based on tool name
@@ -195,9 +206,10 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   }
 
   return (
-    <div className={cn('flex h-full flex-col', className)}>
-      <div className="flex flex-1 flex-col">
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+    <div className={cn('flex h-full flex-col overflow-hidden', className)}>
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+        <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
+          <div className="p-4">
           <div className="space-y-4">
             {displayMessages.map((message) => {
               const text = getMessageText(message)
@@ -277,6 +289,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
                 </div>
               </div>
             )}
+          </div>
           </div>
         </ScrollArea>
 
