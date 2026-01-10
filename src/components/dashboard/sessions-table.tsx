@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Card,
@@ -17,6 +18,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { Session } from '@/types'
 
 interface SessionsTableProps {
@@ -60,6 +68,15 @@ function getWorkoutTypeBadge(type?: string) {
 
 export function SessionsTable({ sessions }: SessionsTableProps) {
   const router = useRouter()
+  const [filter, setFilter] = useState<'training' | 'all'>('training')
+
+  // Filter to only show cycling/training activities (exclude walks, hikes, etc.)
+  const filteredSessions = filter === 'training'
+    ? sessions.filter(s =>
+        s.sport === 'cycling' ||
+        (s.normalized_power && s.normalized_power > 0)
+      )
+    : sessions
 
   if (sessions.length === 0) {
     return (
@@ -82,26 +99,73 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
     )
   }
 
+  if (filteredSessions.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Sessions</CardTitle>
+              <CardDescription>Your latest training activities</CardDescription>
+            </div>
+          <Select value={filter} onValueChange={(v) => setFilter(v as 'training' | 'all')}>
+            <SelectTrigger className="w-[120px] h-8 text-xs mr-6 shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="shadow-none">
+              <SelectItem value="training">Training</SelectItem>
+              <SelectItem value="all">All Activities</SelectItem>
+            </SelectContent>
+          </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-32 items-center justify-center rounded-lg border border-dashed">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">No training sessions</p>
+              <p className="text-xs text-muted-foreground">
+                Select &quot;All Activities&quot; to see more
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Recent Sessions</CardTitle>
-        <CardDescription>Your latest training activities</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Recent Sessions</CardTitle>
+            <CardDescription>Your latest training activities</CardDescription>
+          </div>
+          <Select value={filter} onValueChange={(v) => setFilter(v as 'training' | 'all')}>
+            <SelectTrigger className="w-[120px] h-8 text-xs mr-6 shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="shadow-none">
+              <SelectItem value="training">Training</SelectItem>
+              <SelectItem value="all">All Activities</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead className="w-[100px]">Date</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead className="text-right">Duration</TableHead>
-              <TableHead className="text-right">TSS</TableHead>
-              <TableHead className="text-right">NP</TableHead>
-              <TableHead className="text-right">IF</TableHead>
+              <TableHead className="text-right w-[70px]">Time</TableHead>
+              <TableHead className="text-right w-[50px]">TSS</TableHead>
+              <TableHead className="text-right w-[60px]">NP</TableHead>
+              <TableHead className="text-right w-[50px]">IF</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sessions.map((session) => {
+            {filteredSessions.map((session) => {
               const { date, time } = formatDateTime(session.date)
               return (
                 <TableRow
@@ -109,21 +173,21 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => router.push(`/workouts/${session.id}`)}
                 >
-                  <TableCell className="font-medium">
-                    <div>{date}</div>
+                  <TableCell className="font-medium py-2">
+                    <div className="text-sm">{date}</div>
                     <div className="text-xs text-muted-foreground">{time}</div>
                   </TableCell>
-                  <TableCell>{getWorkoutTypeBadge(session.workout_type)}</TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="py-2">{getWorkoutTypeBadge(session.workout_type)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm py-2">
                     {formatDuration(session.duration_seconds)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums text-sm py-2">
                     {session.tss ?? '-'}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {session.normalized_power ? `${session.normalized_power}W` : '-'}
+                  <TableCell className="text-right tabular-nums text-sm py-2">
+                    {session.normalized_power ?? '-'}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums text-sm py-2">
                     {session.intensity_factor?.toFixed(2) ?? '-'}
                   </TableCell>
                 </TableRow>

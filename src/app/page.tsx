@@ -33,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useUser } from '@/hooks/use-user'
-import { Settings, Calendar, GripVertical } from 'lucide-react'
+import { Settings, Calendar, GripVertical, BookOpen, Check, Link2 } from 'lucide-react'
 import Link from 'next/link'
 import type { Session } from '@/types'
 
@@ -281,17 +281,24 @@ export default function Dashboard() {
                 : 'AI-powered insights for your training'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             {connected ? (
-              <div className="flex items-center gap-2 text-sm text-green-600">
-                <span className="h-2 w-2 rounded-full bg-green-600" />
-                Connected to intervals.icu
-              </div>
+              <Button variant="ghost" size="icon" className="relative" title="Connected to intervals.icu">
+                <div className="h-5 w-5 rounded-full bg-green-600 flex items-center justify-center">
+                  <Check className="h-1.5 w-1.5 text-white" strokeWidth={3} />
+                </div>
+              </Button>
             ) : (
-              <Button variant="outline" size="sm" onClick={connect} disabled={loading}>
-                {loading ? 'Checking...' : 'Connect intervals.icu'}
+              <Button variant="ghost" size="icon" onClick={connect} disabled={loading} title="Connect intervals.icu">
+                <Link2 className="h-5 w-5" />
               </Button>
             )}
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/learn">
+                <BookOpen className="h-5 w-5" />
+                <span className="sr-only">Learn</span>
+              </Link>
+            </Button>
             <Button variant="ghost" size="icon" asChild>
               <Link href="/events">
                 <Calendar className="h-5 w-5" />

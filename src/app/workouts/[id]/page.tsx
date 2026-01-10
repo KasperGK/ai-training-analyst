@@ -85,17 +85,23 @@ function MetricCard({
   if (value === undefined || value === null) return null
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-muted-foreground mb-1">
-          <Icon className="h-4 w-4" />
-          <span className="text-xs">{label}</span>
-        </div>
-        <div className="text-2xl font-bold">
+    <Card className="aspect-square flex flex-col p-4">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-muted-foreground/50" />
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <span className="text-3xl font-semibold tabular-nums tracking-tight">
           {typeof value === 'number' ? Math.round(value) : value}
-          {unit && <span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>}
-        </div>
-      </CardContent>
+        </span>
+      </div>
+      <div className="h-6 text-center">
+        {unit && (
+          <span className="text-xs text-muted-foreground">{unit}</span>
+        )}
+      </div>
     </Card>
   )
 }
@@ -186,13 +192,15 @@ export default function WorkoutDetailPage() {
     <div className="min-h-screen bg-muted/40">
       {/* Header */}
       <header className="border-b bg-background px-6 py-4">
-        <div className="max-w-6xl mx-auto">
-          <Button variant="ghost" onClick={() => router.back()} className="mb-2 -ml-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+        <div className="max-w-6xl mx-auto flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Back to Dashboard</span>
           </Button>
-          <h1 className="text-2xl font-bold">{activity.name || 'Workout'}</h1>
-          <p className="text-muted-foreground">{formatDateTime(activity.date)}</p>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">{activity.name || 'Workout'}</h1>
+            <p className="text-sm text-muted-foreground">{formatDateTime(activity.date)}</p>
+          </div>
         </div>
       </header>
 
@@ -217,15 +225,15 @@ export default function WorkoutDetailPage() {
 
           {/* Fitness Context */}
           {wellness && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-6 text-sm">
-                  <span className="text-muted-foreground">Fitness on this day:</span>
-                  <span>CTL: <strong>{Math.round(wellness.ctl)}</strong></span>
-                  <span>ATL: <strong>{Math.round(wellness.atl)}</strong></span>
-                  <span>TSB: <strong className={wellness.tsb < -20 ? 'text-red-500' : wellness.tsb > 10 ? 'text-green-500' : ''}>{wellness.tsb}</strong></span>
+            <Card className="p-4">
+              <div className="flex items-center gap-8 text-sm">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fitness on this day</span>
+                <div className="flex items-center gap-6">
+                  <span className="text-muted-foreground">CTL: <span className="font-semibold text-foreground tabular-nums">{Math.round(wellness.ctl)}</span></span>
+                  <span className="text-muted-foreground">ATL: <span className="font-semibold text-foreground tabular-nums">{Math.round(wellness.atl)}</span></span>
+                  <span className="text-muted-foreground">TSB: <span className="font-semibold text-foreground tabular-nums">{wellness.tsb}</span></span>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           )}
 
@@ -273,15 +281,13 @@ export default function WorkoutDetailPage() {
 
           {/* Interval Summary */}
           {activity.interval_summary && activity.interval_summary.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-medium mb-2">Intervals</h3>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  {activity.interval_summary.map((interval, i) => (
-                    <li key={i}>{interval}</li>
-                  ))}
-                </ul>
-              </CardContent>
+            <Card className="p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Intervals</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                {activity.interval_summary.map((interval, i) => (
+                  <li key={i}>{interval}</li>
+                ))}
+              </ul>
             </Card>
           )}
         </div>

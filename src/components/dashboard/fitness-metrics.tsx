@@ -35,9 +35,9 @@ export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
   if (!fitness) {
     return (
       <>
-        <MetricCard title="Fitness (CTL)" value="—" description="Connect to see data" status="neutral" />
-        <MetricCard title="Fatigue (ATL)" value="—" description="Connect to see data" status="neutral" />
-        <MetricCard title="Form (TSB)" value="—" description="Connect to see data" status="neutral" />
+        <MetricCard title="Fitness (CTL)" value="—" description="Connect to see data" status="neutral" href="/analytics#fitness" />
+        <MetricCard title="Fatigue (ATL)" value="—" description="Connect to see data" status="neutral" href="/analytics#fatigue" />
+        <MetricCard title="Form (TSB)" value="—" description="Connect to see data" status="neutral" href="/analytics#form" />
       </>
     )
   }
@@ -54,18 +54,21 @@ export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
         trend={fitness.ctl_trend}
         trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : '0'}
         status={ctlStatus}
+        href="/analytics#fitness"
       />
       <MetricCard
         title="Fatigue (ATL)"
         value={Math.round(fitness.atl)}
         description="7-day training load"
         status="neutral"
+        href="/analytics#fatigue"
       />
       <MetricCard
         title="Form (TSB)"
         value={fitness.tsb > 0 ? `+${Math.round(fitness.tsb)}` : Math.round(fitness.tsb)}
         description={getTSBDescription(fitness.tsb)}
         status={tsbStatus}
+        href="/analytics#form"
       />
     </>
   )

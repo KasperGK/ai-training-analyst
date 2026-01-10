@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { TrendingUp, TrendingDown, Minus, Activity, Flame, Heart, Calendar } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -12,6 +13,7 @@ interface MetricCardProps {
   trendValue?: string
   status?: 'good' | 'warning' | 'bad' | 'neutral'
   className?: string
+  href?: string
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -29,6 +31,7 @@ export function MetricCard({
   trendValue,
   status = 'neutral',
   className,
+  href,
 }: MetricCardProps) {
   const statusColors = {
     good: 'text-green-600',
@@ -38,11 +41,14 @@ export function MetricCard({
   }
 
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus
-  const trendColor = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-500' : 'text-muted-foreground'
   const Icon = iconMap[title] || Activity
 
-  return (
-    <Card className={cn('aspect-square flex flex-col p-5 relative', className)}>
+  const cardContent = (
+    <Card className={cn(
+      'aspect-square flex flex-col p-5 relative',
+      href && 'cursor-pointer hover:border-primary/50 transition-colors',
+      className
+    )}>
       <div className="flex items-start justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {title}
@@ -75,4 +81,10 @@ export function MetricCard({
       )}
     </Card>
   )
+
+  if (href) {
+    return <Link href={href}>{cardContent}</Link>
+  }
+
+  return cardContent
 }

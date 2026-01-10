@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const days = parseInt(searchParams.get('days') || '90', 10)
+
   const cookieStore = await cookies()
 
   // Try OAuth tokens first (from cookie), then fall back to API key from env
@@ -26,8 +29,8 @@ export async function GET() {
     // Set credentials
     intervalsClient.setCredentials(accessToken, athleteId)
 
-    // Get date range for last 90 days
-    const { oldest, newest } = getDateRange(90)
+    // Get date range for requested days (default 90)
+    const { oldest, newest } = getDateRange(days)
 
     // Fetch data in parallel
     const [athlete, activities, wellness] = await Promise.all([
@@ -64,9 +67,11 @@ export async function GET() {
       }))
 
     // Build PMC data from wellness (uses 'id' field for date)
+    // Adjust sampling based on date range to keep chart readable
+    const sampleRate = days <= 42 ? 1 : days <= 90 ? 3 : days <= 180 ? 7 : 14
     const pmcData = wellness
       .filter(w => w.id) // Only include entries with valid dates
-      .filter((_, i, arr) => i % 7 === 0 || i === arr.length - 1) // Weekly points
+      .filter((_, i, arr) => i % sampleRate === 0 || i === arr.length - 1) // Sample based on range
       .map(w => {
         // Handle date format - intervals.icu uses YYYY-MM-DD in 'id' field
         const dateStr = w.id

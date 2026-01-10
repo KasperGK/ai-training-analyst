@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 
 interface ZoneData {
   zone: string
@@ -53,23 +53,17 @@ export function ZoneBarChart({ title, data, colorScheme = 'power' }: ZoneBarChar
 
   if (activeZones.length === 0) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">No zone data available</p>
-        </CardContent>
+      <Card className="p-4">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</span>
+        <p className="text-sm text-muted-foreground mt-4">No zone data available</p>
       </Card>
     )
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <Card className="p-4">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</span>
+      <div className="mt-4 space-y-3">
         {/* Stacked bar */}
         <div className="h-8 flex rounded-md overflow-hidden">
           {activeZones.map((zone) => {
@@ -91,11 +85,11 @@ export function ZoneBarChart({ title, data, colorScheme = 'power' }: ZoneBarChar
             <div key={zone.zone} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-sm ${colors[zone.zone] || 'bg-gray-300'}`} />
               <span className="text-muted-foreground">{zone.zone}</span>
-              <span className="font-medium">{zone.minutes}m</span>
+              <span className="font-semibold tabular-nums">{zone.minutes}m</span>
             </div>
           ))}
         </div>
-      </CardContent>
+      </div>
     </Card>
   )
 }

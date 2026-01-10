@@ -93,43 +93,44 @@ export function PMCChartSkeleton() {
 
 export function SessionsTableSkeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle>Recent Sessions</CardTitle>
         <CardDescription>Your latest training activities</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead className="w-[100px]">Date</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead className="text-right">Duration</TableHead>
-              <TableHead className="text-right">TSS</TableHead>
-              <TableHead className="text-right">NP</TableHead>
-              <TableHead className="text-right">IF</TableHead>
+              <TableHead className="text-right w-[70px]">Time</TableHead>
+              <TableHead className="text-right w-[50px]">TSS</TableHead>
+              <TableHead className="text-right w-[60px]">NP</TableHead>
+              <TableHead className="text-right w-[50px]">IF</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {Array.from({ length: rows }).map((_, i) => (
               <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
+                <TableCell className="py-2">
+                  <Skeleton className="h-4 w-16 mb-1" />
+                  <Skeleton className="h-3 w-12" />
                 </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-16 rounded-full" />
+                <TableCell className="py-2">
+                  <Skeleton className="h-5 w-14 rounded-full" />
                 </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-4 w-12 ml-auto" />
+                <TableCell className="text-right py-2">
+                  <Skeleton className="h-4 w-10 ml-auto" />
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right py-2">
+                  <Skeleton className="h-4 w-6 ml-auto" />
+                </TableCell>
+                <TableCell className="text-right py-2">
                   <Skeleton className="h-4 w-8 ml-auto" />
                 </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-4 w-12 ml-auto" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-4 w-10 ml-auto" />
+                <TableCell className="text-right py-2">
+                  <Skeleton className="h-4 w-8 ml-auto" />
                 </TableCell>
               </TableRow>
             ))}

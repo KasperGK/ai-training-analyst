@@ -1,7 +1,7 @@
 'use client'
 
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import {
   ChartContainer,
   ChartTooltip,
@@ -37,39 +37,28 @@ export function StreamChart({ title, data, color, unit, average, max }: StreamCh
 
   if (!data || data.length === 0) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
-            No stream data available
-          </div>
-        </CardContent>
+      <Card className="p-4">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</span>
+        <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+          No stream data available
+        </div>
       </Card>
     )
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <div className="flex gap-4 text-xs text-muted-foreground">
-            {average !== undefined && (
-              <span>
-                Avg: <span className="font-medium text-foreground">{Math.round(average)}{unit}</span>
-              </span>
-            )}
-            {max !== undefined && (
-              <span>
-                Max: <span className="font-medium text-foreground">{Math.round(max)}{unit}</span>
-              </span>
-            )}
-          </div>
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</span>
+        <div className="flex gap-4 text-xs text-muted-foreground">
+          {average !== undefined && (
+            <span>
+              Avg: <span className="font-semibold text-foreground tabular-nums">{Math.round(average)}{unit}</span>
+            </span>
+          )}
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         <ChartContainer config={chartConfig} className="h-[200px] w-full">
           <AreaChart
             data={data}
@@ -112,7 +101,7 @@ export function StreamChart({ title, data, color, unit, average, max }: StreamCh
             />
           </AreaChart>
         </ChartContainer>
-      </CardContent>
+      </div>
     </Card>
   )
 }
