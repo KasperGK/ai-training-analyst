@@ -17,6 +17,45 @@ const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
 
 /**
+ * Ensure athlete record exists in database
+ * Creates one if missing (for users who signed up before trigger was created)
+ */
+async function ensureAthleteExists(athleteId: string): Promise<boolean> {
+  const supabase = await createClient()
+  if (!supabase) return false
+
+  // Check if athlete exists
+  const { data: existing } = await supabase
+    .from('athletes')
+    .select('id')
+    .eq('id', athleteId)
+    .single()
+
+  if (existing) return true
+
+  // Get user info from auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  // Create athlete record
+  const { error } = await supabase
+    .from('athletes')
+    .insert({
+      id: athleteId,
+      name: user.user_metadata?.name || user.email?.split('@')[0] || 'Athlete',
+      email: user.email || '',
+    })
+
+  if (error) {
+    console.error('Failed to create athlete record:', error)
+    return false
+  }
+
+  console.log('[Sync] Created athlete record for user:', athleteId)
+  return true
+}
+
+/**
  * Get or create sync log for an athlete
  */
 export async function getSyncLog(athleteId: string): Promise<SyncLog | null> {
@@ -98,22 +137,26 @@ function transformActivity(activity: IntervalsActivity, athleteId: string): Sess
   // Determine workout type from activity type/name
   const workoutType = inferWorkoutType(activity)
 
+  // Helper to safely round numbers
+  const roundOrNull = (val: number | undefined | null): number | null =>
+    val != null ? Math.round(val) : null
+
   return {
     athlete_id: athleteId,
     date: activity.start_date_local.split('T')[0],
     duration_seconds: activity.moving_time || 0,
-    distance_meters: activity.distance ? Math.round(activity.distance) : null,
+    distance_meters: roundOrNull(activity.distance),
     sport: mapActivityType(activity.type),
     workout_type: workoutType,
-    avg_power: activity.icu_average_watts || activity.average_watts || null,
-    max_power: activity.max_watts || null,
-    normalized_power: activity.icu_weighted_avg_watts || activity.weighted_average_watts || null,
-    intensity_factor: activity.icu_intensity || null,
-    tss: activity.icu_training_load || null,
-    avg_hr: activity.average_heartrate || null,
-    max_hr: activity.max_heartrate || null,
-    avg_cadence: activity.average_cadence || null,
-    total_ascent: activity.total_elevation_gain || null,
+    avg_power: roundOrNull(activity.icu_average_watts ?? activity.average_watts),
+    max_power: roundOrNull(activity.max_watts),
+    normalized_power: roundOrNull(activity.icu_weighted_avg_watts ?? activity.weighted_average_watts),
+    intensity_factor: activity.icu_intensity || null, // This is DECIMAL in schema, keep as-is
+    tss: roundOrNull(activity.icu_training_load),
+    avg_hr: roundOrNull(activity.average_heartrate),
+    max_hr: roundOrNull(activity.max_heartrate),
+    avg_cadence: roundOrNull(activity.average_cadence),
+    total_ascent: roundOrNull(activity.total_elevation_gain),
     power_zones: powerZones,
     hr_zones: hrZones,
     source: 'intervals_icu',
@@ -160,12 +203,18 @@ function inferWorkoutType(activity: IntervalsActivity): string | null {
  * Transform intervals.icu wellness to our FitnessHistory format
  */
 function transformWellness(wellness: IntervalsWellness, athleteId: string): FitnessHistoryInsert {
+  // Note: intervals.icu uses 'id' field for date (YYYY-MM-DD), not 'date'
+  const date = wellness.id || wellness.date
+  if (!date) {
+    throw new Error('Wellness record missing date')
+  }
+
   return {
     athlete_id: athleteId,
-    date: wellness.date,
-    ctl: wellness.ctl,
-    atl: wellness.atl,
-    tsb: wellness.ctl - wellness.atl,
+    date,
+    ctl: Math.round(wellness.ctl || 0),
+    atl: Math.round(wellness.atl || 0),
+    tsb: Math.round((wellness.ctl || 0) - (wellness.atl || 0)),
     tss_day: 0, // Calculated from sessions
     synced_at: new Date().toISOString(),
     source: 'intervals_icu',
@@ -309,8 +358,9 @@ export async function syncWellness(
       return { synced: 0, errors: [] }
     }
 
-    // Transform to our format
-    const fitnessRecords: FitnessHistoryInsert[] = wellnessData.map(w =>
+    // Filter out records without valid dates and transform
+    const validWellness = wellnessData.filter(w => w.id || w.date)
+    const fitnessRecords: FitnessHistoryInsert[] = validWellness.map(w =>
       transformWellness(w, athleteId)
     )
 
@@ -351,6 +401,19 @@ export async function syncAll(
 ): Promise<SyncResult> {
   const startTime = Date.now()
   const allErrors: string[] = []
+
+  // Ensure athlete record exists (for users who signed up before trigger)
+  const athleteExists = await ensureAthleteExists(athleteId)
+  if (!athleteExists) {
+    return {
+      success: false,
+      activitiesSynced: 0,
+      wellnessSynced: 0,
+      lastActivityDate: null,
+      errors: ['Failed to create athlete record'],
+      duration_ms: Date.now() - startTime,
+    }
+  }
 
   // Mark as syncing
   await upsertSyncLog(athleteId, { status: 'syncing' })

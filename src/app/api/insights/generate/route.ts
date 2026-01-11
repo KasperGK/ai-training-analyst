@@ -30,11 +30,22 @@ export async function POST() {
   try {
     const result = await generateInsights(user.id)
 
+    // Debug: Also fetch current data counts
+    const [fitnessCount, sessionsCount] = await Promise.all([
+      supabase.from('fitness_history').select('id', { count: 'exact', head: true }).eq('athlete_id', user.id),
+      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('athlete_id', user.id),
+    ])
+
     return NextResponse.json({
       success: result.success,
       insightsCreated: result.insightsCreated,
       patternsDetected: result.patternsDetected,
       error: result.error,
+      debug: {
+        athleteId: user.id,
+        fitnessRecords: fitnessCount.count ?? 0,
+        sessions: sessionsCount.count ?? 0,
+      },
     })
   } catch (error) {
     console.error('[Insights Generate API] Error:', error)

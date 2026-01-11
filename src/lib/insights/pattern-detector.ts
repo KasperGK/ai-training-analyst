@@ -82,6 +82,9 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
   const sessions = (sessionsResult.data || []) as SessionData[]
   const events = (eventsResult.data || []) as EventData[]
 
+  // Log data counts for debugging
+  console.log(`[PatternDetector] Data: ${fitness.length} fitness records, ${sessions.length} sessions, ${events.length} events`)
+
   // Run all pattern detectors
   patterns.push(...detectFitnessTrends(fitness))
   patterns.push(...detectFatigueWarnings(fitness))
@@ -89,6 +92,47 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
   patterns.push(...detectTrainingPatterns(sessions))
   patterns.push(...detectEventPrep(events, fitness))
   patterns.push(...detectFormSuggestions(fitness))
+  patterns.push(...detectTrainingStatus(fitness, sessions))
+
+  console.log(`[PatternDetector] Detected ${patterns.length} patterns: ${patterns.map(p => p.type).join(', ')}`)
+
+  return patterns
+}
+
+/**
+ * Detect basic training status (lower threshold, always useful)
+ */
+function detectTrainingStatus(fitness: FitnessData[], sessions: SessionData[]): DetectedPattern[] {
+  const patterns: DetectedPattern[] = []
+
+  // Basic status if we have any fitness data
+  if (fitness.length > 0) {
+    const current = fitness[0]
+
+    // Current fitness summary
+    patterns.push({
+      type: 'trend',
+      priority: 'low',
+      title: 'Current Training Status',
+      description: `Fitness (CTL): ${Math.round(current.ctl)}, Fatigue (ATL): ${Math.round(current.atl)}, Form (TSB): ${Math.round(current.tsb)}. ${current.tsb < 0 ? 'You\'re carrying some fatigue.' : 'You\'re relatively fresh.'}`,
+      data: { ctl: current.ctl, atl: current.atl, tsb: current.tsb },
+    })
+  }
+
+  // Recent activity summary
+  if (sessions.length > 0) {
+    const recentSessions = sessions.slice(0, 5)
+    const totalDuration = recentSessions.reduce((sum, s) => sum + s.duration_seconds, 0)
+    const avgDuration = Math.round(totalDuration / recentSessions.length / 60)
+
+    patterns.push({
+      type: 'pattern',
+      priority: 'low',
+      title: 'Recent Training',
+      description: `You've completed ${sessions.length} workouts in the last 30 days, averaging ${avgDuration} minutes per session.`,
+      data: { sessionCount: sessions.length, avgDuration },
+    })
+  }
 
   return patterns
 }

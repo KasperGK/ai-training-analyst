@@ -84,6 +84,16 @@ export function useSync(options: UseSyncOptions = {}) {
         // Refresh status after sync
         await fetchStatus()
 
+        // Auto-generate insights after successful sync with new data
+        if (result.success && (result.activitiesSynced > 0 || result.wellnessSynced > 0)) {
+          try {
+            console.log('[Sync] Generating insights from synced data...')
+            await fetch('/api/insights/generate', { method: 'POST' })
+          } catch (err) {
+            console.warn('[Sync] Failed to generate insights:', err)
+          }
+        }
+
         return result
       } else if (res.status === 401) {
         // Not authenticated - skip silently
