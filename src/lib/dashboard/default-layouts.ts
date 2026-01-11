@@ -33,8 +33,10 @@ const lgLayout: LayoutItem[] = [
   createLayoutItem('upload', 6, 0, 2, 2),
   // Chart below metrics
   createLayoutItem('chart', 0, 2, 8, 4),
+  // Insights next to sessions
+  createLayoutItem('insights', 0, 6, 3, 4),
   // Sessions below chart
-  createLayoutItem('sessions', 0, 6, 8, 4),
+  createLayoutItem('sessions', 3, 6, 5, 4),
   // AI Coach on the right spanning full height
   createLayoutItem('ai-coach', 8, 0, 4, 10),
 ]
@@ -51,10 +53,12 @@ const mdLayout: LayoutItem[] = [
   createLayoutItem('upload', 6, 0, 2, 2),
   // Chart below metrics
   createLayoutItem('chart', 0, 2, 8, 4),
-  // AI Coach below chart
-  createLayoutItem('ai-coach', 0, 6, 8, 6),
-  // Sessions below AI Coach
-  createLayoutItem('sessions', 0, 12, 8, 4),
+  // Insights below chart
+  createLayoutItem('insights', 0, 6, 4, 4),
+  // Sessions next to insights
+  createLayoutItem('sessions', 4, 6, 4, 4),
+  // AI Coach below
+  createLayoutItem('ai-coach', 0, 10, 8, 6),
 ]
 
 /**
@@ -69,10 +73,12 @@ const smLayout: LayoutItem[] = [
   createLayoutItem('upload', 2, 2, 2, 2),
   // Chart
   createLayoutItem('chart', 0, 4, 4, 4),
+  // Insights
+  createLayoutItem('insights', 0, 8, 4, 4),
   // AI Coach
-  createLayoutItem('ai-coach', 0, 8, 4, 6),
+  createLayoutItem('ai-coach', 0, 12, 4, 6),
   // Sessions
-  createLayoutItem('sessions', 0, 14, 4, 4),
+  createLayoutItem('sessions', 0, 18, 4, 4),
 ]
 
 /**

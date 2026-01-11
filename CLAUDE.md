@@ -57,6 +57,8 @@ FEATURE_INSIGHTS=true     # Enable proactive insights (Phase 5)
 See `~/.claude/plans/ancient-churning-snowglobe.md` for full plan.
 - Phase 1: Data Sync ✅ Complete
 - Phase 2: Chat Persistence ✅ Complete
-- Phase 3: RAG/Knowledge System (current)
-- Phase 4: Personalization Layer
-- Phase 5: Proactive Insights
+- Phase 3: RAG/Knowledge System ✅ Complete
+- Phase 4: Personalization Layer ✅ Complete
+- Phase 5: Proactive Insights ✅ Complete
+
+**All phases complete!** 🎉

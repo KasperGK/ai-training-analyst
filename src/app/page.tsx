@@ -23,6 +23,7 @@ import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
 import { Settings, Calendar, BookOpen, Check, Link2, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/ui/logo'
+import { InsightFeed } from '@/components/insights/insight-feed'
 import type { Session } from '@/types'
 
 
@@ -175,6 +176,11 @@ export default function Dashboard() {
               ) : (
                 <FileUpload onSessionUploaded={handleSessionUploaded} ftp={athleteFtp} compact />
               )}
+            </div>
+
+            {/* Insights */}
+            <div key="insights" className="h-full">
+              <InsightFeed maxItems={5} className="h-full" />
             </div>
 
             {/* PMC Chart */}

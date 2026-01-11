@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import type { Layout, ResponsiveLayouts } from 'react-grid-layout/legacy'
 import { DEFAULT_LAYOUTS } from '@/lib/dashboard/default-layouts'
 
-const STORAGE_KEY = 'dashboard-layout-v9'
+const STORAGE_KEY = 'dashboard-layout-v10'
 
 /**
  * Hook for managing dashboard grid layout with localStorage persistence

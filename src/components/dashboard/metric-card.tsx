@@ -75,7 +75,7 @@ export function MetricCard({
         </span>
       </div>
 
-      <div className="h-10 text-center">
+      <div className={cn("h-10 text-center", trend && "px-8")}>
         {description && (
           <p className="text-xs text-muted-foreground line-clamp-2">{description}</p>
         )}
