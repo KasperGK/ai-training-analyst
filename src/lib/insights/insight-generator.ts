@@ -30,10 +30,14 @@ interface GenerationResult {
   error?: string
 }
 
+interface GenerationOptions {
+  force?: boolean
+}
+
 /**
  * Generate insights for an athlete
  */
-export async function generateInsights(athleteId: string): Promise<GenerationResult> {
+export async function generateInsights(athleteId: string, options: GenerationOptions = {}): Promise<GenerationResult> {
   const supabase = await createClient()
   if (!supabase) {
     return { success: false, insightsCreated: 0, patternsDetected: 0, error: 'Database not available' }
@@ -42,17 +46,25 @@ export async function generateInsights(athleteId: string): Promise<GenerationRes
   const startTime = Date.now()
 
   try {
-    // Check if generation is needed (not run in last 6 hours)
-    const { data: shouldGenerate } = await supabase.rpc('should_generate_insights', {
-      p_athlete_id: athleteId,
-    })
+    // Check if generation is needed (not run in last 6 hours), unless forced
+    if (!options.force) {
+      const { data: shouldGenerate, error: rpcError } = await supabase.rpc('should_generate_insights', {
+        p_athlete_id: athleteId,
+      })
 
-    if (!shouldGenerate) {
-      return { success: true, insightsCreated: 0, patternsDetected: 0 }
+      console.log(`[InsightGenerator] shouldGenerate=${shouldGenerate}, rpcError=${rpcError?.message}`)
+
+      if (!shouldGenerate && !rpcError) {
+        console.log('[InsightGenerator] Skipping - recently generated')
+        return { success: true, insightsCreated: 0, patternsDetected: 0 }
+      }
+    } else {
+      console.log('[InsightGenerator] Force mode - skipping RPC check')
     }
 
     // Detect patterns in training data
     const patterns = await detectPatterns(athleteId)
+    console.log(`[InsightGenerator] Detected ${patterns.length} patterns`)
 
     if (patterns.length === 0) {
       // Log empty generation
@@ -62,6 +74,7 @@ export async function generateInsights(athleteId: string): Promise<GenerationRes
 
     // Filter out patterns that already have recent similar insights
     const newPatterns = await filterExistingInsights(supabase, athleteId, patterns)
+    console.log(`[InsightGenerator] After filtering: ${newPatterns.length} new patterns`)
 
     if (newPatterns.length === 0) {
       await logGeneration(supabase, athleteId, 0, patterns.map(p => p.type), null, 0, Date.now() - startTime)
@@ -82,12 +95,14 @@ export async function generateInsights(athleteId: string): Promise<GenerationRes
       source: 'pattern_detected',
     }))
 
+    console.log(`[InsightGenerator] Inserting ${insights.length} insights:`, insights.map(i => i.title))
     const { error } = await supabase.from('insights').insert(insights)
 
     if (error) {
       console.error('[InsightGenerator] Error storing insights:', error)
       return { success: false, insightsCreated: 0, patternsDetected: patterns.length, error: error.message }
     }
+    console.log(`[InsightGenerator] Successfully stored ${insights.length} insights`)
 
     // Log generation
     await logGeneration(

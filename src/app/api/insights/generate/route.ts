@@ -11,9 +11,18 @@ import { generateInsights } from '@/lib/insights/insight-generator'
 
 const ENABLE_INSIGHTS = process.env.FEATURE_INSIGHTS === 'true'
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!ENABLE_INSIGHTS) {
     return NextResponse.json({ error: 'Insights feature not enabled' }, { status: 400 })
+  }
+
+  // Check for force parameter
+  let force = false
+  try {
+    const body = await request.json()
+    force = body.force === true
+  } catch {
+    // No body or invalid JSON, that's fine
   }
 
   const supabase = await createClient()
@@ -28,7 +37,7 @@ export async function POST() {
   }
 
   try {
-    const result = await generateInsights(user.id)
+    const result = await generateInsights(user.id, { force })
 
     // Debug: Also fetch current data counts
     const [fitnessCount, sessionsCount] = await Promise.all([
@@ -45,6 +54,7 @@ export async function POST() {
         athleteId: user.id,
         fitnessRecords: fitnessCount.count ?? 0,
         sessions: sessionsCount.count ?? 0,
+        forced: force,
       },
     })
   } catch (error) {
@@ -56,7 +66,7 @@ export async function POST() {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!ENABLE_INSIGHTS) {
     return NextResponse.json({ enabled: false })
   }
@@ -70,6 +80,42 @@ export async function GET() {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  // Check for force parameter - allows triggering generation via GET for easy testing
+  const url = new URL(request.url)
+  const force = url.searchParams.get('force') === 'true'
+
+  if (force) {
+    // Trigger generation and return result
+    try {
+      const result = await generateInsights(user.id, { force: true })
+
+      const [fitnessCount, sessionsCount] = await Promise.all([
+        supabase.from('fitness_history').select('id', { count: 'exact', head: true }).eq('athlete_id', user.id),
+        supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('athlete_id', user.id),
+      ])
+
+      return NextResponse.json({
+        action: 'force_generated',
+        success: result.success,
+        insightsCreated: result.insightsCreated,
+        patternsDetected: result.patternsDetected,
+        error: result.error,
+        debug: {
+          athleteId: user.id,
+          fitnessRecords: fitnessCount.count ?? 0,
+          sessions: sessionsCount.count ?? 0,
+        },
+      })
+    } catch (error) {
+      console.error('[Insights Generate API] Force generate error:', error)
+      return NextResponse.json({
+        action: 'force_generated',
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate insights',
+      }, { status: 500 })
+    }
   }
 
   try {
