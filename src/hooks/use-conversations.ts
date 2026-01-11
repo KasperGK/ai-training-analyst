@@ -15,7 +15,7 @@ export interface ChatMessage {
   conversation_id: string
   role: 'user' | 'assistant' | 'system'
   content: string
-  tool_calls?: unknown
+  tool_calls?: Array<{ type: string; [key: string]: unknown }> | null
   created_at: string
 }
 

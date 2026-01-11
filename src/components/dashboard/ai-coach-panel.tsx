@@ -123,6 +123,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     conversations,
     loading: conversationsLoading,
     currentConversationId,
+    currentMessages: savedMessages,
     loadConversation,
     startNewConversation,
     deleteConversation,
@@ -213,20 +214,28 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     }
   }
 
+  // Common message type for display
+  type DisplayMessage = {
+    id: string
+    role: 'user' | 'assistant'
+    createdAt?: Date
+    parts: Array<{ type: string; text?: string; [key: string]: unknown }>
+  }
+
   // Helper to extract text from message parts
-  const getMessageText = (message: typeof messages[0]) => {
+  const getMessageText = (message: DisplayMessage) => {
     return message.parts
-      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+      .filter((part): part is { type: 'text'; text: string } => part.type === 'text' && !!part.text)
       .map(part => part.text)
       .join('')
   }
 
   // Helper to extract tool results from message parts
   // AI SDK 6 uses tool-{toolName} type with state property
-  const getToolResults = (message: typeof messages[0]) => {
-    return (message.parts as unknown as Array<{ type: string; state?: string; output?: unknown }>).filter((part) => {
-      // Tool parts have type starting with 'tool-' and state 'output-available'
-      return part.type.startsWith('tool-') && part.state === 'output-available' && part.output
+  const getToolResults = (message: DisplayMessage) => {
+    return (message.parts as Array<{ type: string; state?: string; output?: unknown }>).filter((part) => {
+      // Tool parts have type starting with 'tool-' and state 'output-available' (or saved results)
+      return part.type.startsWith('tool-') && (part.state === 'output-available' || part.output) && part.output
     }).map(part => ({
       type: 'tool-result' as const,
       toolName: part.type.replace('tool-', ''),
@@ -253,15 +262,61 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     return null
   }
 
-  // Show welcome message if no messages yet
-  const displayMessages = messages.length === 0
-    ? [{
-        id: 'welcome',
-        role: 'assistant' as const,
-        createdAt: new Date(),
-        parts: [{ type: 'text' as const, text: "Hi! I'm your AI training analyst. I can help you understand your training data, analyze your fitness trends, suggest workouts, and provide personalized recommendations. What would you like to know?" }],
-      }]
-    : messages
+  // Convert saved messages from DB format to display format
+  const savedDisplayMessages = useMemo(() =>
+    savedMessages.map(msg => {
+      // Start with text part
+      const parts: Array<{ type: string; text?: string; [key: string]: unknown }> = []
+
+      if (msg.content) {
+        parts.push({ type: 'text' as const, text: msg.content })
+      }
+
+      // Restore tool call results if saved
+      if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+        for (const toolCall of msg.tool_calls) {
+          if (toolCall && typeof toolCall === 'object' && 'type' in toolCall) {
+            parts.push(toolCall as { type: string; [key: string]: unknown })
+          }
+        }
+      }
+
+      return {
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        createdAt: new Date(msg.created_at),
+        parts,
+      }
+    }),
+    [savedMessages]
+  )
+
+  // Display either saved messages (when returning to conversation) or current session messages
+  // Don't combine them - this prevents duplicates
+  const displayMessages: DisplayMessage[] = useMemo(() => {
+    // If we have current session messages, show those (they're being saved in background)
+    if (messages.length > 0) {
+      return messages.map(m => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        createdAt: 'createdAt' in m ? (m.createdAt as Date) : new Date(),
+        parts: m.parts as Array<{ type: string; text?: string; [key: string]: unknown }>,
+      }))
+    }
+
+    // If we have saved messages from a previous session, show those
+    if (savedDisplayMessages.length > 0) {
+      return savedDisplayMessages
+    }
+
+    // Otherwise show welcome message
+    return [{
+      id: 'welcome',
+      role: 'assistant' as const,
+      createdAt: new Date(),
+      parts: [{ type: 'text' as const, text: "Hi! I'm your AI training analyst. I can help you understand your training data, analyze your fitness trends, suggest workouts, and provide personalized recommendations. What would you like to know?" }],
+    }]
+  }, [messages, savedDisplayMessages])
 
   // Format timestamp
   const formatTime = (date: Date | undefined) => {
