@@ -29,10 +29,11 @@ import {
   SessionsTableSkeleton,
   FileUploadSkeletonCompact,
 } from '@/components/dashboard/skeletons'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useUser } from '@/hooks/use-user'
+import { useSync } from '@/hooks/use-sync'
 import { Settings, Calendar, GripVertical, GripHorizontal, BookOpen, Check, Link2 } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/ui/logo'
@@ -92,6 +93,9 @@ export default function Dashboard() {
     ctlTrend,
     connect,
   } = useIntervalsData()
+
+  // Auto-sync data to Supabase when needed
+  useSync({ autoSync: true })
 
   const [uploadedSessions, setUploadedSessions] = useState<Session[]>([])
   const [mounted, setMounted] = useState(false)
@@ -295,9 +299,6 @@ export default function Dashboard() {
         className="min-h-[400px] max-h-[90vh] flex flex-col overflow-hidden relative"
         style={{ height: chatHeight }}
       >
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">AI Coach</CardTitle>
-        </CardHeader>
         <CardContent className="flex-1 p-0 overflow-hidden">
           <AICoachPanel
             athleteContext={athleteContextString}

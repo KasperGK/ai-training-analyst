@@ -1,15 +1,17 @@
 'use client'
 
-import { useRef, useEffect, useState, useMemo } from 'react'
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { useConversations } from '@/hooks/use-conversations'
 import type { WorkoutSuggestion } from '@/types'
-import { Dumbbell, TrendingUp, Target, Calendar, Bot, User, Send } from 'lucide-react'
+import { Dumbbell, TrendingUp, Target, Calendar, Bot, User, Send, Plus, MessageSquare, Trash2 } from 'lucide-react'
 
 interface AICoachPanelProps {
   athleteContext?: string // JSON string of athlete data for context
@@ -113,6 +115,19 @@ function GoalsCard({ data }: { data: { goals: Array<{ title: string; progress: n
 export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
+  const [activeTab, setActiveTab] = useState('chat')
+  const lastSavedMessageCount = useRef(0)
+
+  // Conversation persistence
+  const {
+    conversations,
+    loading: conversationsLoading,
+    currentConversationId,
+    loadConversation,
+    startNewConversation,
+    deleteConversation,
+    saveMessage: saveMessageToDb,
+  } = useConversations()
 
   const transport = useMemo(() => new DefaultChatTransport({
     api: '/api/chat',
@@ -122,12 +137,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     },
   }), [athleteContext, athleteId])
 
-  const { messages, sendMessage, status, error } = useChat({ transport })
-
-  // Debug: log status changes
-  useEffect(() => {
-    console.log('AI Coach status:', status)
-  }, [status])
+  const { messages, sendMessage, setMessages, status, error } = useChat({ transport })
 
   const isLoading = status === 'submitted' || status === 'streaming'
 
@@ -137,6 +147,63 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  // Save new messages to database
+  useEffect(() => {
+    if (!athleteId || !currentConversationId) return
+    if (messages.length <= lastSavedMessageCount.current) return
+    if (isLoading) return // Wait for streaming to complete
+
+    // Find new messages to save
+    const newMessages = messages.slice(lastSavedMessageCount.current)
+
+    for (const msg of newMessages) {
+      const text = msg.parts
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join('')
+
+      if (text) {
+        // Extract tool calls if any
+        const toolCalls = (msg.parts as unknown[]).filter(
+          (p: unknown) => typeof p === 'object' && p !== null && 'type' in p && typeof (p as { type: string }).type === 'string' && (p as { type: string }).type.startsWith('tool-')
+        )
+
+        saveMessageToDb(
+          msg.role as 'user' | 'assistant',
+          text,
+          toolCalls.length > 0 ? toolCalls : undefined
+        )
+      }
+    }
+
+    lastSavedMessageCount.current = messages.length
+  }, [messages, isLoading, athleteId, currentConversationId, saveMessageToDb])
+
+  // Handle new conversation
+  const handleNewConversation = useCallback(() => {
+    startNewConversation()
+    setMessages([])
+    lastSavedMessageCount.current = 0
+  }, [startNewConversation, setMessages])
+
+  // Handle loading a conversation
+  const handleLoadConversation = useCallback(async (id: string) => {
+    await loadConversation(id)
+    // Note: We don't load old messages into useChat since it's designed for new sessions
+    // Instead, show them separately and start fresh AI context
+    setMessages([])
+    lastSavedMessageCount.current = 0
+    setActiveTab('chat')
+  }, [loadConversation, setMessages])
+
+  // Handle delete conversation
+  const handleDeleteConversation = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm('Delete this conversation?')) {
+      await deleteConversation(id)
+    }
+  }, [deleteConversation])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -207,10 +274,87 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
 
   return (
     <div className={cn('flex h-full flex-col overflow-hidden', className)}>
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-        <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
-          <div className="p-4">
-          <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+        {/* Tab Header */}
+        {athleteId && (
+          <div className="px-4 pt-3 pb-2 border-b">
+            <TabsList className="h-8">
+              <TabsTrigger value="chat" className="text-xs px-3">
+                Chat
+              </TabsTrigger>
+              <TabsTrigger value="history" className="text-xs px-3">
+                History
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        )}
+
+        {/* History Tab Content */}
+        <TabsContent value="history" className="flex-1 flex flex-col min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <div className="p-3 border-b">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2"
+              onClick={() => {
+                handleNewConversation()
+                setActiveTab('chat')
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              New conversation
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-1">
+              {conversationsLoading ? (
+                <div className="text-sm text-muted-foreground text-center py-8">Loading...</div>
+              ) : conversations.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No conversations yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Start chatting to save your history</p>
+                </div>
+              ) : (
+                conversations.map((conv) => (
+                  <div
+                    key={conv.id}
+                    onClick={() => handleLoadConversation(conv.id)}
+                    className={cn(
+                      'group flex items-start gap-3 rounded-md p-2.5 cursor-pointer transition-colors',
+                      currentConversationId === conv.id
+                        ? 'bg-muted'
+                        : 'hover:bg-muted/50'
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium">{conv.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {conv.last_message_at.split('T')[0]}
+                        <span className="mx-1">·</span>
+                        {conv.message_count} msg
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 -mr-1"
+                      onClick={(e) => handleDeleteConversation(conv.id, e)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        {/* Chat Tab Content */}
+        <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
+            <div className="p-4">
+            <div className="space-y-4">
             {displayMessages.map((message) => {
               const text = getMessageText(message)
               const toolResults = message.role === 'assistant' ? getToolResults(message) : []
@@ -332,7 +476,8 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
             />
           </div>
         </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
