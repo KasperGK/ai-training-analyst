@@ -1,8 +1,9 @@
 'use client'
 
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { TrendingUp, TrendingDown, Minus, Activity, Flame, Heart, Calendar } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { DragHandle, wasDragging } from '@/components/ui/drag-handle'
 import { cn } from '@/lib/utils'
 
 interface MetricCardProps {
@@ -33,6 +34,14 @@ export function MetricCard({
   className,
   href,
 }: MetricCardProps) {
+  const router = useRouter()
+
+  const handleClick = () => {
+    // Don't navigate if we just finished dragging
+    if (wasDragging() || !href) return
+    router.push(href)
+  }
+
   const statusColors = {
     good: 'text-green-600',
     warning: 'text-amber-500',
@@ -43,12 +52,16 @@ export function MetricCard({
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus
   const Icon = iconMap[title] || Activity
 
-  const cardContent = (
-    <Card className={cn(
-      'aspect-square flex flex-col p-5 relative',
-      href && 'cursor-pointer hover:border-primary/50 transition-colors',
-      className
-    )}>
+  return (
+    <Card
+      className={cn(
+        'group h-full flex flex-col p-5 relative',
+        href && 'cursor-pointer hover:border-primary/50 transition-colors',
+        className
+      )}
+      onClick={handleClick}
+    >
+      <DragHandle />
       <div className="flex items-start justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {title}
@@ -81,10 +94,4 @@ export function MetricCard({
       )}
     </Card>
   )
-
-  if (href) {
-    return <Link href={href}>{cardContent}</Link>
-  }
-
-  return cardContent
 }

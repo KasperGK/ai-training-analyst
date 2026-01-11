@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { DragHandle } from '@/components/ui/drag-handle'
 import {
   ChartContainer,
   ChartTooltip,
@@ -51,15 +52,16 @@ export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
   // Handle empty state
   if (!data || data.length === 0) {
     return (
-      <Card>
+      <Card className="group h-full flex flex-col relative">
+        <DragHandle />
         <CardHeader>
           <CardTitle>Performance Management</CardTitle>
           <CardDescription>
             Fitness, fatigue, and form over the last 6 weeks
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-[250px] text-muted-foreground text-sm">
+        <CardContent className="flex-1">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             No PMC data available. Connect intervals.icu to see your fitness trends.
           </div>
         </CardContent>
@@ -68,7 +70,8 @@ export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
   }
 
   return (
-    <Card>
+    <Card className="group h-full flex flex-col relative">
+      <DragHandle />
       <CardHeader>
         <CardTitle>Performance Management</CardTitle>
         <CardDescription>

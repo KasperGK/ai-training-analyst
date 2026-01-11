@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DragHandle } from '@/components/ui/drag-handle'
 import { Upload, FileCheck, AlertCircle, Loader2 } from 'lucide-react'
 import type { Session } from '@/types'
 
@@ -94,11 +95,12 @@ export function FileUpload({ onSessionUploaded, ftp = 250, compact = false }: Fi
   if (compact) {
     return (
       <Card
-        className="aspect-square flex flex-col p-5 cursor-pointer hover:border-primary/50 transition-colors relative"
+        className="group h-full flex flex-col p-5 cursor-pointer hover:border-primary/50 transition-colors relative"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
+        <DragHandle />
         <input
           type="file"
           accept=".fit"
@@ -106,7 +108,7 @@ export function FileUpload({ onSessionUploaded, ftp = 250, compact = false }: Fi
           className="absolute inset-0 cursor-pointer opacity-0"
           disabled={isUploading}
         />
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between relative z-10">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Upload
           </span>
@@ -135,7 +137,8 @@ export function FileUpload({ onSessionUploaded, ftp = 250, compact = false }: Fi
   }
 
   return (
-    <Card>
+    <Card className="group h-full flex flex-col relative">
+      <DragHandle />
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Upload Activity</CardTitle>
         <CardDescription>

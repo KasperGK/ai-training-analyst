@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { DragHandle } from '@/components/ui/drag-handle'
 import {
   Table,
   TableBody,
@@ -80,7 +81,8 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
 
   if (sessions.length === 0) {
     return (
-      <Card>
+      <Card className="group h-full flex flex-col relative">
+        <DragHandle />
         <CardHeader>
           <CardTitle>Recent Sessions</CardTitle>
           <CardDescription>Your latest training activities</CardDescription>
@@ -101,22 +103,23 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
 
   if (filteredSessions.length === 0) {
     return (
-      <Card>
+      <Card className="group h-full flex flex-col relative">
+        <DragHandle />
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Recent Sessions</CardTitle>
               <CardDescription>Your latest training activities</CardDescription>
             </div>
-          <Select value={filter} onValueChange={(v) => setFilter(v as 'training' | 'all')}>
-            <SelectTrigger className="w-[120px] h-8 text-xs mr-6 shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="shadow-none">
-              <SelectItem value="training">Training</SelectItem>
-              <SelectItem value="all">All Activities</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={filter} onValueChange={(v) => setFilter(v as 'training' | 'all')}>
+              <SelectTrigger className="w-[120px] h-8 text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="shadow-none">
+                <SelectItem value="training">Training</SelectItem>
+                <SelectItem value="all">All Activities</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -134,7 +137,8 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="group h-full flex flex-col overflow-hidden relative">
+      <DragHandle />
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -142,7 +146,7 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
             <CardDescription>Your latest training activities</CardDescription>
           </div>
           <Select value={filter} onValueChange={(v) => setFilter(v as 'training' | 'all')}>
-            <SelectTrigger className="w-[120px] h-8 text-xs mr-6 shadow-none">
+            <SelectTrigger className="w-[120px] h-8 text-xs shadow-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="shadow-none">

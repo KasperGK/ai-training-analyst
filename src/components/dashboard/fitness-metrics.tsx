@@ -1,7 +1,6 @@
 'use client'
 
 import { MetricCard } from './metric-card'
-import { Card, CardContent } from '@/components/ui/card'
 import type { CurrentFitness } from '@/types'
 
 interface FitnessMetricsProps {
@@ -30,46 +29,103 @@ function getCTLStatus(trend: 'up' | 'down' | 'stable'): 'good' | 'warning' | 'ba
   return 'neutral'
 }
 
-export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
-  // Handle empty state - show 3 placeholder cards
+/**
+ * Individual Fitness Card (CTL)
+ */
+export function FitnessCard({ fitness }: FitnessMetricsProps) {
   if (!fitness) {
     return (
-      <>
-        <MetricCard title="Fitness (CTL)" value="—" description="Connect to see data" status="neutral" href="/analytics#fitness" />
-        <MetricCard title="Fatigue (ATL)" value="—" description="Connect to see data" status="neutral" href="/analytics#fatigue" />
-        <MetricCard title="Form (TSB)" value="—" description="Connect to see data" status="neutral" href="/analytics#form" />
-      </>
+      <MetricCard
+        title="Fitness (CTL)"
+        value="—"
+        description="Connect to see data"
+        status="neutral"
+        href="/analytics#fitness"
+      />
+    )
+  }
+
+  const ctlStatus = getCTLStatus(fitness.ctl_trend)
+
+  return (
+    <MetricCard
+      title="Fitness (CTL)"
+      value={Math.round(fitness.ctl)}
+      description="42-day training load"
+      trend={fitness.ctl_trend}
+      trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : '0'}
+      status={ctlStatus}
+      href="/analytics#fitness"
+    />
+  )
+}
+
+/**
+ * Individual Fatigue Card (ATL)
+ */
+export function FatigueCard({ fitness }: FitnessMetricsProps) {
+  if (!fitness) {
+    return (
+      <MetricCard
+        title="Fatigue (ATL)"
+        value="—"
+        description="Connect to see data"
+        status="neutral"
+        href="/analytics#fatigue"
+      />
+    )
+  }
+
+  return (
+    <MetricCard
+      title="Fatigue (ATL)"
+      value={Math.round(fitness.atl)}
+      description="7-day training load"
+      status="neutral"
+      href="/analytics#fatigue"
+    />
+  )
+}
+
+/**
+ * Individual Form Card (TSB)
+ */
+export function FormCard({ fitness }: FitnessMetricsProps) {
+  if (!fitness) {
+    return (
+      <MetricCard
+        title="Form (TSB)"
+        value="—"
+        description="Connect to see data"
+        status="neutral"
+        href="/analytics#form"
+      />
     )
   }
 
   const tsbStatus = getTSBStatus(fitness.tsb)
-  const ctlStatus = getCTLStatus(fitness.ctl_trend)
 
   return (
+    <MetricCard
+      title="Form (TSB)"
+      value={fitness.tsb > 0 ? `+${Math.round(fitness.tsb)}` : Math.round(fitness.tsb)}
+      description={getTSBDescription(fitness.tsb)}
+      status={tsbStatus}
+      href="/analytics#form"
+    />
+  )
+}
+
+/**
+ * Combined Fitness Metrics (renders all 3 cards as fragment)
+ * @deprecated Use individual card exports (FitnessCard, FatigueCard, FormCard) for grid layout
+ */
+export function FitnessMetrics({ fitness }: FitnessMetricsProps) {
+  return (
     <>
-      <MetricCard
-        title="Fitness (CTL)"
-        value={Math.round(fitness.ctl)}
-        description="42-day training load"
-        trend={fitness.ctl_trend}
-        trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : '0'}
-        status={ctlStatus}
-        href="/analytics#fitness"
-      />
-      <MetricCard
-        title="Fatigue (ATL)"
-        value={Math.round(fitness.atl)}
-        description="7-day training load"
-        status="neutral"
-        href="/analytics#fatigue"
-      />
-      <MetricCard
-        title="Form (TSB)"
-        value={fitness.tsb > 0 ? `+${Math.round(fitness.tsb)}` : Math.round(fitness.tsb)}
-        description={getTSBDescription(fitness.tsb)}
-        status={tsbStatus}
-        href="/analytics#form"
-      />
+      <FitnessCard fitness={fitness} />
+      <FatigueCard fitness={fitness} />
+      <FormCard fitness={fitness} />
     </>
   )
 }
