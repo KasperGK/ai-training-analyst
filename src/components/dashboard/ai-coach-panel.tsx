@@ -497,7 +497,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     <div className={cn('flex h-full flex-col overflow-hidden', className)}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
         {/* Header with title and tabs */}
-        <div className="px-5 pb-2 border-b flex flex-col gap-1 shrink-0">
+        <div className="pb-2 border-b flex flex-col gap-1 shrink-0">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Coach</span>
           {athleteId && (
             <div className="flex items-center justify-center gap-0.5 text-xs">

@@ -197,15 +197,13 @@ export default function Dashboard() {
 
             {/* AI Coach Panel */}
             <div key="ai-coach" className="h-full">
-              <Card className="group h-full flex flex-col overflow-hidden relative">
+              <Card className="group h-full flex flex-col overflow-hidden relative p-5">
                 <DragHandle />
-                <CardContent className="flex-1 p-0 pt-5 overflow-hidden">
-                  <AICoachPanel
-                    athleteContext={athleteContextString}
-                    athleteId={user?.id}
-                    className="h-full rounded-none border-0 shadow-none"
-                  />
-                </CardContent>
+                <AICoachPanel
+                  athleteContext={athleteContextString}
+                  athleteId={user?.id}
+                  className="h-full rounded-none border-0 shadow-none"
+                />
               </Card>
             </div>
           </DashboardGrid>
