@@ -7,11 +7,68 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { useConversations } from '@/hooks/use-conversations'
 import type { WorkoutSuggestion } from '@/types'
-import { Dumbbell, TrendingUp, Target, Calendar, Bot, User, Send, Plus, MessageSquare, Trash2 } from 'lucide-react'
+import { Dumbbell, TrendingUp, Target, Calendar, Bot, User, Send, Plus, MessageSquare, Trash2, BarChart3 } from 'lucide-react'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts'
+
+// Simple markdown-like text formatter
+function FormattedText({ text }: { text: string }) {
+  // Split into paragraphs
+  const paragraphs = text.split(/\n\n+/)
+
+  return (
+    <div className="space-y-2">
+      {paragraphs.map((para, pIdx) => {
+        // Check if paragraph is a list
+        const lines = para.split('\n')
+        const isNumberedList = lines.every(l => /^\d+\.\s/.test(l.trim()) || l.trim() === '')
+        const isBulletList = lines.every(l => /^[-•]\s/.test(l.trim()) || l.trim() === '')
+
+        if (isNumberedList || isBulletList) {
+          return (
+            <ol key={pIdx} className={cn("space-y-1 pl-4", isNumberedList ? "list-decimal" : "list-disc")}>
+              {lines.filter(l => l.trim()).map((line, lIdx) => (
+                <li key={lIdx} className="text-sm leading-relaxed">
+                  <FormatInline text={line.replace(/^(\d+\.|-|•)\s*/, '')} />
+                </li>
+              ))}
+            </ol>
+          )
+        }
+
+        // Regular paragraph
+        return (
+          <p key={pIdx} className="text-sm leading-relaxed">
+            <FormatInline text={para.replace(/\n/g, ' ')} />
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
+// Format inline markdown: **bold**
+function FormatInline({ text }: { text: string }) {
+  // Simple bold text processing
+  const parts: React.ReactNode[] = []
+  const segments = text.split(/(\*\*[^*]+\*\*)/)
+
+  segments.forEach((segment, i) => {
+    if (segment.startsWith('**') && segment.endsWith('**')) {
+      // Bold text
+      const content = segment.slice(2, -2)
+      parts.push(<strong key={i} className="font-semibold">{content}</strong>)
+    } else if (segment) {
+      parts.push(<span key={i}>{segment}</span>)
+    }
+  })
+
+  return <>{parts}</>
+}
 
 interface AICoachPanelProps {
   athleteContext?: string // JSON string of athlete data for context
@@ -108,6 +165,102 @@ function GoalsCard({ data }: { data: { goals: Array<{ title: string; progress: n
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Chart rendering component
+interface ChartData {
+  chartType: 'line' | 'bar' | 'area'
+  title: string
+  data: Array<Record<string, string | number>>
+  dataKeys: string[]
+  colors: string[]
+  useFillFromData?: boolean
+}
+
+function ChartCard({ data }: { data: ChartData }) {
+  const { chartType, title, data: chartData, dataKeys, colors, useFillFromData } = data
+
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="rounded-lg border bg-muted/50 p-3 mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <BarChart3 className="h-4 w-4" />
+          <span className="font-medium">{title}</span>
+        </div>
+        <p className="text-sm text-muted-foreground">No data available</p>
+      </div>
+    )
+  }
+
+  // Build chart config from dataKeys
+  const chartConfig: Record<string, { label: string; color: string }> = {}
+  dataKeys.forEach((key, i) => {
+    chartConfig[key] = {
+      label: key,
+      color: colors[i] || `hsl(var(--chart-${i + 1}))`,
+    }
+  })
+
+  return (
+    <div className="rounded-lg border bg-muted/50 p-3 mt-2">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart3 className="h-4 w-4" />
+        <span className="font-medium text-sm">{title}</span>
+      </div>
+      <ChartContainer config={chartConfig} className="h-[180px] w-full">
+        {chartType === 'line' ? (
+          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            {dataKeys.map((key, i) => (
+              <Line
+                key={key}
+                type="monotone"
+                dataKey={key}
+                stroke={colors[i] || `hsl(var(--chart-${i + 1}))`}
+                strokeWidth={2}
+                dot={false}
+              />
+            ))}
+          </LineChart>
+        ) : chartType === 'area' ? (
+          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            {dataKeys.map((key, i) => (
+              <Area
+                key={key}
+                type="monotone"
+                dataKey={key}
+                fill={colors[i] || `hsl(var(--chart-${i + 1}))`}
+                stroke={colors[i] || `hsl(var(--chart-${i + 1}))`}
+                fillOpacity={0.3}
+              />
+            ))}
+          </AreaChart>
+        ) : (
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            {dataKeys.map((key, i) => (
+              <Bar
+                key={key}
+                dataKey={key}
+                fill={useFillFromData ? undefined : (colors[i] || `hsl(var(--chart-${i + 1}))`)}
+                radius={[4, 4, 0, 0]}
+              />
+            ))}
+          </BarChart>
+        )}
+      </ChartContainer>
     </div>
   )
 }
@@ -233,7 +386,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   // Helper to extract tool results from message parts
   // AI SDK 6 uses tool-{toolName} type with state property
   const getToolResults = (message: DisplayMessage) => {
-    return (message.parts as Array<{ type: string; state?: string; output?: unknown }>).filter((part) => {
+    const results = (message.parts as Array<{ type: string; state?: string; output?: unknown }>).filter((part) => {
       // Tool parts have type starting with 'tool-' and state 'output-available' (or saved results)
       return part.type.startsWith('tool-') && (part.state === 'output-available' || part.output) && part.output
     }).map(part => ({
@@ -241,6 +394,15 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
       toolName: part.type.replace('tool-', ''),
       result: part.output,
     }))
+
+    // Deduplicate by toolName + stringified result
+    const seen = new Set<string>()
+    return results.filter(r => {
+      const key = `${r.toolName}:${JSON.stringify(r.result)}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }
 
   // Render tool result based on tool name
@@ -257,6 +419,10 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
 
     if (toolName === 'getAthleteGoals' && (data.goals || data.upcomingEvents)) {
       return <GoalsCard data={data as { goals: Array<{ title: string; progress: number | null }>; upcomingEvents: Array<{ name: string; daysUntil: number; priority: string }>; periodizationPhase: string }} />
+    }
+
+    if (toolName === 'generateChart' && data.chartType && data.data) {
+      return <ChartCard data={data as unknown as ChartData} />
     }
 
     return null
@@ -330,19 +496,36 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   return (
     <div className={cn('flex h-full flex-col overflow-hidden', className)}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-        {/* Tab Header */}
-        {athleteId && (
-          <div className="px-4 pt-3 pb-2 border-b">
-            <TabsList className="h-8">
-              <TabsTrigger value="chat" className="text-xs px-3">
+        {/* Header with title and tabs */}
+        <div className="px-5 pb-3 border-b flex flex-col gap-2 shrink-0">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Coach</span>
+          {athleteId && (
+            <div className="flex items-center justify-center gap-0.5 text-xs">
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={cn(
+                  'px-2.5 py-0.5 rounded transition-colors',
+                  activeTab === 'chat'
+                    ? 'bg-foreground text-background font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
                 Chat
-              </TabsTrigger>
-              <TabsTrigger value="history" className="text-xs px-3">
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={cn(
+                  'px-2.5 py-0.5 rounded transition-colors',
+                  activeTab === 'history'
+                    ? 'bg-foreground text-background font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
                 History
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        )}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* History Tab Content */}
         <TabsContent value="history" className="flex-1 flex flex-col min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
@@ -435,18 +618,22 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
 
                   {/* Message content */}
                   <div className={cn(
-                    'flex flex-col gap-1',
+                    'flex flex-col gap-1 max-w-[85%]',
                     isUser ? 'items-end' : 'items-start'
                   )}>
                     <div
                       className={cn(
-                        'max-w-[280px] rounded-lg px-3 py-2 text-sm',
+                        'rounded-2xl px-4 py-2.5',
                         isUser
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                          : 'bg-muted rounded-tl-sm'
                       )}
                     >
-                      {text && <p className="whitespace-pre-wrap">{text}</p>}
+                      {text && (
+                        isUser
+                          ? <p className="text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
+                          : <FormattedText text={text} />
+                      )}
                       {toolResults.map((tr, idx) => (
                         <div key={idx}>
                           {renderToolResult(tr.toolName, tr.result)}
@@ -454,7 +641,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
                       ))}
                     </div>
                     {timestamp && (
-                      <span className="text-[10px] text-muted-foreground px-1">
+                      <span className="text-[10px] text-muted-foreground/60 px-2">
                         {timestamp}
                       </span>
                     )}
@@ -469,14 +656,11 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="rounded-lg bg-muted px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                    <span className="text-muted-foreground">Thinking...</span>
+                <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>

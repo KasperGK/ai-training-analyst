@@ -296,7 +296,7 @@ export default function Dashboard() {
     ai: (
       <Card
         ref={chatCardRef}
-        className="min-h-[400px] max-h-[90vh] flex flex-col overflow-hidden relative"
+        className="min-h-[400px] max-h-[90vh] flex flex-col overflow-hidden relative py-5"
         style={{ height: chatHeight }}
       >
         <CardContent className="flex-1 p-0 overflow-hidden">
