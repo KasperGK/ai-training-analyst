@@ -74,6 +74,12 @@ export interface FitnessHistory {
   atl: number // Acute Training Load (fatigue)
   tsb: number // Training Stress Balance (form) = CTL - ATL
   tss_day: number // Total TSS that day
+  // Sleep and recovery metrics from Garmin
+  sleep_seconds?: number | null
+  sleep_score?: number | null
+  hrv?: number | null
+  resting_hr?: number | null
+  readiness?: number | null
 }
 
 export interface Event {
@@ -108,6 +114,11 @@ export interface CurrentFitness {
   ctl_trend: 'up' | 'down' | 'stable'
   days_until_event?: number
   event_name?: string
+  // Sleep data from last night
+  sleep_seconds?: number | null
+  sleep_score?: number | null
+  hrv?: number | null
+  resting_hr?: number | null
 }
 
 // Chat message types (for UI)

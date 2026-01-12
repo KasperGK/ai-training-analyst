@@ -121,6 +121,12 @@ export interface FitnessHistoryInsert {
   atl: number
   tsb: number
   tss_day: number
+  // Sleep and recovery metrics from Garmin
+  sleep_seconds: number | null
+  sleep_score: number | null
+  hrv: number | null
+  resting_hr: number | null
+  readiness: number | null
   synced_at: string
   source: string
 }

@@ -45,6 +45,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     defaultW: 2,
     defaultH: 2,
   },
+  sleep: {
+    id: 'sleep',
+    name: 'Sleep',
+    description: 'Last night\'s sleep from Garmin',
+    minW: 2,
+    minH: 2,
+    maxW: 4,
+    maxH: 4,
+    defaultW: 2,
+    defaultH: 2,
+  },
   upload: {
     id: 'upload',
     name: 'Upload',

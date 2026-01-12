@@ -6,6 +6,7 @@ import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { PMCChart } from '@/components/dashboard/pmc-chart'
 import { AICoachPanel } from '@/components/dashboard/ai-coach-panel'
 import { FileUpload } from '@/components/dashboard/file-upload'
+import { SleepCard } from '@/components/dashboard/sleep-card'
 import { DashboardGrid } from '@/components/dashboard/dashboard-grid'
 import {
   MetricCardSkeleton,
@@ -166,6 +167,18 @@ export default function Dashboard() {
                 <MetricCardSkeleton />
               ) : (
                 <FormCard fitness={displayFitness} />
+              )}
+            </div>
+
+            {/* Sleep Card */}
+            <div key="sleep" className="h-full">
+              {loading ? (
+                <MetricCardSkeleton />
+              ) : (
+                <SleepCard
+                  sleepSeconds={displayFitness?.sleep_seconds}
+                  sleepScore={displayFitness?.sleep_score}
+                />
               )}
             </div>
 

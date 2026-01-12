@@ -216,6 +216,12 @@ function transformWellness(wellness: IntervalsWellness, athleteId: string): Fitn
     atl: Math.round(wellness.atl || 0),
     tsb: Math.round((wellness.ctl || 0) - (wellness.atl || 0)),
     tss_day: 0, // Calculated from sessions
+    // Sleep and recovery metrics from Garmin
+    sleep_seconds: wellness.sleepSecs ?? null,
+    sleep_score: wellness.sleepScore ?? null,
+    hrv: wellness.hrv ?? null,
+    resting_hr: wellness.restingHR ?? null,
+    readiness: wellness.readiness ?? null,
     synced_at: new Date().toISOString(),
     source: 'intervals_icu',
   }

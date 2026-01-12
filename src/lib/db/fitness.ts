@@ -9,6 +9,12 @@ export type FitnessRow = {
   atl: number
   tsb: number
   tss_day: number
+  // Sleep and recovery metrics
+  sleep_seconds: number | null
+  sleep_score: number | null
+  hrv: number | null
+  resting_hr: number | null
+  readiness: number | null
   created_at: string
 }
 
@@ -20,6 +26,11 @@ function rowToFitness(row: FitnessRow): FitnessHistory {
     atl: row.atl,
     tsb: row.tsb,
     tss_day: row.tss_day,
+    sleep_seconds: row.sleep_seconds,
+    sleep_score: row.sleep_score,
+    hrv: row.hrv,
+    resting_hr: row.resting_hr,
+    readiness: row.readiness,
   }
 }
 
@@ -110,6 +121,11 @@ export async function getCurrentFitness(athleteId: string): Promise<CurrentFitne
     ctl_trend: ctlTrend,
     days_until_event: daysUntilEvent,
     event_name: eventName,
+    // Sleep data from last night
+    sleep_seconds: latest.sleep_seconds,
+    sleep_score: latest.sleep_score,
+    hrv: latest.hrv,
+    resting_hr: latest.resting_hr,
   }
 }
 

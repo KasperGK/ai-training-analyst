@@ -26,17 +26,18 @@ function createLayoutItem(
  * Main layout with AI Coach on the right
  */
 const lgLayout: LayoutItem[] = [
-  // Top row: 4 metric cards
+  // Top row: 4 metric cards + sleep
   createLayoutItem('fitness', 0, 0, 2, 2),
   createLayoutItem('fatigue', 2, 0, 2, 2),
   createLayoutItem('form', 4, 0, 2, 2),
-  createLayoutItem('upload', 6, 0, 2, 2),
-  // Chart below metrics
-  createLayoutItem('chart', 0, 2, 8, 4),
+  createLayoutItem('sleep', 6, 0, 2, 2),
+  // Second row: upload + chart
+  createLayoutItem('upload', 0, 2, 2, 2),
+  createLayoutItem('chart', 2, 2, 6, 4),
   // Insights next to sessions
-  createLayoutItem('insights', 0, 6, 3, 4),
+  createLayoutItem('insights', 0, 4, 2, 4),
   // Sessions below chart
-  createLayoutItem('sessions', 3, 6, 5, 4),
+  createLayoutItem('sessions', 2, 6, 6, 4),
   // AI Coach on the right spanning full height
   createLayoutItem('ai-coach', 8, 0, 4, 10),
 ]
@@ -50,13 +51,14 @@ const mdLayout: LayoutItem[] = [
   createLayoutItem('fitness', 0, 0, 2, 2),
   createLayoutItem('fatigue', 2, 0, 2, 2),
   createLayoutItem('form', 4, 0, 2, 2),
-  createLayoutItem('upload', 6, 0, 2, 2),
-  // Chart below metrics
-  createLayoutItem('chart', 0, 2, 8, 4),
-  // Insights below chart
-  createLayoutItem('insights', 0, 6, 4, 4),
+  createLayoutItem('sleep', 6, 0, 2, 2),
+  // Second row: upload + chart
+  createLayoutItem('upload', 0, 2, 2, 2),
+  createLayoutItem('chart', 2, 2, 6, 4),
+  // Insights below upload
+  createLayoutItem('insights', 0, 4, 2, 4),
   // Sessions next to insights
-  createLayoutItem('sessions', 4, 6, 4, 4),
+  createLayoutItem('sessions', 2, 6, 6, 4),
   // AI Coach below
   createLayoutItem('ai-coach', 0, 10, 8, 6),
 ]
@@ -66,19 +68,20 @@ const mdLayout: LayoutItem[] = [
  * Stacked layout for mobile
  */
 const smLayout: LayoutItem[] = [
-  // Top row: 2x2 metrics
+  // Top rows: 2x2 metrics
   createLayoutItem('fitness', 0, 0, 2, 2),
   createLayoutItem('fatigue', 2, 0, 2, 2),
   createLayoutItem('form', 0, 2, 2, 2),
-  createLayoutItem('upload', 2, 2, 2, 2),
+  createLayoutItem('sleep', 2, 2, 2, 2),
+  createLayoutItem('upload', 0, 4, 2, 2),
   // Chart
-  createLayoutItem('chart', 0, 4, 4, 4),
+  createLayoutItem('chart', 0, 6, 4, 4),
   // Insights
-  createLayoutItem('insights', 0, 8, 4, 4),
+  createLayoutItem('insights', 0, 10, 4, 4),
   // AI Coach
-  createLayoutItem('ai-coach', 0, 12, 4, 6),
+  createLayoutItem('ai-coach', 0, 14, 4, 6),
   // Sessions
-  createLayoutItem('sessions', 0, 18, 4, 4),
+  createLayoutItem('sessions', 0, 20, 4, 4),
 ]
 
 /**
