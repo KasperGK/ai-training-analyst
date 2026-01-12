@@ -11,12 +11,14 @@ import { getFitnessHistory, getCurrentFitness } from '@/lib/db/fitness'
 import { searchWiki, searchSessions } from '@/lib/rag/vector-store'
 import { getMemories, upsertMemory, type MemoryType, type MemorySource } from '@/lib/personalization/athlete-memory'
 import { getPersonalizationSection } from '@/lib/personalization/prompt-builder'
+import { getInsights } from '@/lib/insights/insight-generator'
 import type { WorkoutSuggestion, Session } from '@/types'
 
 // Feature flags
 const USE_LOCAL_DATA = process.env.FEATURE_LOCAL_DATA === 'true'
 const ENABLE_RAG = process.env.FEATURE_RAG === 'true'
 const ENABLE_MEMORY = process.env.FEATURE_MEMORY === 'true'
+const ENABLE_INSIGHTS = process.env.FEATURE_INSIGHTS === 'true'
 
 export const maxDuration = 30
 
@@ -988,6 +990,219 @@ export async function POST(req: Request) {
             } catch (error) {
               console.error('[saveAthleteMemory] Error:', error)
               return { error: 'Failed to save memory' }
+            }
+          },
+        },
+      } : {}),
+
+      // Tool 9: Get recovery trends
+      getRecoveryTrends: {
+        description: 'Get sleep, HRV, and resting HR trends over a time period. Use when analyzing recovery patterns, correlating recovery with performance, or understanding how sleep affects training.',
+        inputSchema: z.object({
+          days: z.number().optional().describe('Number of days to analyze (default 30, max 90)'),
+        }),
+        execute: async ({ days = 30 }: { days?: number }) => {
+          const lookbackDays = Math.min(days, 90)
+
+          // Try local Supabase first
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const history = await getFitnessHistory(athleteId, lookbackDays)
+              if (history.length > 0) {
+                // Calculate averages
+                const sleepData = history.filter(h => h.sleep_seconds && h.sleep_seconds > 0)
+                const hrvData = history.filter(h => h.hrv && h.hrv > 0)
+                const hrData = history.filter(h => h.resting_hr && h.resting_hr > 0)
+
+                const avgSleep = sleepData.length > 0
+                  ? Math.round(sleepData.reduce((sum, h) => sum + (h.sleep_seconds || 0), 0) / sleepData.length / 3600 * 10) / 10
+                  : null
+                const avgHrv = hrvData.length > 0
+                  ? Math.round(hrvData.reduce((sum, h) => sum + (h.hrv || 0), 0) / hrvData.length)
+                  : null
+                const avgRestingHr = hrData.length > 0
+                  ? Math.round(hrData.reduce((sum, h) => sum + (h.resting_hr || 0), 0) / hrData.length)
+                  : null
+
+                // Get recent 7-day averages for comparison
+                const recent7 = history.slice(-7)
+                const recent7Sleep = recent7.filter(h => h.sleep_seconds && h.sleep_seconds > 0)
+                const recent7Hrv = recent7.filter(h => h.hrv && h.hrv > 0)
+                const recent7Hr = recent7.filter(h => h.resting_hr && h.resting_hr > 0)
+
+                const recent7AvgSleep = recent7Sleep.length > 0
+                  ? Math.round(recent7Sleep.reduce((sum, h) => sum + (h.sleep_seconds || 0), 0) / recent7Sleep.length / 3600 * 10) / 10
+                  : null
+                const recent7AvgHrv = recent7Hrv.length > 0
+                  ? Math.round(recent7Hrv.reduce((sum, h) => sum + (h.hrv || 0), 0) / recent7Hrv.length)
+                  : null
+                const recent7AvgHr = recent7Hr.length > 0
+                  ? Math.round(recent7Hr.reduce((sum, h) => sum + (h.resting_hr || 0), 0) / recent7Hr.length)
+                  : null
+
+                return {
+                  period: `${lookbackDays} days`,
+                  dataPoints: history.length,
+                  averages: {
+                    sleepHours: avgSleep,
+                    hrv: avgHrv,
+                    restingHr: avgRestingHr,
+                  },
+                  recent7DayAverages: {
+                    sleepHours: recent7AvgSleep,
+                    hrv: recent7AvgHrv,
+                    restingHr: recent7AvgHr,
+                  },
+                  trends: {
+                    sleepTrend: avgSleep && recent7AvgSleep
+                      ? (recent7AvgSleep > avgSleep ? 'improving' : recent7AvgSleep < avgSleep ? 'declining' : 'stable')
+                      : null,
+                    hrvTrend: avgHrv && recent7AvgHrv
+                      ? (recent7AvgHrv > avgHrv ? 'improving' : recent7AvgHrv < avgHrv ? 'declining' : 'stable')
+                      : null,
+                    restingHrTrend: avgRestingHr && recent7AvgHr
+                      ? (recent7AvgHr < avgRestingHr ? 'improving' : recent7AvgHr > avgRestingHr ? 'elevated' : 'stable')
+                      : null,
+                  },
+                  source: 'local',
+                }
+              }
+            } catch {
+              // Fall through to intervals.icu
+            }
+          }
+
+          // Fall back to intervals.icu
+          if (!intervalsConnected) {
+            return { error: 'intervals.icu not connected. Cannot fetch recovery data.' }
+          }
+
+          try {
+            const { oldest, newest } = getDateRange(lookbackDays)
+            const wellness = await intervalsClient.getWellness(oldest, newest)
+
+            if (wellness.length === 0) {
+              return { message: 'No recovery data found for this period' }
+            }
+
+            // Calculate averages
+            const sleepData = wellness.filter((w: { sleepSecs?: number }) => w.sleepSecs && w.sleepSecs > 0)
+            const hrvData = wellness.filter((w: { hrv?: number }) => w.hrv && w.hrv > 0)
+            const hrData = wellness.filter((w: { restingHR?: number }) => w.restingHR && w.restingHR > 0)
+
+            const avgSleep = sleepData.length > 0
+              ? Math.round(sleepData.reduce((sum: number, w: { sleepSecs?: number }) => sum + (w.sleepSecs || 0), 0) / sleepData.length / 3600 * 10) / 10
+              : null
+            const avgHrv = hrvData.length > 0
+              ? Math.round(hrvData.reduce((sum: number, w: { hrv?: number }) => sum + (w.hrv || 0), 0) / hrvData.length)
+              : null
+            const avgRestingHr = hrData.length > 0
+              ? Math.round(hrData.reduce((sum: number, w: { restingHR?: number }) => sum + (w.restingHR || 0), 0) / hrData.length)
+              : null
+
+            // Get recent 7-day averages
+            const recent7 = wellness.slice(-7)
+            const recent7Sleep = recent7.filter((w: { sleepSecs?: number }) => w.sleepSecs && w.sleepSecs > 0)
+            const recent7Hrv = recent7.filter((w: { hrv?: number }) => w.hrv && w.hrv > 0)
+            const recent7Hr = recent7.filter((w: { restingHR?: number }) => w.restingHR && w.restingHR > 0)
+
+            const recent7AvgSleep = recent7Sleep.length > 0
+              ? Math.round(recent7Sleep.reduce((sum: number, w: { sleepSecs?: number }) => sum + (w.sleepSecs || 0), 0) / recent7Sleep.length / 3600 * 10) / 10
+              : null
+            const recent7AvgHrv = recent7Hrv.length > 0
+              ? Math.round(recent7Hrv.reduce((sum: number, w: { hrv?: number }) => sum + (w.hrv || 0), 0) / recent7Hrv.length)
+              : null
+            const recent7AvgHr = recent7Hr.length > 0
+              ? Math.round(recent7Hr.reduce((sum: number, w: { restingHR?: number }) => sum + (w.restingHR || 0), 0) / recent7Hr.length)
+              : null
+
+            return {
+              period: `${lookbackDays} days`,
+              dataPoints: wellness.length,
+              averages: {
+                sleepHours: avgSleep,
+                hrv: avgHrv,
+                restingHr: avgRestingHr,
+              },
+              recent7DayAverages: {
+                sleepHours: recent7AvgSleep,
+                hrv: recent7AvgHrv,
+                restingHr: recent7AvgHr,
+              },
+              trends: {
+                sleepTrend: avgSleep && recent7AvgSleep
+                  ? (recent7AvgSleep > avgSleep ? 'improving' : recent7AvgSleep < avgSleep ? 'declining' : 'stable')
+                  : null,
+                hrvTrend: avgHrv && recent7AvgHrv
+                  ? (recent7AvgHrv > avgHrv ? 'improving' : recent7AvgHrv < avgHrv ? 'declining' : 'stable')
+                  : null,
+                restingHrTrend: avgRestingHr && recent7AvgHr
+                  ? (recent7AvgHr < avgRestingHr ? 'improving' : recent7AvgHr > avgRestingHr ? 'elevated' : 'stable')
+                  : null,
+              },
+              source: 'intervals_icu',
+            }
+          } catch (error) {
+            return { error: `Failed to fetch recovery trends: ${error instanceof Error ? error.message : 'Unknown error'}` }
+          }
+        },
+      },
+
+      // Tool 10: Get active insights (requires ENABLE_INSIGHTS)
+      ...(ENABLE_INSIGHTS ? {
+        getActiveInsights: {
+          description: 'Get active insights and alerts detected from training data. Call this at the START of conversations to check for important patterns that need attention. Lead with urgent/high priority insights.',
+          inputSchema: z.object({
+            includeRead: z.boolean().optional().describe('Include already-read insights (default: false)'),
+            limit: z.number().optional().describe('Maximum insights to return (default: 10)'),
+          }),
+          execute: async ({ includeRead = false, limit = 10 }: { includeRead?: boolean; limit?: number }) => {
+            if (!athleteId) {
+              return { error: 'No athlete ID available' }
+            }
+
+            try {
+              const insights = await getInsights(athleteId, {
+                limit,
+                includeRead,
+              })
+
+              if (insights.length === 0) {
+                return {
+                  message: 'No active insights. Training appears to be progressing normally.',
+                  insights: [],
+                }
+              }
+
+              // Group by priority
+              const urgent = insights.filter(i => i.priority === 'urgent')
+              const high = insights.filter(i => i.priority === 'high')
+              const medium = insights.filter(i => i.priority === 'medium')
+              const low = insights.filter(i => i.priority === 'low')
+
+              return {
+                totalCount: insights.length,
+                byPriority: {
+                  urgent: urgent.length,
+                  high: high.length,
+                  medium: medium.length,
+                  low: low.length,
+                },
+                insights: insights.map(i => ({
+                  id: i.id,
+                  type: i.insight_type,
+                  priority: i.priority,
+                  title: i.title,
+                  content: i.content,
+                  createdAt: i.created_at,
+                })),
+                tip: urgent.length > 0 || high.length > 0
+                  ? 'IMPORTANT: Lead your response with the urgent/high priority insights. These need immediate attention.'
+                  : 'Mention relevant insights naturally in your response.',
+              }
+            } catch (error) {
+              console.error('[getActiveInsights] Error:', error)
+              return { error: 'Failed to retrieve insights' }
             }
           },
         },

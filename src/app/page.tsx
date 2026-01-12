@@ -67,13 +67,36 @@ export default function Dashboard() {
 
   const athleteContextString = useMemo(() => JSON.stringify(
     {
-      athlete: athlete || {
-        ftp: 250,
-        weight_kg: 75,
-        weekly_hours: 8,
+      athlete: {
+        ftp: athlete?.ftp || 250,
+        max_hr: athlete?.max_hr || null,
+        lthr: athlete?.lthr || null,
+        weight_kg: athlete?.weight_kg || 75,
+        name: athlete?.name || null,
       },
-      currentFitness: displayFitness,
-      recentSessions: displaySessions,
+      currentFitness: {
+        ctl: displayFitness?.ctl ?? null,
+        atl: displayFitness?.atl ?? null,
+        tsb: displayFitness?.tsb ?? null,
+        ctl_trend: displayFitness?.ctl_trend ?? null,
+      },
+      recovery: {
+        sleep_seconds: displayFitness?.sleep_seconds ?? null,
+        sleep_score: displayFitness?.sleep_score ?? null,
+        hrv: displayFitness?.hrv ?? null,
+        resting_hr: displayFitness?.resting_hr ?? null,
+      },
+      recentSessions: displaySessions.slice(0, 10).map(s => ({
+        date: s.date,
+        sport: s.sport,
+        duration_seconds: s.duration_seconds,
+        tss: s.tss,
+        avg_power: s.avg_power,
+        normalized_power: s.normalized_power,
+        intensity_factor: s.intensity_factor,
+        avg_hr: s.avg_hr,
+        workout_type: s.workout_type,
+      })),
     },
     null,
     2
