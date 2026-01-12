@@ -347,11 +347,34 @@ export default function RecoveryPage() {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
+                {/* Title left */}
                 <div>
                   <CardTitle>{chartTitle}</CardTitle>
                   <CardDescription>{chartDescription}</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                {/* Navigation + time selector right */}
+                <div className="flex items-center gap-3">
+                  {/* Carousel navigation */}
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevChart}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex gap-1">
+                      {CHART_VIEWS.map((view) => (
+                        <button
+                          key={view}
+                          onClick={() => setChartView(view)}
+                          className={`h-1.5 rounded-full transition-all ${
+                            chartView === view ? 'w-5 bg-primary' : 'w-1.5 bg-muted-foreground/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextChart}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {/* Time selector */}
                   <Select value={timeRange} onValueChange={setTimeRange}>
                     <SelectTrigger className="w-[110px] h-8 text-xs">
                       <SelectValue />
@@ -368,29 +391,6 @@ export default function RecoveryPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {/* Carousel navigation */}
-              <div className="flex items-center gap-2 mb-4">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevChart}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex gap-1.5">
-                  {CHART_VIEWS.map((view) => (
-                    <button
-                      key={view}
-                      onClick={() => setChartView(view)}
-                      className={`h-1.5 rounded-full transition-all ${
-                        chartView === view ? 'w-6 bg-primary' : 'w-1.5 bg-muted-foreground/30'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextChart}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-muted-foreground ml-2">
-                  {chartView === 'sleep' ? 'Sleep' : 'Recovery'} · {CHART_VIEWS.indexOf(chartView) + 1}/{CHART_VIEWS.length}
-                </span>
-              </div>
 
               {loading ? (
                 <Skeleton className="h-[280px] w-full" />

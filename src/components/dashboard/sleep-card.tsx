@@ -79,16 +79,16 @@ export function SleepCard({ sleepSeconds, sleepScore, className }: SleepCardProp
         <Moon className="h-4 w-4 text-muted-foreground/50" />
       </div>
 
-      {/* Centered radial chart */}
-      <div className="flex-1 flex items-center justify-center">
-        <div className="relative">
+      {/* Chart and footer in center */}
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="relative" style={{ width: 160, height: 160 }}>
           <RadialBarChart
-            width={150}
-            height={150}
-            cx={75}
-            cy={75}
-            innerRadius={55}
-            outerRadius={68}
+            width={160}
+            height={160}
+            cx={80}
+            cy={80}
+            innerRadius={62}
+            outerRadius={72}
             barSize={10}
             data={hasScore ? chartData : [{ name: 'empty', value: 0, fill: 'transparent' }]}
             startAngle={90}
@@ -103,7 +103,7 @@ export function SleepCard({ sleepSeconds, sleepScore, className }: SleepCardProp
             <RadialBar
               background={{ fill: '#f3f4f6' }}
               dataKey="value"
-              cornerRadius={8}
+              cornerRadius={10}
               angleAxisId={0}
             />
           </RadialBarChart>
@@ -112,21 +112,20 @@ export function SleepCard({ sleepSeconds, sleepScore, className }: SleepCardProp
             <span className="text-3xl font-bold tabular-nums tracking-tight">
               {hasScore ? sleepScore : '—'}
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {getSleepDescription(sleepScore)}
             </span>
           </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="text-center shrink-0 mt-2">
-        <p className="text-sm font-medium tabular-nums">
-          {hasSleepData ? formatSleepDuration(sleepSeconds) : 'No sleep data'}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Last night
-        </p>
+        {/* Footer inside flex center */}
+        <div className="text-center mt-2">
+          <p className="text-sm font-medium tabular-nums">
+            {hasSleepData ? formatSleepDuration(sleepSeconds) : 'No sleep data'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Last night
+          </p>
+        </div>
       </div>
     </Card>
   )
