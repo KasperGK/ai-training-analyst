@@ -139,7 +139,7 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
   return (
     <Card className="group h-full flex flex-col overflow-hidden relative">
       <DragHandle />
-      <CardHeader>
+      <CardHeader className="flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Recent Sessions</CardTitle>
@@ -156,7 +156,7 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="px-4">
+      <CardContent className="flex-1 overflow-y-auto min-h-0 px-4">
         <Table>
           <TableHeader>
             <TableRow>

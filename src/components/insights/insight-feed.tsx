@@ -155,16 +155,16 @@ export function InsightFeed({
 
   if (loading) {
     return (
-      <Card className={cn('animate-pulse', className)}>
+      <Card className={cn('h-full flex flex-col overflow-hidden animate-pulse', className)}>
         {showHeader && (
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <Bell className="h-4 w-4" />
               Insights
             </CardTitle>
           </CardHeader>
         )}
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto min-h-0">
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
               <div key={i} className="h-16 bg-muted rounded" />
@@ -176,9 +176,9 @@ export function InsightFeed({
   }
 
   return (
-    <Card className={className}>
+    <Card className={cn('h-full flex flex-col overflow-hidden', className)}>
       {showHeader && (
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
               <Bell className="h-4 w-4" />
@@ -202,7 +202,7 @@ export function InsightFeed({
         </CardHeader>
       )}
 
-      <CardContent className={cn(showHeader ? '' : 'pt-4')}>
+      <CardContent className={cn('flex-1 overflow-y-auto min-h-0', showHeader ? '' : 'pt-4')}>
         {error && (
           <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
