@@ -6,6 +6,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding } from './embeddings'
+import { getArticleBySlug, type ConfidenceLevel } from '@/lib/wiki/articles'
 
 export interface WikiChunk {
   id: string
@@ -13,6 +14,11 @@ export interface WikiChunk {
   title: string
   content: string
   similarity?: number
+  // Governance metadata (enriched from article)
+  confidenceLevel?: ConfidenceLevel
+  consensusNote?: string
+  sourceCount?: number
+  lastVerified?: string
 }
 
 export interface SessionEmbedding {
@@ -91,7 +97,22 @@ export async function searchWiki(
     return []
   }
 
-  return data as WikiChunk[]
+  // Enrich chunks with governance metadata from article definitions
+  const enrichedChunks = (data as WikiChunk[]).map((chunk) => {
+    const article = getArticleBySlug(chunk.article_slug)
+    if (article) {
+      return {
+        ...chunk,
+        confidenceLevel: article.confidenceLevel,
+        consensusNote: article.consensusNote,
+        sourceCount: article.sources.length,
+        lastVerified: article.lastVerified,
+      }
+    }
+    return chunk
+  })
+
+  return enrichedChunks
 }
 
 /**

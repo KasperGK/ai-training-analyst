@@ -1,18 +1,22 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { getArticleBySlug, categories } from '@/lib/wiki/articles'
+import { ConfidenceBadge } from '@/components/ui/confidence-badge'
+import { FlagArticleDialog } from './flag-dialog'
 import {
   ArrowLeft,
   Clock,
   ExternalLink,
   CheckCircle2,
   BookOpen,
+  Flag,
+  AlertTriangle,
 } from 'lucide-react'
 
 const categoryColors: Record<string, string> = {
@@ -27,6 +31,7 @@ export default function ArticlePage() {
   const params = useParams()
   const slug = params.slug as string
   const article = getArticleBySlug(slug)
+  const [showFlagDialog, setShowFlagDialog] = useState(false)
 
   if (!article) {
     return (
@@ -197,6 +202,7 @@ export default function ArticlePage() {
               <Badge variant="secondary" className={categoryColors[article.category]}>
                 {categories[article.category].label}
               </Badge>
+              <ConfidenceBadge level={article.confidenceLevel} />
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {article.readingTime} min read
@@ -206,12 +212,39 @@ export default function ArticlePage() {
               {article.title}
             </h1>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setShowFlagDialog(true)}
+          >
+            <Flag className="h-4 w-4 mr-1" />
+            Report
+          </Button>
         </div>
       </header>
+
+      {/* Flag Dialog */}
+      <FlagArticleDialog
+        open={showFlagDialog}
+        onOpenChange={setShowFlagDialog}
+        articleSlug={article.slug}
+        articleTitle={article.title}
+      />
 
       {/* Main Content */}
       <main className="px-6 py-6">
         <div className="mx-auto max-w-3xl space-y-6">
+          {/* Consensus Note (if present) */}
+          {article.consensusNote && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-4">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Note:</strong> {article.consensusNote}
+              </div>
+            </div>
+          )}
+
           {/* Article Content */}
           <Card>
             <CardContent className="pt-6 prose prose-sm max-w-none">
@@ -242,29 +275,38 @@ export default function ArticlePage() {
           {/* Sources */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Sources</CardTitle>
+              <CardTitle className="text-base">Sources ({article.sources.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 {article.sources.map((source, i) => (
-                  <li key={i}>
+                  <li key={i} className="text-sm">
                     <a
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      className="flex items-start gap-2 text-primary hover:underline"
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      {source.title}
-                      {source.author && (
-                        <span className="text-muted-foreground">
-                          — {source.author}
-                        </span>
-                      )}
+                      <ExternalLink className="h-3 w-3 mt-1 flex-shrink-0" />
+                      <span>
+                        {source.title}
+                        {source.author && (
+                          <span className="text-muted-foreground"> — {source.author}</span>
+                        )}
+                        {source.year && (
+                          <span className="text-muted-foreground"> ({source.year})</span>
+                        )}
+                      </span>
                     </a>
+                    <Badge variant="outline" className="ml-5 mt-1 text-xs">
+                      {source.type.replace('_', ' ')}
+                    </Badge>
                   </li>
                 ))}
               </ul>
+              <div className="mt-4 text-xs text-muted-foreground">
+                Last verified: {new Date(article.lastVerified).toLocaleDateString()}
+              </div>
             </CardContent>
           </Card>
 

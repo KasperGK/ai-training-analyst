@@ -1,10 +1,22 @@
 // Wiki article types and content
 // All sources must be verified and from reputable sources
 
+export type ConfidenceLevel = 'established' | 'strong_evidence' | 'emerging' | 'debated'
+export type ArticleStatus = 'active' | 'under_review' | 'deprecated'
+export type SourceType = 'peer_reviewed' | 'textbook' | 'industry' | 'meta_analysis'
+
 export interface WikiSource {
   title: string
   url: string
   author?: string
+  type: SourceType
+  year?: number
+}
+
+export interface KnownDebate {
+  topic: string
+  positions: string[]
+  recommendation: string
 }
 
 export interface WikiArticle {
@@ -16,6 +28,14 @@ export interface WikiArticle {
   content: string // HTML or markdown-like content
   keyTakeaways: string[]
   sources: WikiSource[]
+
+  // Governance fields
+  confidenceLevel: ConfidenceLevel
+  consensusNote?: string
+  status: ArticleStatus
+  lastVerified: string // ISO date
+  version: number
+  knownDebates?: KnownDebate[]
 }
 
 export const categories = {
@@ -79,13 +99,21 @@ Test your FTP every 4-8 weeks, or after a significant training block. Your FTP w
         title: 'Training and Racing with a Power Meter',
         url: 'https://www.trainingpeaks.com/learn/articles/what-is-threshold-power/',
         author: 'Dr. Andrew Coggan',
+        type: 'textbook',
+        year: 2019,
       },
       {
         title: 'What is FTP in Cycling?',
         url: 'https://www.trainerroad.com/blog/what-is-ftp-in-cycling/',
         author: 'TrainerRoad',
+        type: 'industry',
+        year: 2023,
       },
     ],
+    confidenceLevel: 'established',
+    status: 'active',
+    lastVerified: '2025-01-13',
+    version: 1,
   },
   {
     slug: 'tss-training-stress-score',
@@ -145,13 +173,21 @@ TSS doesn't tell you:
         title: 'Training Stress Scores Explained',
         url: 'https://help.trainingpeaks.com/hc/en-us/articles/204071944-Training-Stress-Scores-TSS-Explained',
         author: 'TrainingPeaks',
+        type: 'industry',
+        year: 2020,
       },
       {
         title: 'What is TSS and How to Use It',
         url: 'https://www.trainerroad.com/blog/tss-what-it-is-what-its-good-for-and-why-it-can-be-misleading/',
         author: 'TrainerRoad',
+        type: 'industry',
+        year: 2022,
       },
     ],
+    confidenceLevel: 'established',
+    status: 'active',
+    lastVerified: '2025-01-13',
+    version: 1,
   },
   {
     slug: 'ctl-atl-tsb-explained',
@@ -226,13 +262,21 @@ For optimal race performance:
         title: 'The Science of the Performance Manager',
         url: 'https://www.trainingpeaks.com/learn/articles/the-science-of-the-performance-manager/',
         author: 'TrainingPeaks',
+        type: 'industry',
+        year: 2019,
       },
       {
         title: 'A Coach\'s Guide to ATL, CTL & TSB',
         url: 'https://www.trainingpeaks.com/coach-blog/a-coachs-guide-to-atl-ctl-tsb/',
         author: 'TrainingPeaks',
+        type: 'industry',
+        year: 2021,
       },
     ],
+    confidenceLevel: 'established',
+    status: 'active',
+    lastVerified: '2025-01-13',
+    version: 1,
   },
   {
     slug: 'normalized-power',
@@ -289,13 +333,21 @@ The 4th power weighting means hard efforts count disproportionately more than ea
         title: 'Normalized Power, Intensity Factor and Training Stress Score',
         url: 'https://www.trainingpeaks.com/learn/articles/normalized-power-intensity-factor-training-stress/',
         author: 'Dr. Andrew Coggan',
+        type: 'textbook',
+        year: 2019,
       },
       {
         title: 'What is Normalized Power',
         url: 'https://www.trainerroad.com/blog/what-is-normalized-power/',
         author: 'TrainerRoad',
+        type: 'industry',
+        year: 2022,
       },
     ],
+    confidenceLevel: 'established',
+    status: 'active',
+    lastVerified: '2025-01-13',
+    version: 1,
   },
   {
     slug: 'tapering-for-events',
@@ -362,13 +414,22 @@ Use the PMC chart to track:
         title: 'The Art and Science of Tapering',
         url: 'https://www.trainingpeaks.com/learn/articles/the-art-and-science-of-tapering/',
         author: 'TrainingPeaks',
+        type: 'industry',
+        year: 2020,
       },
       {
         title: 'How to Taper for Peak Performance',
         url: 'https://trainright.com/how-to-taper-for-peak-performance/',
         author: 'CTS',
+        type: 'industry',
+        year: 2021,
       },
     ],
+    confidenceLevel: 'strong_evidence',
+    consensusNote: 'Taper duration recommendations vary; some coaches prefer shorter tapers',
+    status: 'active',
+    lastVerified: '2025-01-13',
+    version: 1,
   },
   {
     slug: 'reading-pmc-chart',
@@ -444,13 +505,21 @@ The Performance Management Chart (PMC) visualizes three key metrics over time:
         title: 'Performance Management Chart',
         url: 'https://support.myprocoach.net/hc/en-us/articles/360040589772-Performance-Management-Chart',
         author: 'MyProCoach',
+        type: 'industry',
+        year: 2022,
       },
       {
         title: 'Understanding Your PMC',
         url: 'https://www.trainingpeaks.com/learn/articles/the-science-of-the-performance-manager/',
         author: 'TrainingPeaks',
+        type: 'industry',
+        year: 2019,
       },
     ],
+    confidenceLevel: 'established',
+    status: 'active',
+    lastVerified: '2025-01-13',
+    version: 1,
   },
 ]
 

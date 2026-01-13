@@ -3,9 +3,10 @@
 This file provides guidance to Claude Code when working with this repository.
 
 ## Session Start
-1. Read `~/.claude/plans/ancient-churning-snowglobe.md` for current architecture plan
-2. Check "Current Phase" section for what to work on
-3. Update plan when phases complete
+1. Read `docs/LEARNINGS.md` for tech gotchas and patterns
+2. Read `~/.claude/plans/calm-sleeping-llama.md` for the 52→85+ masterplan
+3. Check current phase below and work on next unchecked item
+4. Update this file when phases complete
 
 ## Project Overview
 AI-powered training analyst for cyclists. Provides personalized coaching insights based on training data from intervals.icu.
@@ -14,7 +15,7 @@ AI-powered training analyst for cyclists. Provides personalized coaching insight
 - Next.js 16 (App Router, Turbopack)
 - AI SDK 6 (`ai@6.0.6`) - uses `inputSchema` not `parameters`
 - Anthropic Claude (claude-sonnet-4-20250514)
-- Supabase (PostgreSQL + Auth)
+- Supabase (PostgreSQL + Auth + pgvector)
 - shadcn/ui, Tailwind CSS, Recharts
 
 ## Commands
@@ -22,6 +23,39 @@ AI-powered training analyst for cyclists. Provides personalized coaching insight
 npm run dev    # Start dev server (localhost:3000)
 npm run build  # Build for production
 ```
+
+## Current Focus: Masterplan 52 → 85+
+
+### Phase 0: Knowledge Governance ✅ Complete
+- [x] WikiArticle schema with confidence levels
+- [x] Database migration (009_knowledge_governance.sql)
+- [x] RAG returns governance metadata
+- [x] Flag submission API + DB helpers
+- [x] AI transparency rules in system prompt
+- [x] ConfidenceBadge + SourceDetails components
+- [x] Flag button on wiki article pages
+
+### Phase 1: Knowledge Content (Next)
+- [ ] Add 10 new wiki articles with governance fields
+- [ ] Expand workout templates (5 → 15)
+- [ ] Wire outcome tracking tool
+
+### Phase 2: Analysis Tools
+- [ ] Power curve analysis tool
+- [ ] Efficiency trends tool
+- [ ] Training load tool (ACWR, monotony)
+
+### Phase 3: Smart Workout Library
+- [ ] 30+ workout templates
+- [ ] Intelligent selection logic
+
+### Phase 4: Plan Generation
+- [ ] generateTrainingPlan tool
+- [ ] Plan templates (base build, FTP build, taper)
+
+### Phase 5: Outcome Learning
+- [ ] Outcome pattern analyzer
+- [ ] Pattern-aware recommendations
 
 ## Architecture
 
@@ -31,34 +65,29 @@ npm run build  # Build for production
 3. Fallback to live intervals.icu if local data missing
 
 ### Key Files
-- `src/app/api/chat/route.ts` - AI endpoint with 4 tools
-- `src/app/api/sync/route.ts` - Sync trigger/status API
-- `src/lib/sync/intervals-sync.ts` - Core sync logic
-- `src/hooks/use-sync.ts` - Auto-sync hook
-- `src/hooks/use-intervals-data.ts` - Live data hook
+- `src/app/api/chat/route.ts` - AI endpoint with tools
+- `src/lib/wiki/articles.ts` - Wiki articles with governance fields
+- `src/lib/rag/vector-store.ts` - RAG search with metadata
+- `src/lib/ai/system-prompt.ts` - AI personality + transparency rules
 - `src/components/dashboard/ai-coach-panel.tsx` - Chat UI
-- `src/app/settings/page.tsx` - Settings with sync UI
 
 ### AI Tools (in route.ts)
 - `getDetailedSession` - Fetch workout details
 - `queryHistoricalTrends` - Analyze training patterns
 - `getAthleteGoals` - Get goals, events, periodization
 - `suggestWorkout` - Generate workout recommendations
+- `searchKnowledge` - RAG search with confidence metadata
+- `getAthleteMemory` / `saveAthleteMemory` - Personalization
 
 ### Feature Flags
 ```bash
-FEATURE_LOCAL_DATA=true   # Query Supabase first (Phase 1)
-FEATURE_RAG=true          # Enable RAG search (Phase 3)
-FEATURE_MEMORY=true       # Enable athlete memory (Phase 4)
-FEATURE_INSIGHTS=true     # Enable proactive insights (Phase 5)
+FEATURE_LOCAL_DATA=true   # Query Supabase first
+FEATURE_RAG=true          # Enable RAG search
+FEATURE_MEMORY=true       # Enable athlete memory
+FEATURE_INSIGHTS=true     # Enable proactive insights
 ```
 
-## Current Architecture Phase
-See `~/.claude/plans/ancient-churning-snowglobe.md` for full plan.
-- Phase 1: Data Sync ✅ Complete
-- Phase 2: Chat Persistence ✅ Complete
-- Phase 3: RAG/Knowledge System ✅ Complete
-- Phase 4: Personalization Layer ✅ Complete
-- Phase 5: Proactive Insights ✅ Complete
+## Migrations
+Latest: `009_knowledge_governance.sql` (knowledge_flags, knowledge_versions)
 
-**All phases complete!** 🎉
+Run pending: `npx supabase migration up`

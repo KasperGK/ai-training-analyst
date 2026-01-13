@@ -1,0 +1,184 @@
+# Project Learnings
+
+Accumulated knowledge for AI Training Analyst development. Read this when starting a new session.
+
+---
+
+## Tech Stack Gotchas
+
+### AI SDK 6
+- Uses `inputSchema` not `parameters` for tool definitions
+- Messages use `parts` array, not `content` string
+- `convertToModelMessages()` is async - must await
+- Tool states: `"done"` or `"output-available"`, not `"result"`
+
+### Next.js 16 + Turbopack
+- Dev server may show "middleware deprecated" warning - ignore (proxy.ts works)
+- Build errors are more descriptive than dev errors - run `npm run build` to debug
+- Turbopack caches aggressively - restart dev server after major changes
+
+### Supabase
+- Free tier projects auto-pause after 7 days of inactivity
+- RLS policies use `auth.uid()` for row-level security
+- pgvector requires `vector` extension enabled
+- Migrations go in `supabase/migrations/` with sequential numbering (001_, 002_, etc.)
+
+### shadcn/ui
+- Add components with `npx shadcn@latest add <component>`
+- Missing components will cause build errors (not dev errors)
+- Components go in `src/components/ui/`
+
+---
+
+## Architecture Patterns
+
+### API Routes
+```typescript
+// Standard pattern for authenticated endpoints
+const supabase = await createClient()
+if (!supabase) {
+  return NextResponse.json({ error: 'Database not available' }, { status: 500 })
+}
+
+const { data: { user }, error: authError } = await supabase.auth.getUser()
+if (authError || !user) {
+  return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+}
+```
+
+### DB Helper Pattern
+```typescript
+// src/lib/db/<resource>.ts
+// Transform DB rows to domain models
+function rowToModel(row: DbRow): Model { ... }
+
+// Export typed functions
+export async function getResource(id: string): Promise<Model | null> { ... }
+export async function createResource(data: CreateInput): Promise<Model | null> { ... }
+```
+
+### RAG Enrichment Pattern
+```typescript
+// Enrich search results with metadata from static definitions
+const enrichedResults = dbResults.map(result => {
+  const metadata = getMetadataBySlug(result.slug)
+  return { ...result, ...metadata }
+})
+```
+
+---
+
+## Knowledge Governance System (Phase 0)
+
+### Confidence Levels
+- `established` - Scientific consensus (green badge)
+- `strong_evidence` - Well-supported by research (blue badge)
+- `emerging` - New research, not yet consensus (amber badge)
+- `debated` - Active scientific disagreement (orange badge)
+
+### Source Types
+- `peer_reviewed` - Academic journals
+- `textbook` - Published books
+- `industry` - TrainingPeaks, TrainerRoad, etc.
+- `meta_analysis` - Systematic reviews
+
+### AI Transparency Rules
+When citing knowledge, AI should:
+- State `established` facts directly
+- Prefix `strong_evidence` with "Research strongly supports..."
+- Note `emerging` as "not yet consensus"
+- Explain both sides for `debated` topics
+- Mention `consensusNote` if present
+
+### User Flagging
+- Flag types: `inaccurate`, `outdated`, `misleading`, `needs_source`
+- Users can only have one pending flag per article
+- Flags stored in `knowledge_flags` table with RLS
+
+---
+
+## File Organization
+
+### Key Directories
+```
+src/
+├── app/api/          # API routes
+├── components/
+│   ├── ui/           # shadcn components + custom UI
+│   ├── chat/         # Chat-specific components
+│   └── dashboard/    # Dashboard widgets
+├── lib/
+│   ├── ai/           # System prompts, AI utilities
+│   ├── db/           # Database helpers
+│   ├── rag/          # RAG/vector search
+│   └── wiki/         # Wiki articles and types
+└── hooks/            # React hooks
+```
+
+### Naming Conventions
+- Types: PascalCase (`WikiArticle`, `ConfidenceLevel`)
+- DB helpers: `src/lib/db/<resource>.ts`
+- API routes: `src/app/api/<resource>/route.ts`
+- Components: PascalCase files (`ConfidenceBadge.tsx`)
+
+---
+
+## Migrations
+
+### Current State
+- 001-008: Core schema, RLS, sync, RAG, personalization, insights, sleep
+- 009: Knowledge governance (flags, versions)
+
+### Migration Pattern
+```sql
+-- Create table with proper constraints
+CREATE TABLE public.tablename (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- foreign keys with CASCADE
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- CHECK constraints for enums
+  status TEXT CHECK (status IN ('a', 'b', 'c')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes (including partial)
+CREATE INDEX idx_name ON tablename(column) WHERE condition;
+
+-- RLS
+ALTER TABLE tablename ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "policy_name" ON tablename FOR SELECT USING (auth.uid() = user_id);
+```
+
+---
+
+## Current Development Phase
+
+### Masterplan: 52 → 85+ Score
+See `~/.claude/plans/calm-sleeping-llama.md`
+
+**Completed:**
+- [x] Phase 0: Knowledge Governance Foundation
+
+**Next Up:**
+- [ ] Phase 1: Knowledge Content (10 new wiki articles)
+- [ ] Phase 2: Analysis Tools (power curve, efficiency, training load)
+- [ ] Phase 3: Smart Workout Library
+- [ ] Phase 4: Plan Generation
+- [ ] Phase 5: Outcome Learning
+
+---
+
+## Common Issues & Solutions
+
+### "fetch failed" in dev
+- Usually means Supabase project is paused or unreachable
+- Check: `curl https://YOUR_PROJECT.supabase.co`
+- Solution: Unpause project in Supabase dashboard
+
+### Build fails but dev works
+- shadcn component missing - add with `npx shadcn@latest add <component>`
+- Type errors only caught at build time
+
+### RLS blocking queries
+- Check `auth.uid()` matches expected column
+- Use Supabase dashboard SQL editor to test queries directly
