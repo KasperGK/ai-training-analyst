@@ -4,9 +4,8 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Session Start
 1. Read `docs/LEARNINGS.md` for tech gotchas and patterns
-2. Read `~/.claude/plans/calm-sleeping-llama.md` for the 52→85+ masterplan
-3. Check current phase below and work on next unchecked item
-4. Update this file when phases complete
+2. Check current phase below and work on next unchecked item
+3. Update this file when phases complete
 
 ## Project Overview
 AI-powered training analyst for cyclists. Provides personalized coaching insights based on training data from intervals.icu.
@@ -60,6 +59,25 @@ npm run build  # Build for production
 - [x] Pattern-aware plan generation (generator.ts updated)
 - [x] analyzePatterns AI tool
 
+### Phase 6: Plan Persistence ✅ Complete (Masterplan Part 2)
+- [x] Plans now persist to `training_plans` and `plan_days` tables
+- [x] `getTrainingPlan` tool - retrieve active plan with schedule
+- [x] `updatePlanDay` tool - mark workouts complete, track progress
+
+### Phase 7: Pattern → Prescription Wiring ✅ Complete
+- [x] `suggestWorkout` now fetches and uses athlete patterns
+- [x] Day-of-week pattern matching active
+- [x] TSB optimal zone scoring active
+
+### Phase 8: Insights Auto-Generation ✅ Complete
+- [x] Insights auto-generate after data sync
+- [x] Active insights injected into chat system prompt
+- [x] No need to explicitly call getActiveInsights at conversation start
+
+### Phase 9: Feature Flag Cleanup ✅ Complete
+- [x] All features now default to enabled
+- [x] Set `FEATURE_X=false` to disable (instead of `=true` to enable)
+
 ## Architecture
 
 ### Data Flow
@@ -78,22 +96,26 @@ npm run build  # Build for production
 - `getDetailedSession` - Fetch workout details
 - `queryHistoricalTrends` - Analyze training patterns
 - `getAthleteGoals` - Get goals, events, periodization
-- `suggestWorkout` - Generate workout recommendations (34 templates)
+- `suggestWorkout` - Generate workout recommendations (39 templates, pattern-aware)
 - `searchKnowledge` - RAG search with confidence metadata
 - `getAthleteMemory` / `saveAthleteMemory` - Personalization
+- `getActiveInsights` - Get proactive training insights
 - `analyzePowerCurve` - Power profile and rider type analysis
 - `analyzeEfficiency` - Aerobic efficiency (EF, decoupling)
 - `analyzeTrainingLoad` - ACWR, monotony, strain analysis
-- `generateTrainingPlan` - Multi-week structured plans (now pattern-aware)
+- `generateTrainingPlan` - Multi-week structured plans (persisted to DB)
+- `getTrainingPlan` - Retrieve active plan with schedule and progress
+- `updatePlanDay` - Mark workouts complete, track compliance
 - `logWorkoutOutcome` - Record workout outcomes for learning
 - `analyzePatterns` - Discover and save training patterns from outcome history
 
 ### Feature Flags
+All features are enabled by default. Set to `false` to disable:
 ```bash
-FEATURE_LOCAL_DATA=true   # Query Supabase first
-FEATURE_RAG=true          # Enable RAG search
-FEATURE_MEMORY=true       # Enable athlete memory
-FEATURE_INSIGHTS=true     # Enable proactive insights
+FEATURE_LOCAL_DATA=false  # Disable local Supabase queries
+FEATURE_RAG=false         # Disable RAG search
+FEATURE_MEMORY=false      # Disable athlete memory
+FEATURE_INSIGHTS=false    # Disable proactive insights
 ```
 
 ## Naming Conventions

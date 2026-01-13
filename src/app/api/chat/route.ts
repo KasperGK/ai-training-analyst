@@ -18,14 +18,16 @@ import { prescribeWorkout, suggestWorkoutType, getBestWorkout, type AthleteConte
 import { workoutLibrary, getWorkoutById, type WorkoutCategory } from '@/lib/workouts/library'
 import { generateTrainingPlan, getAvailablePlans } from '@/lib/plans/generator'
 import { planTemplates, getPlanTemplateSummary, type PlanGoal } from '@/lib/plans/templates'
+import { createTrainingPlan, createPlanDays, getActivePlan as getActivePlanFromDB, updateTrainingPlan, getPlanDays, calculatePlanProgress } from '@/lib/db/training-plans'
 import { analyzeAthletePatterns, summarizePatterns } from '@/lib/learning'
 import type { WorkoutSuggestion, Session } from '@/types'
 
-// Feature flags
-const USE_LOCAL_DATA = process.env.FEATURE_LOCAL_DATA === 'true'
-const ENABLE_RAG = process.env.FEATURE_RAG === 'true'
-const ENABLE_MEMORY = process.env.FEATURE_MEMORY === 'true'
-const ENABLE_INSIGHTS = process.env.FEATURE_INSIGHTS === 'true'
+// Feature flags - default to enabled, can be disabled via env vars
+// Set FEATURE_X=false to disable a feature
+const USE_LOCAL_DATA = process.env.FEATURE_LOCAL_DATA !== 'false'
+const ENABLE_RAG = process.env.FEATURE_RAG !== 'false'
+const ENABLE_MEMORY = process.env.FEATURE_MEMORY !== 'false'
+const ENABLE_INSIGHTS = process.env.FEATURE_INSIGHTS !== 'false'
 
 export const maxDuration = 30
 
@@ -94,6 +96,35 @@ export async function POST(req: Request) {
       systemPrompt = `${systemPrompt}\n\n${personalization}\n\nUse the getAthleteMemory and saveAthleteMemory tools to retrieve and store information about this athlete.`
     }
   }
+
+  // === PHASE 8.2: Inject active insights at conversation start ===
+  if (ENABLE_INSIGHTS && athleteId) {
+    try {
+      const activeInsights = await getInsights(athleteId, { limit: 5, includeRead: false })
+      if (activeInsights.length > 0) {
+        // Format insights for system prompt
+        const insightLines = activeInsights.map(insight => {
+          const priorityEmoji = insight.priority === 'urgent' ? '🚨' :
+            insight.priority === 'high' ? '⚠️' :
+            insight.priority === 'medium' ? '📊' : 'ℹ️'
+          return `${priorityEmoji} [${insight.priority.toUpperCase()}] ${insight.title}: ${insight.content}`
+        })
+
+        const insightsSection = `## Active Insights (Pre-fetched)
+The following insights are based on the athlete's recent training data. Lead with urgent/high priority insights when starting conversations:
+
+${insightLines.join('\n')}
+
+Note: These insights are already available - you don't need to call getActiveInsights unless the athlete asks for updated insights.`
+
+        systemPrompt = `${systemPrompt}\n\n${insightsSection}`
+      }
+    } catch (e) {
+      // Don't fail chat if insights fetch fails
+      console.error('Failed to pre-fetch insights:', e)
+    }
+  }
+  // === END PHASE 8.2 ===
 
   // Convert UI messages (with parts) to API messages (with content)
   const convertedMessages = (messages as UIMessage[]).map(msg => ({
@@ -587,14 +618,39 @@ export async function POST(req: Request) {
             }
           }
 
-          // Build workout athlete context
+          // === PHASE 7.1: Fetch athlete patterns for personalized prescription ===
+          let patterns = undefined
+          if (athleteId) {
+            try {
+              const athletePatterns = await analyzeAthletePatterns(athleteId, {
+                days: 90,
+                saveAsMemories: false,  // Don't save during workout suggestions
+              })
+              // Only use patterns if we have enough data
+              if (athletePatterns.dataPoints >= 5) {
+                patterns = athletePatterns
+              }
+            } catch {
+              // Continue without patterns - prescription still works
+            }
+          }
+
+          // Get current day of week for pattern-based scoring
+          const today = new Date()
+          const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' }) as
+            'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday'
+
+          // Build workout athlete context with patterns
           const workoutContext: WorkoutAthleteContext = {
             ftp: athleteFTP,
             weight_kg: weightKg,
             ctl: currentCTL,
             atl: currentATL,
             tsb: currentTSB,
+            patterns,     // Pattern data for personalized scoring
+            dayOfWeek,    // Current day for day-of-week pattern matching
           }
+          // === END PHASE 7.1 ===
 
           // If type is 'any', get suggested type
           let requestedType: WorkoutCategory | 'any' = type as WorkoutCategory | 'any'
@@ -2158,6 +2214,69 @@ export async function POST(req: Request) {
 
           const plan = result.plan
 
+          // === PHASE 6.1: Persist plan to database ===
+          let savedPlanId: string | null = null
+          if (athleteId) {
+            try {
+              // Deactivate any existing active plans for this athlete
+              const existingActive = await getActivePlanFromDB(athleteId)
+              if (existingActive) {
+                await updateTrainingPlan(existingActive.id, { status: 'abandoned' })
+              }
+
+              // Create the training plan record
+              const savedPlan = await createTrainingPlan({
+                athlete_id: athleteId,
+                name: plan.templateName,
+                description: plan.description,
+                goal: plan.goal,
+                duration_weeks: plan.durationWeeks,
+                weekly_hours_target: plan.weeklyHoursTarget,
+                start_date: plan.startDate,
+                end_date: plan.endDate,
+                key_workout_days: keyWorkoutDays || [],
+                target_event_id: null,
+                target_event_date: plan.targetEventDate || null,
+                status: 'active',
+                plan_data: plan as unknown as Record<string, unknown>,
+              })
+
+              if (savedPlan) {
+                savedPlanId = savedPlan.id
+
+                // Flatten weeks/days into plan_days table
+                const planDaysToInsert = plan.weeks.flatMap(week =>
+                  week.days.map(day => ({
+                    plan_id: savedPlan.id,
+                    date: day.date,
+                    week_number: day.weekNumber,
+                    day_of_week: day.dayOfWeek,
+                    workout_template_id: day.workout?.templateId || null,
+                    workout_type: day.workout?.category || null,
+                    workout_name: day.workout?.name || null,
+                    target_tss: day.workout?.targetTSS || null,
+                    target_duration_minutes: day.workout?.targetDurationMinutes || null,
+                    target_if: day.workout?.targetIF || null,
+                    custom_description: null,
+                    intervals_json: day.workout?.intervals as unknown as Record<string, unknown> || null,
+                    completed: false,
+                    actual_session_id: null,
+                    actual_tss: null,
+                    actual_duration_minutes: null,
+                    compliance_score: null,
+                    coach_notes: null,
+                    athlete_notes: null,
+                  }))
+                )
+                await createPlanDays(planDaysToInsert)
+              }
+            } catch (e) {
+              // Log but don't fail - plan was generated successfully
+              console.error('Failed to persist training plan:', e)
+            }
+          }
+          // === END PHASE 6.1 ===
+
           // Build a summary suitable for chat response
           const weekSummaries = plan.weeks.map(w => ({
             week: w.weekNumber,
@@ -2194,6 +2313,7 @@ export async function POST(req: Request) {
 
           return {
             success: true,
+            savedPlanId,  // Include the persisted plan ID
             plan: {
               name: plan.templateName,
               goal: plan.goal,
@@ -2217,7 +2337,9 @@ export async function POST(req: Request) {
               fitnessSource,
             },
             warnings: result.warnings,
-            tip: 'This plan is generated based on your current fitness. Review the week-by-week structure and let me know if you want to adjust intensity, add rest days, or modify any workouts.',
+            tip: savedPlanId
+              ? 'This plan has been saved and is now active. I\'ll track your progress as you complete workouts. Use "show my plan" to see details anytime.'
+              : 'This plan is generated based on your current fitness. Review the week-by-week structure and let me know if you want to adjust intensity, add rest days, or modify any workouts.',
           }
         },
       },
@@ -2288,6 +2410,203 @@ export async function POST(req: Request) {
           } catch (error) {
             console.error('[analyzePatterns] Error:', error)
             return { error: 'Failed to analyze patterns' }
+          }
+        },
+      },
+
+      // Tool 17: Get active training plan
+      getTrainingPlan: {
+        description: 'Retrieve the athlete\'s current active training plan with upcoming workouts. Shows plan overview, this week\'s schedule, and progress tracking. Use this when athlete asks about their plan, what workout is scheduled, or plan progress.',
+        inputSchema: z.object({
+          includeFullWeek: z.boolean().optional().describe('Include full week details (default: true)'),
+          weekOffset: z.number().optional().describe('Week offset from current (0=this week, 1=next week, -1=last week)'),
+        }),
+        execute: async ({ includeFullWeek = true, weekOffset = 0 }: { includeFullWeek?: boolean; weekOffset?: number }) => {
+          if (!athleteId) {
+            return { error: 'No athlete ID available. Plan retrieval requires a logged-in user.' }
+          }
+
+          try {
+            // Get active plan
+            const activePlan = await getActivePlanFromDB(athleteId)
+
+            if (!activePlan) {
+              return {
+                hasPlan: false,
+                message: 'No active training plan found.',
+                tip: 'Would you like me to generate a training plan based on your goals and current fitness? Just tell me your goal (build FTP, prepare for event, maintain fitness, etc.).',
+              }
+            }
+
+            // Calculate date range for requested week
+            const today = new Date()
+            const startOfWeek = new Date(today)
+            startOfWeek.setDate(today.getDate() - today.getDay() + (weekOffset * 7))
+            const endOfWeek = new Date(startOfWeek)
+            endOfWeek.setDate(startOfWeek.getDate() + 6)
+
+            const weekStartStr = startOfWeek.toISOString().split('T')[0]
+            const weekEndStr = endOfWeek.toISOString().split('T')[0]
+
+            // Get plan days for this week
+            const weekDays = await getPlanDays(activePlan.id, {
+              startDate: weekStartStr,
+              endDate: weekEndStr,
+            })
+
+            // Calculate progress
+            const progress = await calculatePlanProgress(activePlan.id)
+
+            // Format week schedule
+            const weekSchedule = weekDays.map(day => ({
+              date: day.date,
+              dayName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.day_of_week],
+              isToday: day.date === today.toISOString().split('T')[0],
+              workout: day.workout_name ? {
+                name: day.workout_name,
+                type: day.workout_type,
+                targetTSS: day.target_tss,
+                targetDuration: day.target_duration_minutes,
+                completed: day.completed,
+                actualTSS: day.actual_tss,
+              } : null,
+              isRestDay: !day.workout_name,
+            }))
+
+            // Find today's workout
+            const todaysWorkout = weekSchedule.find(d => d.isToday)
+
+            // Get upcoming key workouts (next 3)
+            const allDays = await getPlanDays(activePlan.id)
+            const upcomingDays = allDays
+              .filter(d => d.date >= today.toISOString().split('T')[0] && d.workout_name)
+              .slice(0, 3)
+
+            return {
+              hasPlan: true,
+              plan: {
+                id: activePlan.id,
+                name: activePlan.name,
+                goal: activePlan.goal,
+                duration: `${activePlan.duration_weeks} weeks`,
+                dates: `${activePlan.start_date} to ${activePlan.end_date}`,
+                progress: `${progress}%`,
+              },
+              today: todaysWorkout ? {
+                date: todaysWorkout.date,
+                workout: todaysWorkout.workout,
+                isRestDay: todaysWorkout.isRestDay,
+              } : null,
+              thisWeek: includeFullWeek ? weekSchedule : undefined,
+              upcomingWorkouts: upcomingDays.map(d => ({
+                date: d.date,
+                name: d.workout_name,
+                type: d.workout_type,
+                targetTSS: d.target_tss,
+              })),
+              weekNumber: Math.ceil(
+                (new Date(weekStartStr).getTime() - new Date(activePlan.start_date).getTime()) /
+                (7 * 24 * 60 * 60 * 1000)
+              ) + 1,
+              tip: todaysWorkout?.workout
+                ? `Today's workout: ${todaysWorkout.workout.name}. Let me know if you want details or need to modify it.`
+                : todaysWorkout?.isRestDay
+                  ? 'Today is a rest day. Take it easy and recover well!'
+                  : 'Check the weekly schedule above for your upcoming workouts.',
+            }
+          } catch (error) {
+            console.error('[getTrainingPlan] Error:', error)
+            return { error: 'Failed to retrieve training plan' }
+          }
+        },
+      },
+
+      // Tool 18: Update plan day / mark complete
+      updatePlanDay: {
+        description: 'Update a training plan day - mark workout as complete, add notes, or link to actual session. Use after athlete completes a workout to track compliance.',
+        inputSchema: z.object({
+          date: z.string().describe('Date of the plan day to update (YYYY-MM-DD)'),
+          completed: z.boolean().optional().describe('Mark the workout as completed'),
+          actualSessionId: z.string().optional().describe('Link to actual session ID if available'),
+          actualTSS: z.number().optional().describe('Actual TSS achieved'),
+          actualDuration: z.number().optional().describe('Actual duration in minutes'),
+          athleteNotes: z.string().optional().describe('Notes from athlete about the workout'),
+        }),
+        execute: async ({
+          date,
+          completed,
+          actualSessionId,
+          actualTSS,
+          actualDuration,
+          athleteNotes,
+        }: {
+          date: string
+          completed?: boolean
+          actualSessionId?: string
+          actualTSS?: number
+          actualDuration?: number
+          athleteNotes?: string
+        }) => {
+          if (!athleteId) {
+            return { error: 'No athlete ID available.' }
+          }
+
+          try {
+            const activePlan = await getActivePlanFromDB(athleteId)
+            if (!activePlan) {
+              return { error: 'No active training plan found.' }
+            }
+
+            // Get the plan day for this date
+            const days = await getPlanDays(activePlan.id, { startDate: date, endDate: date })
+            const planDay = days[0]
+
+            if (!planDay) {
+              return { error: `No workout scheduled for ${date}.` }
+            }
+
+            // Build update object
+            const updates: Record<string, unknown> = {}
+            if (completed !== undefined) updates.completed = completed
+            if (actualSessionId) updates.actual_session_id = actualSessionId
+            if (actualTSS !== undefined) updates.actual_tss = actualTSS
+            if (actualDuration !== undefined) updates.actual_duration_minutes = actualDuration
+            if (athleteNotes) updates.athlete_notes = athleteNotes
+
+            // Calculate compliance if we have actual data
+            if (actualTSS && planDay.target_tss) {
+              updates.compliance_score = Math.min(100, Math.round((actualTSS / planDay.target_tss) * 100))
+            }
+
+            // Import updatePlanDay from db helpers
+            const { updatePlanDay: updateDay } = await import('@/lib/db/training-plans')
+            const updated = await updateDay(planDay.id, updates)
+
+            if (!updated) {
+              return { error: 'Failed to update plan day.' }
+            }
+
+            // Update plan progress
+            const progress = await calculatePlanProgress(activePlan.id)
+            await updateTrainingPlan(activePlan.id, { progress_percent: progress })
+
+            return {
+              success: true,
+              updated: {
+                date: updated.date,
+                workout: updated.workout_name,
+                completed: updated.completed,
+                complianceScore: updated.compliance_score,
+                athleteNotes: updated.athlete_notes,
+              },
+              planProgress: `${progress}%`,
+              message: completed
+                ? `Great job completing ${planDay.workout_name}! Plan progress: ${progress}%`
+                : 'Plan day updated successfully.',
+            }
+          } catch (error) {
+            console.error('[updatePlanDay] Error:', error)
+            return { error: 'Failed to update plan day' }
           }
         },
       },

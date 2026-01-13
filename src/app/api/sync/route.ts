@@ -10,6 +10,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { intervalsClient } from '@/lib/intervals-icu'
 import { syncAll, getSyncLog, isSyncNeeded } from '@/lib/sync/intervals-sync'
+import { generateInsights } from '@/lib/insights/insight-generator'
 
 /**
  * GET /api/sync - Get sync status for current user
@@ -120,11 +121,26 @@ export async function POST(request: Request) {
   try {
     const result = await syncAll(user.id, options)
 
+    // === PHASE 8.1: Auto-generate insights after new data arrives ===
+    let insightsGenerated = 0
+    if (result.success && result.activitiesSynced > 0) {
+      try {
+        // Generate insights in background (respects 6-hour cooldown)
+        const insightResult = await generateInsights(user.id, { force: false })
+        insightsGenerated = insightResult.insightsCreated
+      } catch (insightError) {
+        // Log but don't fail the sync
+        console.error('Failed to generate insights after sync:', insightError)
+      }
+    }
+    // === END PHASE 8.1 ===
+
     return NextResponse.json({
       success: result.success,
       activitiesSynced: result.activitiesSynced,
       wellnessSynced: result.wellnessSynced,
       lastActivityDate: result.lastActivityDate,
+      insightsGenerated,  // Include insight count in response
       errors: result.errors,
       duration_ms: result.duration_ms,
     })

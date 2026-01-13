@@ -153,18 +153,23 @@ CREATE POLICY "policy_name" ON tablename FOR SELECT USING (auth.uid() = user_id)
 
 ## Current Development Phase
 
-### Masterplan: 52 → 85+ Score
-See `~/.claude/plans/calm-sleeping-llama.md`
+### Masterplan: 52 → 88+ Score
 
-**Completed:**
+**Original Masterplan (Phases 0-5):**
 - [x] Phase 0: Knowledge Governance Foundation
 - [x] Phase 1: Knowledge Content (16 wiki articles, expanded workout templates)
 - [x] Phase 2: Analysis Tools (power curve, efficiency, training load)
-- [x] Phase 3: Smart Workout Library (34 templates, intelligent prescription)
+- [x] Phase 3: Smart Workout Library (39 templates, intelligent prescription)
 - [x] Phase 4: Plan Generation (5 plan templates, generateTrainingPlan tool)
 - [x] Phase 5: Outcome Learning (pattern recognition, personalized recommendations)
 
-**Target 85+/100 Achieved!**
+**Masterplan Part 2 (Phases 6-9):**
+- [x] Phase 6: Plan Persistence (plans saved to DB, getTrainingPlan + updatePlanDay tools)
+- [x] Phase 7: Pattern → Prescription Wiring (suggestWorkout now uses patterns)
+- [x] Phase 8: Insights Auto-Generation (on sync + injected at chat start)
+- [x] Phase 9: Feature Flag Cleanup (all features default to enabled)
+
+**Score: ~88/100** (up from 74 after Phase 5 gaps identified)
 
 ---
 
@@ -193,7 +198,7 @@ Monitors training load balance:
 
 ## Smart Workout Library (Phase 3)
 
-### Workout Categories (34 total)
+### Workout Categories (39 total)
 - **Recovery (3)**: Easy spin, flush ride, pre-event openers
 - **Endurance (5)**: Zone 2 foundation to 3-hour long rides
 - **Tempo (4)**: 3x10 through continuous 45min
@@ -207,6 +212,10 @@ Monitors training load balance:
 Located in `src/lib/workouts/prescribe.ts`:
 - Scores workouts based on CTL, ATL, TSB, training phase
 - Checks prerequisites (min fitness, freshness, recovery time)
+- **Pattern-aware (Phase 7)**: Uses learned athlete patterns for scoring
+  - Day-of-week matching (+15/-20 points)
+  - TSB optimal zone matching (+15/-15 points)
+  - Workout type success history (+10/-10 points)
 - Personalizes descriptions with actual power targets
 - Returns best match with alternatives and warnings
 
