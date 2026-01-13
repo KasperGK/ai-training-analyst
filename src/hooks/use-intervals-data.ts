@@ -13,10 +13,11 @@ interface IntervalsData {
   athlete: {
     id: string
     name: string
-    ftp: number
-    max_hr: number
-    lthr: number
-    weight_kg: number
+    ftp: number | null
+    max_hr: number | null
+    lthr: number | null
+    weight_kg: number | null
+    resting_hr: number | null
   } | null
   currentFitness: CurrentFitness | null
   sessions: Session[]
