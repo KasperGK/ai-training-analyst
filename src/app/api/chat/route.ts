@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { cookies } from 'next/headers'
 import { buildSystemPrompt } from '@/lib/ai/system-prompt'
 import { intervalsClient, getDateRange, formatDateForApi } from '@/lib/intervals-icu'
+import { getNormalizedPower, getAveragePower } from '@/lib/transforms'
 import { getUpcomingEvents, getNextAEvent } from '@/lib/db/events'
 import { getActiveGoals } from '@/lib/db/goals'
 import { getSessions, getSession } from '@/lib/db/sessions'
@@ -166,8 +167,8 @@ export async function POST(req: Request) {
               distance_meters: activity.distance,
               tss: activity.icu_training_load,
               intensity_factor: activity.icu_intensity,
-              normalized_power: activity.icu_weighted_avg_watts || activity.weighted_average_watts,
-              avg_power: activity.icu_average_watts || activity.average_watts,
+              normalized_power: getNormalizedPower(activity),
+              avg_power: getAveragePower(activity),
               max_power: activity.max_watts,
               avg_hr: activity.average_heartrate,
               max_hr: activity.max_heartrate,
@@ -1621,18 +1622,21 @@ export async function POST(req: Request) {
 
               sessions = activities
                 .filter(a => {
-                  const np = a.icu_weighted_avg_watts || a.weighted_average_watts
+                  const np = getNormalizedPower(a)
                   return np && a.average_heartrate && a.average_heartrate > 0
                 })
-                .map(a => ({
-                  date: a.start_date_local?.split('T')[0] || '',
-                  np: a.icu_weighted_avg_watts || a.weighted_average_watts,
-                  avgHr: a.average_heartrate,
-                  duration: a.moving_time,
-                  ef: Math.round(((a.icu_weighted_avg_watts || a.weighted_average_watts) / a.average_heartrate) * 100) / 100,
-                  decoupling: a.decoupling,
-                  type: a.type,
-                }))
+                .map(a => {
+                  const np = getNormalizedPower(a) || 0
+                  return {
+                    date: a.start_date_local?.split('T')[0] || '',
+                    np,
+                    avgHr: a.average_heartrate,
+                    duration: a.moving_time,
+                    ef: Math.round((np / a.average_heartrate) * 100) / 100,
+                    decoupling: a.decoupling,
+                    type: a.type,
+                  }
+                })
 
               if (sessions.length > 0) {
                 dataSource = 'intervals_icu'

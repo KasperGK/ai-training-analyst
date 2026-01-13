@@ -1,18 +1,24 @@
 // Core data types for AI Training Analyst
+// Note: Database fields can be NULL; use optional types where data may be missing
 
 export interface Athlete {
   id: string
   name: string
   email: string
-  ftp: number // Functional Threshold Power (watts)
-  ftp_updated_at: string
-  max_hr: number
-  lthr: number // Lactate Threshold HR
-  resting_hr?: number
-  weight_kg: number
-  weekly_hours_available: number
-  intervals_icu_id?: string // For API connection
-  intervals_icu_token?: string // Encrypted OAuth token
+  /** Functional Threshold Power in watts. From intervals.icu sportSettings[0].ftp */
+  ftp?: number | null
+  ftp_updated_at?: string | null
+  /** Maximum heart rate. From intervals.icu sportSettings[0].max_hr */
+  max_hr?: number | null
+  /** Lactate Threshold HR. From intervals.icu sportSettings[0].lthr */
+  lthr?: number | null
+  /** Resting HR. From intervals.icu icu_resting_hr */
+  resting_hr?: number | null
+  /** Weight in kg. From intervals.icu icu_weight */
+  weight_kg?: number | null
+  weekly_hours_available?: number | null
+  intervals_icu_id?: string | null
+  intervals_icu_token?: string | null
   created_at: string
   updated_at: string
 }
@@ -24,7 +30,12 @@ export interface Session {
   duration_seconds: number
   distance_meters?: number
   sport: 'cycling' | 'running' | 'swimming' | 'other'
-  workout_type?: 'endurance' | 'tempo' | 'sweetspot' | 'threshold' | 'vo2max' | 'sprint' | 'recovery' | 'race' | 'mixed'
+  /**
+   * Workout type/name. Can be:
+   * - Structured type from FIT uploads: 'endurance', 'tempo', 'sweetspot', etc.
+   * - Free-form activity name from intervals.icu: "Zwift - Zone 2 Ride"
+   */
+  workout_type?: string
 
   // Power metrics
   avg_power?: number
@@ -191,4 +202,65 @@ export interface WorkoutSuggestion {
     rest_seconds: number
     target_power_percent: number // % of FTP
   }
+}
+
+// Training Plan types (Phase 4)
+export type PlanGoal = 'base_build' | 'ftp_build' | 'event_prep' | 'taper' | 'maintenance'
+export type PlanStatus = 'draft' | 'active' | 'completed' | 'abandoned'
+
+export interface TrainingPlan {
+  id: string
+  athlete_id: string
+  name: string
+  description?: string | null
+  goal: PlanGoal
+  duration_weeks: number
+  weekly_hours_target?: number | null
+  start_date: string
+  end_date: string
+  key_workout_days?: number[]
+  target_event_id?: string | null
+  target_event_date?: string | null
+  status: PlanStatus
+  progress_percent?: number
+  plan_data?: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface PlanDay {
+  id: string
+  plan_id: string
+  date: string
+  week_number: number
+  day_of_week: number
+  workout_template_id?: string | null
+  workout_type?: string | null
+  workout_name?: string | null
+  target_tss?: number | null
+  target_duration_minutes?: number | null
+  target_if?: number | null
+  custom_description?: string | null
+  intervals_json?: Record<string, unknown> | null
+  completed: boolean
+  actual_session_id?: string | null
+  actual_tss?: number | null
+  actual_duration_minutes?: number | null
+  compliance_score?: number | null
+  coach_notes?: string | null
+  athlete_notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PowerBest {
+  id: string
+  athlete_id: string
+  duration_seconds: number
+  power_watts: number
+  watts_per_kg?: number | null
+  session_id?: string | null
+  recorded_date: string
+  is_current_best: boolean
+  created_at: string
 }

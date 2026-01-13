@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
+import { getNormalizedPower, getAveragePower } from '@/lib/transforms'
 
 export async function GET(
   request: Request,
@@ -85,8 +86,8 @@ export async function GET(
         distance_meters: activity.distance,
         elevation_gain: activity.total_elevation_gain,
         // Power metrics
-        avg_power: activity.icu_average_watts || activity.average_watts,
-        normalized_power: activity.icu_weighted_avg_watts || activity.weighted_average_watts,
+        avg_power: getAveragePower(activity),
+        normalized_power: getNormalizedPower(activity),
         max_power: activity.max_watts,
         // HR metrics
         avg_hr: activity.average_heartrate,

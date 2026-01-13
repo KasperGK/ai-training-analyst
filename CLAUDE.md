@@ -96,6 +96,32 @@ FEATURE_MEMORY=true       # Enable athlete memory
 FEATURE_INSIGHTS=true     # Enable proactive insights
 ```
 
+## Naming Conventions
+
+All data fields use **snake_case** throughout the application:
+- `max_hr` (not `maxHr` or `max_heartrate`)
+- `sleep_seconds` (not `sleepSecs`)
+- `normalized_power` (not `normalizedPower` or `np`)
+- `resting_hr` (not `restingHR`)
+
+intervals.icu uses mixed conventions (camelCase, snake_case). Use shared transforms in `src/lib/transforms/` to normalize on import:
+- `getNormalizedPower(activity)` - handles `icu_weighted_avg_watts` / `weighted_average_watts` fallback
+- `getAveragePower(activity)` - handles `icu_average_watts` / `average_watts` fallback
+- `transformActivity()` - convert IntervalsActivity → Session
+- `transformAthlete()` - extract metrics from sportSettings
+
+## Data Access Layer
+
+All database operations go through `src/lib/db/`:
+- `athletes.ts` - Athlete CRUD
+- `sessions.ts` - Session queries
+- `fitness.ts` - CTL/ATL/TSB history
+- `events.ts` - Event management
+- `goals.ts` - Goal tracking
+- `training-plans.ts` - Training plans and plan days (Phase 4)
+- `power-bests.ts` - Power curve personal bests (Phase 4)
+- `integrations.ts` - OAuth integrations
+
 ## Migrations
 Latest: `010_training_plans.sql` (training_plans, plan_days, power_bests)
 
