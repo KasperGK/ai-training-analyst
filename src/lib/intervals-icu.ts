@@ -114,6 +114,14 @@ export interface IntervalsWellness {
   injury?: number
 }
 
+// Power curve data point
+export interface IntervalsPowerCurve {
+  secs: number      // Duration in seconds
+  watts: number     // Peak power at this duration
+  activity_id?: string // Activity where this was achieved
+  activity_date?: string
+}
+
 class IntervalsICUClient {
   private apiKey: string | null = null
   private athleteId: string | null = null
@@ -195,6 +203,15 @@ class IntervalsICUClient {
       `/api/v1/activity/${activityId}/streams?types=${typesParam}`
     )
     return parseStreamsResponse(items)
+  }
+
+  // Get power curves for date range
+  // Returns peak power for various durations (5s, 1min, 5min, 20min, etc.)
+  async getPowerCurves(oldest: string, newest: string): Promise<IntervalsPowerCurve[]> {
+    if (!this.athleteId) throw new Error('No athlete ID set')
+    return this.fetch<IntervalsPowerCurve[]>(
+      `/api/v1/athlete/${this.athleteId}/power-curves?oldest=${oldest}&newest=${newest}`
+    )
   }
 }
 

@@ -12,6 +12,12 @@ import { searchWiki, searchSessions } from '@/lib/rag/vector-store'
 import { getMemories, upsertMemory, type MemoryType, type MemorySource } from '@/lib/personalization/athlete-memory'
 import { getPersonalizationSection } from '@/lib/personalization/prompt-builder'
 import { getInsights } from '@/lib/insights/insight-generator'
+import { logWorkoutOutcome as logOutcome, getOutcomeStats } from '@/lib/db/workout-outcomes'
+import { prescribeWorkout, suggestWorkoutType, getBestWorkout, type AthleteContext as WorkoutAthleteContext } from '@/lib/workouts/prescribe'
+import { workoutLibrary, getWorkoutById, type WorkoutCategory } from '@/lib/workouts/library'
+import { generateTrainingPlan, getAvailablePlans } from '@/lib/plans/generator'
+import { planTemplates, getPlanTemplateSummary, type PlanGoal } from '@/lib/plans/templates'
+import { analyzeAthletePatterns, summarizePatterns } from '@/lib/learning'
 import type { WorkoutSuggestion, Session } from '@/types'
 
 // Feature flags
@@ -481,27 +487,36 @@ export async function POST(req: Request) {
         },
       },
 
-      // Tool 4: Suggest a workout
+      // Tool 4: Suggest a workout (powered by 34-workout library)
       suggestWorkout: {
-        description: 'Generate a specific workout recommendation based on current fitness, fatigue, and training goals. Returns a structured workout the athlete can follow.',
+        description: 'Generate an intelligent workout recommendation from a library of 34 structured workouts. Considers current fitness, fatigue, training phase, and preferences. Returns personalized power targets and detailed execution guidance.',
         inputSchema: z.object({
-          type: z.enum(['recovery', 'endurance', 'tempo', 'threshold', 'intervals', 'any']).describe('Type of workout to suggest, or "any" to let the system decide'),
-          durationMinutes: z.number().optional().describe('Target duration in minutes'),
+          type: z.enum([
+            'any', 'recovery', 'endurance', 'tempo', 'sweetspot', 'threshold', 'vo2max', 'anaerobic', 'sprint'
+          ]).describe('Workout category, or "any" to let the system choose based on current form'),
+          durationMinutes: z.number().optional().describe('Target duration in minutes (will find closest match)'),
           targetTSS: z.number().optional().describe('Target TSS for the workout'),
+          showAlternatives: z.boolean().optional().describe('Include alternative workout options'),
         }),
-        execute: async ({ type, durationMinutes, targetTSS }: { type: string; durationMinutes?: number; targetTSS?: number }) => {
-          // Get current fitness to inform recommendation
+        execute: async ({ type, durationMinutes, targetTSS, showAlternatives = false }: {
+          type: string
+          durationMinutes?: number
+          targetTSS?: number
+          showAlternatives?: boolean
+        }) => {
+          // Gather athlete context
+          let athleteFTP = 250
+          let weightKg = 70
           let currentTSB = 0
           let currentCTL = 0
           let currentATL = 0
-          let athleteFTP = 250 // default
           let fitnessSource = 'default'
 
-          // Try to get FTP from athlete context first
+          // Try to get FTP and weight from athlete context
           try {
             const ctx = JSON.parse(athleteContext || '{}')
             athleteFTP = ctx.athlete?.ftp || 250
-            // Also try to get fitness from context as fallback
+            weightKg = ctx.athlete?.weight_kg || 70
             if (ctx.currentFitness) {
               currentTSB = ctx.currentFitness.tsb || 0
               currentCTL = ctx.currentFitness.ctl || 0
@@ -512,7 +527,7 @@ export async function POST(req: Request) {
             // Use defaults
           }
 
-          // Try local Supabase first if feature flag is enabled
+          // Try local Supabase
           if (USE_LOCAL_DATA && athleteId) {
             try {
               const localFitness = await getCurrentFitness(athleteId)
@@ -523,11 +538,11 @@ export async function POST(req: Request) {
                 fitnessSource = 'local'
               }
             } catch {
-              // Fall through to intervals.icu
+              // Fall through
             }
           }
 
-          // Fall back to intervals.icu if no local data
+          // Fall back to intervals.icu
           if (fitnessSource !== 'local' && intervalsConnected) {
             try {
               const today = formatDateForApi(new Date())
@@ -539,85 +554,134 @@ export async function POST(req: Request) {
                 fitnessSource = 'intervals_icu'
               }
             } catch {
-              // Use fallback values from context
+              // Use fallback
             }
           }
 
-          // Auto-select type based on TSB if "any"
-          let selectedType = type
+          // Build workout athlete context
+          const workoutContext: WorkoutAthleteContext = {
+            ftp: athleteFTP,
+            weight_kg: weightKg,
+            ctl: currentCTL,
+            atl: currentATL,
+            tsb: currentTSB,
+          }
+
+          // If type is 'any', get suggested type
+          let requestedType: WorkoutCategory | 'any' = type as WorkoutCategory | 'any'
+          let suggestedReason = ''
+
           if (type === 'any') {
-            if (currentTSB < -20) selectedType = 'recovery'
-            else if (currentTSB < -10) selectedType = 'endurance'
-            else if (currentTSB < 5) selectedType = 'tempo'
-            else selectedType = 'threshold'
+            const suggestion = suggestWorkoutType(workoutContext)
+            requestedType = suggestion.suggested
+            suggestedReason = suggestion.reason
           }
 
-          // Generate workout based on type
-          const workouts: Record<string, WorkoutSuggestion> = {
-            recovery: {
-              type: 'recovery',
-              duration_minutes: durationMinutes || 45,
-              description: 'Easy spin keeping HR in Zone 1. Focus on smooth pedaling and relaxation. No hard efforts.',
-              target_tss: targetTSS || 25,
-            },
-            endurance: {
-              type: 'endurance',
-              duration_minutes: durationMinutes || 90,
-              description: 'Steady Zone 2 ride. Keep power between 55-75% of FTP. Maintain conversation pace.',
-              target_tss: targetTSS || 60,
-            },
-            tempo: {
-              type: 'tempo',
-              duration_minutes: durationMinutes || 75,
-              description: `Warm up 15min, then 3x15min at ${Math.round(athleteFTP * 0.80)}-${Math.round(athleteFTP * 0.88)}W (76-88% FTP) with 5min recovery. Cool down 10min.`,
-              target_tss: targetTSS || 75,
-              intervals: {
-                sets: 3,
-                duration_seconds: 900,
-                rest_seconds: 300,
-                target_power_percent: 82,
-              },
-            },
-            threshold: {
-              type: 'threshold',
-              duration_minutes: durationMinutes || 60,
-              description: `Warm up 15min, then 2x20min at ${Math.round(athleteFTP * 0.95)}-${Math.round(athleteFTP * 1.0)}W (95-100% FTP) with 5min recovery. Cool down 10min.`,
-              target_tss: targetTSS || 80,
-              intervals: {
-                sets: 2,
-                duration_seconds: 1200,
-                rest_seconds: 300,
-                target_power_percent: 97,
-              },
-            },
-            intervals: {
-              type: 'intervals',
-              duration_minutes: durationMinutes || 60,
-              description: `Warm up 15min, then 5x4min at ${Math.round(athleteFTP * 1.1)}-${Math.round(athleteFTP * 1.2)}W (110-120% FTP) with 4min recovery. Cool down 10min.`,
-              target_tss: targetTSS || 85,
-              intervals: {
-                sets: 5,
-                duration_seconds: 240,
-                rest_seconds: 240,
-                target_power_percent: 115,
-              },
-            },
+          // Get prescription
+          const scored = prescribeWorkout({
+            athlete: workoutContext,
+            requested_type: requestedType,
+            target_duration_minutes: durationMinutes,
+            target_tss: targetTSS,
+          })
+
+          if (scored.length === 0) {
+            return { error: 'No suitable workouts found for your current context.' }
           }
 
-          const workout = workouts[selectedType] || workouts.endurance
+          const best = scored[0]
+          const workout = best.workout
 
-          return {
-            workout,
+          // Build response
+          const response: {
+            workout: {
+              id: string
+              name: string
+              category: string
+              duration_minutes: number
+              target_tss_range: [number, number]
+              description: string
+              purpose: string
+              execution_tips: string[]
+              common_mistakes: string[]
+              intervals?: {
+                sets: number
+                duration_seconds: number
+                rest_seconds: number
+                target_power_min: number
+                target_power_max: number
+              }[]
+            }
+            scoring: {
+              score: number
+              reasons: string[]
+              warnings: string[]
+            }
+            context: {
+              currentTSB: number
+              currentCTL: number
+              currentATL: number
+              ftp: number
+              selectedBecause: string
+              fitnessSource: string
+            }
+            alternatives?: Array<{
+              id: string
+              name: string
+              category: string
+              score: number
+              duration_minutes: number
+            }>
+            libraryStats: {
+              totalWorkouts: number
+              availableCategories: string[]
+            }
+          } = {
+            workout: {
+              id: workout.id,
+              name: workout.name,
+              category: workout.category,
+              duration_minutes: workout.duration_minutes,
+              target_tss_range: workout.target_tss_range,
+              description: best.personalized_description,
+              purpose: workout.purpose,
+              execution_tips: workout.execution_tips,
+              common_mistakes: workout.common_mistakes,
+              intervals: best.personalized_intervals,
+            },
+            scoring: {
+              score: best.score,
+              reasons: best.reasons,
+              warnings: best.warnings,
+            },
             context: {
               currentTSB: Math.round(currentTSB),
               currentCTL: Math.round(currentCTL),
               currentATL: Math.round(currentATL),
-              selectedBecause: type === 'any'
-                ? `Based on your current form (TSB: ${Math.round(currentTSB)}, CTL: ${Math.round(currentCTL)}), a ${selectedType} workout is recommended.`
-                : `You requested a ${type} workout.`,
               ftp: athleteFTP,
+              selectedBecause: type === 'any'
+                ? suggestedReason
+                : `You requested a ${type} workout. Selected "${workout.name}" as best match (score: ${best.score}).`,
+              fitnessSource,
+            },
+            libraryStats: {
+              totalWorkouts: workoutLibrary.length,
+              availableCategories: ['recovery', 'endurance', 'tempo', 'sweetspot', 'threshold', 'vo2max', 'anaerobic', 'sprint'],
             },
           }
+
+          // Add alternatives if requested
+          if (showAlternatives && scored.length > 1) {
+            response.alternatives = scored.slice(1, 4).map(s => ({
+              id: s.workout.id,
+              name: s.workout.name,
+              category: s.workout.category,
+              score: s.score,
+              duration_minutes: s.workout.duration_minutes,
+            }))
+          }
+
+          return response
         },
       },
 
@@ -1207,6 +1271,994 @@ export async function POST(req: Request) {
           },
         },
       } : {}),
+
+      // Tool 11: Log workout outcome (for learning)
+      logWorkoutOutcome: {
+        description: 'Log the outcome of a workout - what was suggested vs what actually happened. Use this when the athlete reports how a workout went, provides feedback on a suggestion, or shares their perceived effort (RPE). This helps learn what works for this athlete.',
+        inputSchema: z.object({
+          sessionId: z.string().optional().describe('The session ID if linking to a completed workout'),
+          suggestedWorkout: z.string().optional().describe('Description of what was suggested'),
+          suggestedType: z.string().optional().describe('Type of workout that was suggested (e.g., sweetspot_2x20)'),
+          actualType: z.string().optional().describe('Type of workout actually performed'),
+          followedSuggestion: z.boolean().optional().describe('Did the athlete follow the suggestion?'),
+          rpe: z.number().min(1).max(10).optional().describe('Perceived effort 1-10 (1=very easy, 10=maximal)'),
+          feedback: z.string().optional().describe('Any feedback from the athlete about the workout'),
+        }),
+        execute: async ({
+          sessionId,
+          suggestedWorkout,
+          suggestedType,
+          actualType,
+          followedSuggestion,
+          rpe,
+          feedback,
+        }: {
+          sessionId?: string
+          suggestedWorkout?: string
+          suggestedType?: string
+          actualType?: string
+          followedSuggestion?: boolean
+          rpe?: number
+          feedback?: string
+        }) => {
+          if (!athleteId) {
+            return { error: 'No athlete ID available' }
+          }
+
+          try {
+            const outcome = await logOutcome(athleteId, {
+              session_id: sessionId,
+              suggested_workout: suggestedWorkout,
+              suggested_type: suggestedType,
+              actual_type: actualType,
+              followed_suggestion: followedSuggestion,
+              rpe,
+              feedback,
+            })
+
+            if (!outcome) {
+              return { error: 'Failed to log outcome' }
+            }
+
+            // Get updated stats
+            const stats = await getOutcomeStats(athleteId, 90)
+
+            return {
+              success: true,
+              outcome: {
+                id: outcome.id,
+                rpe: outcome.rpe,
+                feedback: outcome.feedback,
+                followedSuggestion: outcome.followed_suggestion,
+              },
+              stats: {
+                totalLogged: stats.totalOutcomes,
+                followRate: stats.totalOutcomes > 0
+                  ? Math.round((stats.followedSuggestions / stats.totalOutcomes) * 100)
+                  : null,
+                averageRPE: stats.averageRPE,
+              },
+              message: `Logged workout outcome${rpe ? ` (RPE: ${rpe})` : ''}${feedback ? ` with feedback` : ''}`,
+            }
+          } catch (error) {
+            console.error('[logWorkoutOutcome] Error:', error)
+            return { error: 'Failed to log workout outcome' }
+          }
+        },
+      },
+
+      // Tool 12: Analyze Power Curve
+      analyzePowerCurve: {
+        description: 'Analyze the athlete\'s power curve to identify strengths, limiters, and rider profile. Compares peak power at key durations (5s, 1min, 5min, 20min) and identifies whether the athlete is a sprinter, time trialist, climber, or all-rounder.',
+        inputSchema: z.object({
+          period: z.enum(['30d', '90d', '180d', '365d']).optional().describe('Time period to analyze (default 90d)'),
+          compareToPrevious: z.boolean().optional().describe('Compare to previous period of same length'),
+        }),
+        execute: async ({ period = '90d', compareToPrevious = true }: { period?: string; compareToPrevious?: boolean }) => {
+          const periodDays = { '30d': 30, '90d': 90, '180d': 180, '365d': 365 }[period] || 90
+
+          // Key durations to analyze (in seconds)
+          const keyDurations = [
+            { secs: 5, label: '5s', category: 'neuromuscular' },
+            { secs: 60, label: '1min', category: 'anaerobic' },
+            { secs: 300, label: '5min', category: 'vo2max' },
+            { secs: 1200, label: '20min', category: 'threshold' },
+          ]
+
+          // Get FTP for context
+          let athleteFTP = 250
+          try {
+            const ctx = JSON.parse(athleteContext || '{}')
+            athleteFTP = ctx.athlete?.ftp || 250
+          } catch {
+            // Use default
+          }
+
+          // Try to get power data from sessions
+          let currentPeaks: Record<string, number> = {}
+          let previousPeaks: Record<string, number> = {}
+          let dataSource = 'none'
+
+          // Try local Supabase first
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const endDate = new Date()
+              const startDate = new Date()
+              startDate.setDate(startDate.getDate() - periodDays)
+
+              const sessions = await getSessions(athleteId, {
+                startDate: startDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+                limit: 500,
+              })
+
+              // Calculate peaks from max_power (simplified - real implementation would use streams)
+              if (sessions.length > 0) {
+                const maxPower = Math.max(...sessions.filter(s => s.max_power).map(s => s.max_power || 0))
+                const avgNP = sessions.filter(s => s.normalized_power).reduce((sum, s) => sum + (s.normalized_power || 0), 0) / sessions.filter(s => s.normalized_power).length
+
+                // Estimate peaks based on available data (simplified)
+                currentPeaks = {
+                  '5s': maxPower,
+                  '1min': Math.round(maxPower * 0.75),
+                  '5min': Math.round(avgNP * 1.1),
+                  '20min': Math.round(athleteFTP * 1.05),
+                }
+                dataSource = 'local_estimated'
+              }
+            } catch {
+              // Fall through
+            }
+          }
+
+          // Fall back to intervals.icu for actual power curve data
+          if (intervalsConnected && dataSource === 'none') {
+            try {
+              const { oldest, newest } = getDateRange(periodDays)
+              const powerCurves = await intervalsClient.getPowerCurves(oldest, newest)
+
+              if (powerCurves && powerCurves.length > 0) {
+                // Find peaks at key durations
+                for (const duration of keyDurations) {
+                  const match = powerCurves.find(pc => pc.secs === duration.secs)
+                  if (match) {
+                    currentPeaks[duration.label] = match.watts
+                  }
+                }
+                dataSource = 'intervals_icu'
+              }
+
+              // Get previous period if requested
+              if (compareToPrevious) {
+                const prevEnd = new Date()
+                prevEnd.setDate(prevEnd.getDate() - periodDays)
+                const prevStart = new Date()
+                prevStart.setDate(prevStart.getDate() - (periodDays * 2))
+
+                const prevCurves = await intervalsClient.getPowerCurves(
+                  prevStart.toISOString().split('T')[0],
+                  prevEnd.toISOString().split('T')[0]
+                )
+
+                if (prevCurves && prevCurves.length > 0) {
+                  for (const duration of keyDurations) {
+                    const match = prevCurves.find(pc => pc.secs === duration.secs)
+                    if (match) {
+                      previousPeaks[duration.label] = match.watts
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('[analyzePowerCurve] Error fetching power curves:', error)
+            }
+          }
+
+          if (Object.keys(currentPeaks).length === 0) {
+            return { error: 'No power data available. Ensure intervals.icu is connected or you have recent sessions with power data.' }
+          }
+
+          // Calculate W/kg if we have weight
+          let weightKg = 70
+          try {
+            const ctx = JSON.parse(athleteContext || '{}')
+            weightKg = ctx.athlete?.weight_kg || 70
+          } catch {
+            // Use default
+          }
+
+          // Analyze rider profile
+          const profileScores = {
+            sprinter: 0,
+            pursuiter: 0,
+            climber: 0,
+            ttSpecialist: 0,
+          }
+
+          // Score based on relative strengths
+          const fiveSecWkg = (currentPeaks['5s'] || 0) / weightKg
+          const oneMinWkg = (currentPeaks['1min'] || 0) / weightKg
+          const fiveMinWkg = (currentPeaks['5min'] || 0) / weightKg
+          const twentyMinWkg = (currentPeaks['20min'] || 0) / weightKg
+
+          // Sprinter: strong 5s and 1min relative to FTP
+          if (fiveSecWkg > 15) profileScores.sprinter += 2
+          if (fiveSecWkg > 18) profileScores.sprinter += 2
+          if (currentPeaks['5s'] && currentPeaks['20min'] && currentPeaks['5s'] / currentPeaks['20min'] > 3.5) profileScores.sprinter += 2
+
+          // Pursuiter: strong 1min relative to others
+          if (oneMinWkg > 7) profileScores.pursuiter += 2
+          if (oneMinWkg > 8.5) profileScores.pursuiter += 2
+
+          // Climber: strong 5min and 20min W/kg
+          if (fiveMinWkg > 5) profileScores.climber += 2
+          if (fiveMinWkg > 6) profileScores.climber += 2
+          if (twentyMinWkg > 4.5) profileScores.climber += 2
+
+          // TT Specialist: strong 20min, good 5min
+          if (twentyMinWkg > 4) profileScores.ttSpecialist += 2
+          if (twentyMinWkg > 4.5) profileScores.ttSpecialist += 2
+          if (fiveMinWkg > 5 && twentyMinWkg > 4) profileScores.ttSpecialist += 1
+
+          // Determine profile
+          const maxScore = Math.max(...Object.values(profileScores))
+          let riderProfile = 'all-rounder'
+          if (maxScore >= 4) {
+            if (profileScores.sprinter === maxScore) riderProfile = 'sprinter'
+            else if (profileScores.pursuiter === maxScore) riderProfile = 'pursuiter'
+            else if (profileScores.climber === maxScore) riderProfile = 'climber'
+            else if (profileScores.ttSpecialist === maxScore) riderProfile = 'TT specialist'
+          }
+
+          // Identify strengths and limiters
+          const metrics = [
+            { label: '5s (Neuromuscular)', value: fiveSecWkg, benchmark: 15 },
+            { label: '1min (Anaerobic)', value: oneMinWkg, benchmark: 7 },
+            { label: '5min (VO2max)', value: fiveMinWkg, benchmark: 5 },
+            { label: '20min (Threshold)', value: twentyMinWkg, benchmark: 4 },
+          ]
+
+          const strengths = metrics.filter(m => m.value >= m.benchmark * 1.1).map(m => m.label)
+          const limiters = metrics.filter(m => m.value < m.benchmark * 0.9).map(m => m.label)
+
+          // Build comparison data
+          const comparison = compareToPrevious && Object.keys(previousPeaks).length > 0
+            ? keyDurations.map(d => ({
+                duration: d.label,
+                current: currentPeaks[d.label] || null,
+                previous: previousPeaks[d.label] || null,
+                change: currentPeaks[d.label] && previousPeaks[d.label]
+                  ? Math.round(((currentPeaks[d.label] - previousPeaks[d.label]) / previousPeaks[d.label]) * 100)
+                  : null,
+              }))
+            : null
+
+          return {
+            period: `${periodDays} days`,
+            powerPeaks: keyDurations.map(d => ({
+              duration: d.label,
+              watts: currentPeaks[d.label] || null,
+              wkg: currentPeaks[d.label] ? Math.round((currentPeaks[d.label] / weightKg) * 100) / 100 : null,
+              category: d.category,
+            })),
+            comparison,
+            profile: {
+              type: riderProfile,
+              strengths: strengths.length > 0 ? strengths : ['Balanced profile - no standout strengths'],
+              limiters: limiters.length > 0 ? limiters : ['No significant limiters identified'],
+            },
+            recommendations: [
+              limiters.includes('5min (VO2max)') ? 'Consider adding VO2max intervals (5x5, 4x4) to develop aerobic ceiling' : null,
+              limiters.includes('20min (Threshold)') ? 'Focus on threshold and sweet spot work (2x20, over-unders) to build sustainable power' : null,
+              limiters.includes('5s (Neuromuscular)') ? 'Include sprint work and neuromuscular efforts if sprinting is a goal' : null,
+              strengths.includes('5min (VO2max)') && !strengths.includes('20min (Threshold)') ? 'Good VO2max base - convert to threshold power with sustained efforts' : null,
+            ].filter(Boolean),
+            dataSource,
+            weightKg,
+            ftp: athleteFTP,
+          }
+        },
+      },
+
+      // Tool 13: Analyze Efficiency Trends
+      analyzeEfficiency: {
+        description: 'Analyze aerobic efficiency trends using Efficiency Factor (NP/HR) and decoupling. Use to assess aerobic development, identify fitness improvements, and understand how well the athlete maintains power relative to heart rate over time.',
+        inputSchema: z.object({
+          days: z.number().optional().describe('Number of days to analyze (default 90, max 180)'),
+        }),
+        execute: async ({ days = 90 }: { days?: number }) => {
+          const lookbackDays = Math.min(days, 180)
+
+          // Get sessions with both NP and HR data
+          let sessions: Array<{
+            date: string
+            np: number
+            avgHr: number
+            duration: number
+            ef: number
+            decoupling?: number
+            type?: string
+          }> = []
+          let dataSource = 'none'
+
+          // Try local Supabase first
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const endDate = new Date()
+              const startDate = new Date()
+              startDate.setDate(startDate.getDate() - lookbackDays)
+
+              const localSessions = await getSessions(athleteId, {
+                startDate: startDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+                limit: 500,
+              })
+
+              sessions = localSessions
+                .filter(s => s.normalized_power && s.avg_hr && s.avg_hr > 0)
+                .map(s => ({
+                  date: s.date,
+                  np: s.normalized_power!,
+                  avgHr: s.avg_hr!,
+                  duration: s.duration_seconds,
+                  ef: Math.round((s.normalized_power! / s.avg_hr!) * 100) / 100,
+                  type: s.workout_type,
+                }))
+
+              if (sessions.length > 0) {
+                dataSource = 'local'
+              }
+            } catch {
+              // Fall through
+            }
+          }
+
+          // Fall back to intervals.icu
+          if (sessions.length === 0 && intervalsConnected) {
+            try {
+              const { oldest, newest } = getDateRange(lookbackDays)
+              const activities = await intervalsClient.getActivities(oldest, newest)
+
+              sessions = activities
+                .filter(a => {
+                  const np = a.icu_weighted_avg_watts || a.weighted_average_watts
+                  return np && a.average_heartrate && a.average_heartrate > 0
+                })
+                .map(a => ({
+                  date: a.start_date_local?.split('T')[0] || '',
+                  np: a.icu_weighted_avg_watts || a.weighted_average_watts,
+                  avgHr: a.average_heartrate,
+                  duration: a.moving_time,
+                  ef: Math.round(((a.icu_weighted_avg_watts || a.weighted_average_watts) / a.average_heartrate) * 100) / 100,
+                  decoupling: a.decoupling,
+                  type: a.type,
+                }))
+
+              if (sessions.length > 0) {
+                dataSource = 'intervals_icu'
+              }
+            } catch (error) {
+              console.error('[analyzeEfficiency] Error:', error)
+            }
+          }
+
+          if (sessions.length < 5) {
+            return { error: 'Insufficient data for efficiency analysis. Need at least 5 sessions with power and heart rate data.' }
+          }
+
+          // Sort by date
+          sessions.sort((a, b) => a.date.localeCompare(b.date))
+
+          // Calculate overall statistics
+          const allEF = sessions.map(s => s.ef)
+          const avgEF = Math.round((allEF.reduce((a, b) => a + b, 0) / allEF.length) * 100) / 100
+          const minEF = Math.min(...allEF)
+          const maxEF = Math.max(...allEF)
+
+          // Calculate trend (first half vs second half)
+          const midpoint = Math.floor(sessions.length / 2)
+          const firstHalfEF = sessions.slice(0, midpoint).map(s => s.ef)
+          const secondHalfEF = sessions.slice(midpoint).map(s => s.ef)
+          const firstHalfAvg = firstHalfEF.reduce((a, b) => a + b, 0) / firstHalfEF.length
+          const secondHalfAvg = secondHalfEF.reduce((a, b) => a + b, 0) / secondHalfEF.length
+          const efTrendPercent = Math.round(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100)
+
+          let efTrend: 'improving' | 'stable' | 'declining'
+          if (efTrendPercent > 3) efTrend = 'improving'
+          else if (efTrendPercent < -3) efTrend = 'declining'
+          else efTrend = 'stable'
+
+          // Analyze decoupling for long rides (>90 min)
+          const longRides = sessions.filter(s => s.duration > 5400 && s.decoupling !== undefined)
+          let decouplingAnalysis = null
+          if (longRides.length >= 3) {
+            const avgDecoupling = Math.round(longRides.reduce((sum, s) => sum + (s.decoupling || 0), 0) / longRides.length * 10) / 10
+            decouplingAnalysis = {
+              averageDecoupling: avgDecoupling,
+              ridesAnalyzed: longRides.length,
+              assessment: avgDecoupling < 3 ? 'excellent' : avgDecoupling < 5 ? 'good' : avgDecoupling < 8 ? 'fair' : 'needs work',
+              interpretation: avgDecoupling < 5
+                ? 'Good aerobic fitness - HR stays stable relative to power on long rides'
+                : 'HR drifts relative to power - more Zone 2 work may help',
+            }
+          }
+
+          // Get best and worst EF sessions
+          const sortedByEF = [...sessions].sort((a, b) => b.ef - a.ef)
+          const bestEFSessions = sortedByEF.slice(0, 3).map(s => ({
+            date: s.date,
+            ef: s.ef,
+            np: s.np,
+            avgHr: s.avgHr,
+          }))
+          const worstEFSessions = sortedByEF.slice(-3).reverse().map(s => ({
+            date: s.date,
+            ef: s.ef,
+            np: s.np,
+            avgHr: s.avgHr,
+          }))
+
+          // Weekly EF progression for charting
+          const weeklyEF: Record<string, { total: number; count: number }> = {}
+          sessions.forEach(s => {
+            const weekStart = new Date(s.date)
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+            const weekKey = weekStart.toISOString().split('T')[0]
+            if (!weeklyEF[weekKey]) weeklyEF[weekKey] = { total: 0, count: 0 }
+            weeklyEF[weekKey].total += s.ef
+            weeklyEF[weekKey].count++
+          })
+
+          const weeklyProgression = Object.entries(weeklyEF)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([week, data]) => ({
+              week,
+              avgEF: Math.round((data.total / data.count) * 100) / 100,
+            }))
+
+          return {
+            period: `${lookbackDays} days`,
+            sessionCount: sessions.length,
+            summary: {
+              averageEF: avgEF,
+              minEF: Math.round(minEF * 100) / 100,
+              maxEF: Math.round(maxEF * 100) / 100,
+              trend: efTrend,
+              trendPercent: efTrendPercent,
+            },
+            interpretation: {
+              efMeaning: 'Efficiency Factor = NP/HR. Higher is better - more power for same heart rate.',
+              currentLevel: avgEF > 1.8 ? 'excellent' : avgEF > 1.5 ? 'good' : avgEF > 1.2 ? 'developing' : 'needs work',
+              trendInterpretation: efTrend === 'improving'
+                ? 'Aerobic fitness is improving - producing more power for same HR'
+                : efTrend === 'declining'
+                ? 'Efficiency declining - may indicate fatigue, overtraining, or detraining'
+                : 'Efficiency stable - fitness is maintained',
+            },
+            decouplingAnalysis,
+            bestSessions: bestEFSessions,
+            worstSessions: worstEFSessions,
+            weeklyProgression,
+            recommendations: [
+              efTrend === 'declining' ? 'Consider a recovery week if efficiency is declining' : null,
+              decouplingAnalysis && decouplingAnalysis.averageDecoupling > 5 ? 'Add more Zone 2 volume to improve aerobic base' : null,
+              avgEF < 1.3 ? 'Focus on aerobic development - more easy endurance rides' : null,
+            ].filter(Boolean),
+            dataSource,
+          }
+        },
+      },
+
+      // Tool 14: Analyze Training Load (ACWR, Monotony, Strain)
+      analyzeTrainingLoad: {
+        description: 'Analyze training load metrics including ACWR (acute:chronic workload ratio), monotony, and strain. Use to assess injury risk, training balance, and load management.',
+        inputSchema: z.object({
+          includeWeeklyBreakdown: z.boolean().optional().describe('Include week-by-week TSS breakdown'),
+        }),
+        execute: async ({ includeWeeklyBreakdown = true }: { includeWeeklyBreakdown?: boolean }) => {
+          // Need at least 28 days for meaningful ACWR (7-day acute, 28-day chronic)
+          const lookbackDays = 42 // 6 weeks for good context
+
+          // Get fitness data and sessions
+          let dailyTSS: Array<{ date: string; tss: number }> = []
+          let currentCTL = 0
+          let currentATL = 0
+          let dataSource = 'none'
+
+          // Try local Supabase first
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const [fitnessHistory, sessions] = await Promise.all([
+                getFitnessHistory(athleteId, lookbackDays),
+                getSessions(athleteId, {
+                  startDate: new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  limit: 500,
+                }),
+              ])
+
+              if (fitnessHistory.length > 0) {
+                const latest = fitnessHistory[fitnessHistory.length - 1]
+                currentCTL = latest.ctl
+                currentATL = latest.atl
+
+                // Build daily TSS from fitness history
+                dailyTSS = fitnessHistory.map(f => ({
+                  date: f.date,
+                  tss: f.tss_day || 0,
+                }))
+                dataSource = 'local'
+              } else if (sessions.length > 0) {
+                // Aggregate sessions by date
+                const tssbyDate: Record<string, number> = {}
+                sessions.forEach(s => {
+                  if (!tssbyDate[s.date]) tssbyDate[s.date] = 0
+                  tssbyDate[s.date] += s.tss || 0
+                })
+                dailyTSS = Object.entries(tssbyDate)
+                  .map(([date, tss]) => ({ date, tss }))
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                dataSource = 'local'
+              }
+            } catch {
+              // Fall through
+            }
+          }
+
+          // Fall back to intervals.icu
+          if (dailyTSS.length < 7 && intervalsConnected) {
+            try {
+              const { oldest, newest } = getDateRange(lookbackDays)
+              const [wellness, activities] = await Promise.all([
+                intervalsClient.getWellness(oldest, newest),
+                intervalsClient.getActivities(oldest, newest),
+              ])
+
+              if (wellness.length > 0) {
+                const latest = wellness[wellness.length - 1]
+                currentCTL = latest.ctl
+                currentATL = latest.atl
+              }
+
+              // Aggregate activities by date
+              const tssbyDate: Record<string, number> = {}
+              activities.forEach(a => {
+                const date = a.start_date_local?.split('T')[0]
+                if (date) {
+                  if (!tssbyDate[date]) tssbyDate[date] = 0
+                  tssbyDate[date] += a.icu_training_load || 0
+                }
+              })
+              dailyTSS = Object.entries(tssbyDate)
+                .map(([date, tss]) => ({ date, tss }))
+                .sort((a, b) => a.date.localeCompare(b.date))
+              dataSource = 'intervals_icu'
+            } catch (error) {
+              console.error('[analyzeTrainingLoad] Error:', error)
+            }
+          }
+
+          if (dailyTSS.length < 14) {
+            return { error: 'Insufficient data for training load analysis. Need at least 2 weeks of training data.' }
+          }
+
+          // Fill in missing dates with 0 TSS
+          const filledTSS: Array<{ date: string; tss: number }> = []
+          const startDate = new Date(dailyTSS[0].date)
+          const endDate = new Date(dailyTSS[dailyTSS.length - 1].date)
+          const tssMap = new Map(dailyTSS.map(d => [d.date, d.tss]))
+
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0]
+            filledTSS.push({ date: dateStr, tss: tssMap.get(dateStr) || 0 })
+          }
+
+          // Calculate ACWR using last 7 days (acute) vs last 28 days (chronic)
+          const last7Days = filledTSS.slice(-7)
+          const last28Days = filledTSS.slice(-28)
+
+          const acuteLoad = last7Days.reduce((sum, d) => sum + d.tss, 0) / 7
+          const chronicLoad = last28Days.reduce((sum, d) => sum + d.tss, 0) / 28
+          const acwr = chronicLoad > 0 ? Math.round((acuteLoad / chronicLoad) * 100) / 100 : 0
+
+          // ACWR risk assessment
+          let acwrRisk: 'low' | 'moderate' | 'high' | 'very_high'
+          let acwrStatus: string
+          if (acwr < 0.8) {
+            acwrRisk = 'low'
+            acwrStatus = 'Under-training zone - may be losing fitness'
+          } else if (acwr <= 1.3) {
+            acwrRisk = 'low'
+            acwrStatus = 'Sweet spot - optimal balance of load and recovery'
+          } else if (acwr <= 1.5) {
+            acwrRisk = 'moderate'
+            acwrStatus = 'Caution zone - elevated injury/overtraining risk'
+          } else {
+            acwrRisk = 'high'
+            acwrStatus = 'Danger zone - high injury/overtraining risk, consider reducing load'
+          }
+
+          // Calculate monotony (standard deviation of daily load)
+          const recentWeek = filledTSS.slice(-7).map(d => d.tss)
+          const weekAvg = recentWeek.reduce((a, b) => a + b, 0) / 7
+          const weekVariance = recentWeek.reduce((sum, tss) => sum + Math.pow(tss - weekAvg, 2), 0) / 7
+          const weekStdDev = Math.sqrt(weekVariance)
+          const monotony = weekStdDev > 0 ? Math.round((weekAvg / weekStdDev) * 100) / 100 : 0
+
+          let monotonyAssessment: string
+          if (monotony < 1.5) monotonyAssessment = 'Good variety - training load varies appropriately day to day'
+          else if (monotony < 2.0) monotonyAssessment = 'Moderate monotony - consider adding more variation'
+          else monotonyAssessment = 'High monotony - training too repetitive, risk of staleness'
+
+          // Calculate strain (weekly load × monotony)
+          const weeklyLoad = recentWeek.reduce((a, b) => a + b, 0)
+          const strain = Math.round(weeklyLoad * monotony)
+
+          let strainAssessment: string
+          if (strain < 3000) strainAssessment = 'Low strain - room for more training'
+          else if (strain < 6000) strainAssessment = 'Moderate strain - sustainable training load'
+          else if (strain < 10000) strainAssessment = 'High strain - monitor recovery carefully'
+          else strainAssessment = 'Very high strain - consider a recovery period'
+
+          // Weekly breakdown if requested
+          let weeklyBreakdown: Array<{
+            week: string
+            totalTSS: number
+            sessions: number
+            avgTSS: number
+          }> | null = null
+
+          if (includeWeeklyBreakdown) {
+            const weeklyData: Record<string, { tss: number; count: number }> = {}
+            filledTSS.forEach(d => {
+              const date = new Date(d.date)
+              const weekStart = new Date(date)
+              weekStart.setDate(date.getDate() - date.getDay())
+              const weekKey = weekStart.toISOString().split('T')[0]
+              if (!weeklyData[weekKey]) weeklyData[weekKey] = { tss: 0, count: 0 }
+              weeklyData[weekKey].tss += d.tss
+              if (d.tss > 0) weeklyData[weekKey].count++
+            })
+
+            weeklyBreakdown = Object.entries(weeklyData)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([week, data]) => ({
+                week,
+                totalTSS: Math.round(data.tss),
+                sessions: data.count,
+                avgTSS: data.count > 0 ? Math.round(data.tss / data.count) : 0,
+              }))
+          }
+
+          // Calculate TSB trend
+          const tsb = currentCTL - currentATL
+          let tsbStatus: string
+          if (tsb < -25) tsbStatus = 'Very fatigued - consider recovery'
+          else if (tsb < -10) tsbStatus = 'Fatigued - building fitness, normal for hard training'
+          else if (tsb < 5) tsbStatus = 'Neutral - good training zone'
+          else if (tsb < 25) tsbStatus = 'Fresh - ready for hard efforts or racing'
+          else tsbStatus = 'Very fresh - may be losing fitness'
+
+          return {
+            currentFitness: {
+              ctl: Math.round(currentCTL),
+              atl: Math.round(currentATL),
+              tsb: Math.round(tsb),
+              tsbStatus,
+            },
+            acwr: {
+              value: acwr,
+              acuteLoad: Math.round(acuteLoad),
+              chronicLoad: Math.round(chronicLoad),
+              risk: acwrRisk,
+              status: acwrStatus,
+              recommendation: acwr > 1.3 ? 'Consider reducing this week\'s load' : acwr < 0.8 ? 'Safe to increase training load' : 'Maintain current load progression',
+            },
+            monotony: {
+              value: monotony,
+              assessment: monotonyAssessment,
+            },
+            strain: {
+              value: strain,
+              weeklyTSS: weeklyLoad,
+              assessment: strainAssessment,
+            },
+            weeklyBreakdown,
+            recommendations: [
+              acwr > 1.5 ? 'URGENT: Reduce training load to prevent injury/overtraining' : null,
+              acwr > 1.3 ? 'Consider an easier week to bring ACWR into optimal range' : null,
+              monotony > 2.0 ? 'Add more variety to your training - mix hard and easy days' : null,
+              strain > 8000 ? 'High strain detected - prioritize sleep and recovery' : null,
+              tsb < -25 ? 'Deep fatigue - schedule a recovery day or easy week soon' : null,
+            ].filter(Boolean),
+            dataSource,
+          }
+        },
+      },
+
+      // Tool 15: Generate Training Plan
+      generateTrainingPlan: {
+        description: 'Generate a structured multi-week training plan tailored to the athlete\'s goals and current fitness. Creates a complete periodized plan with daily workouts, recovery weeks, and progression. Use when the athlete wants a structured training plan or asks about building toward an event.',
+        inputSchema: z.object({
+          goal: z.enum(['base_build', 'ftp_build', 'event_prep', 'taper', 'maintenance']).optional()
+            .describe('Training goal: base_build (aerobic foundation), ftp_build (increase FTP), event_prep (prepare for goal event), taper (pre-race), maintenance (hold fitness)'),
+          templateId: z.string().optional()
+            .describe('Specific plan template ID if known (e.g., "base_build_4week", "ftp_build_8week", "taper_3week", "event_prep_12week")'),
+          startDate: z.string().optional()
+            .describe('Plan start date in YYYY-MM-DD format. Defaults to next Monday.'),
+          weeklyHoursTarget: z.number().optional()
+            .describe('Target training hours per week (default: 8)'),
+          keyWorkoutDays: z.array(z.number()).optional()
+            .describe('Days of week for key workouts as array (0=Sun, 1=Mon, ..., 6=Sat). Default: [2,4,6] for Tue/Thu/Sat'),
+          targetEventDate: z.string().optional()
+            .describe('Target event date in YYYY-MM-DD format (helps with taper timing)'),
+          showAvailablePlans: z.boolean().optional()
+            .describe('Set to true to see all available plan templates instead of generating a plan'),
+        }),
+        execute: async ({
+          goal,
+          templateId,
+          startDate,
+          weeklyHoursTarget,
+          keyWorkoutDays,
+          targetEventDate,
+          showAvailablePlans = false,
+        }: {
+          goal?: PlanGoal
+          templateId?: string
+          startDate?: string
+          weeklyHoursTarget?: number
+          keyWorkoutDays?: number[]
+          targetEventDate?: string
+          showAvailablePlans?: boolean
+        }) => {
+          // Gather athlete context
+          let athleteFTP = 250
+          let weightKg = 70
+          let currentCTL = 50
+          let currentATL = 50
+          let fitnessSource = 'default'
+
+          // Try to get FTP and weight from athlete context
+          try {
+            const ctx = JSON.parse(athleteContext || '{}')
+            athleteFTP = ctx.athlete?.ftp || 250
+            weightKg = ctx.athlete?.weight_kg || 70
+            if (ctx.currentFitness) {
+              currentCTL = ctx.currentFitness.ctl || 50
+              currentATL = ctx.currentFitness.atl || 50
+              fitnessSource = 'context'
+            }
+          } catch {
+            // Use defaults
+          }
+
+          // Try local Supabase
+          if (USE_LOCAL_DATA && athleteId) {
+            try {
+              const localFitness = await getCurrentFitness(athleteId)
+              if (localFitness) {
+                currentCTL = localFitness.ctl
+                currentATL = localFitness.atl
+                fitnessSource = 'local'
+              }
+            } catch {
+              // Fall through
+            }
+          }
+
+          // Fall back to intervals.icu
+          if (fitnessSource !== 'local' && intervalsConnected) {
+            try {
+              const today = formatDateForApi(new Date())
+              const wellness = await intervalsClient.getWellnessForDate(today)
+              if (wellness) {
+                currentCTL = wellness.ctl
+                currentATL = wellness.atl
+                fitnessSource = 'intervals_icu'
+              }
+            } catch {
+              // Use fallback
+            }
+          }
+
+          // If just listing available plans
+          if (showAvailablePlans) {
+            const available = getAvailablePlans(currentCTL)
+            return {
+              currentFitness: {
+                ctl: Math.round(currentCTL),
+                atl: Math.round(currentATL),
+                ftp: athleteFTP,
+              },
+              availablePlans: available,
+              totalPlans: planTemplates.length,
+              recommendation: available.filter(p => p.isApplicable).length > 0
+                ? `You have ${available.filter(p => p.isApplicable).length} plans available at your current fitness level.`
+                : 'Build fitness first - your CTL is below minimum for most plans.',
+            }
+          }
+
+          // Calculate default start date (next Monday)
+          let planStartDate = startDate
+          if (!planStartDate) {
+            const today = new Date()
+            const daysUntilMonday = (8 - today.getDay()) % 7 || 7
+            const nextMonday = new Date(today)
+            nextMonday.setDate(today.getDate() + daysUntilMonday)
+            planStartDate = nextMonday.toISOString().split('T')[0]
+          }
+
+          // Fetch athlete patterns for personalization (if available)
+          let patterns = undefined
+          if (athleteId) {
+            try {
+              patterns = await analyzeAthletePatterns(athleteId, { days: 90, saveAsMemories: false })
+              if (patterns.dataPoints < 5) patterns = undefined // Not enough data
+            } catch {
+              // Patterns not available, continue without them
+            }
+          }
+
+          // Generate the plan
+          const result = generateTrainingPlan({
+            templateId,
+            goal,
+            startDate: planStartDate,
+            weeklyHoursTarget,
+            keyWorkoutDays,
+            targetEventDate,
+            athleteContext: {
+              ftp: athleteFTP,
+              ctl: currentCTL,
+              atl: currentATL,
+              weight_kg: weightKg,
+            },
+            patterns,
+          })
+
+          if (!result.success || !result.plan) {
+            return {
+              error: result.error || 'Failed to generate plan',
+              warnings: result.warnings,
+              availablePlans: getAvailablePlans(currentCTL),
+            }
+          }
+
+          const plan = result.plan
+
+          // Build a summary suitable for chat response
+          const weekSummaries = plan.weeks.map(w => ({
+            week: w.weekNumber,
+            phase: w.phase,
+            focus: w.focusDescription,
+            targetTSS: w.actualTargetTSS,
+            keyWorkouts: w.days
+              .filter(d => d.isKeyWorkout && d.workout)
+              .map(d => ({
+                day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.dayOfWeek],
+                workout: d.workout?.name,
+                category: d.workout?.category,
+                tss: d.workout?.targetTSS,
+              })),
+          }))
+
+          // Sample first week's details
+          const firstWeekDetails = plan.weeks[0]?.days
+            .filter(d => d.workout !== null)
+            .slice(0, 3)
+            .map(d => ({
+              date: d.date,
+              day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.dayOfWeek],
+              workout: d.workout?.name,
+              description: d.workout?.description,
+              targetTSS: d.workout?.targetTSS,
+              targetDuration: d.workout?.targetDurationMinutes,
+              intervals: d.workout?.intervals?.map(i => ({
+                sets: i.sets,
+                duration: `${Math.round(i.durationSeconds / 60)} min`,
+                power: `${i.targetPowerMin}-${i.targetPowerMax}W`,
+              })),
+            }))
+
+          return {
+            success: true,
+            plan: {
+              name: plan.templateName,
+              goal: plan.goal,
+              description: plan.description,
+              duration: `${plan.durationWeeks} weeks`,
+              dates: `${plan.startDate} to ${plan.endDate}`,
+              targetEvent: plan.targetEventDate,
+            },
+            summary: {
+              totalWorkoutDays: plan.summary.totalWorkoutDays,
+              totalRestDays: plan.summary.totalRestDays,
+              avgWeeklyTSS: plan.summary.avgWeeklyTSS,
+              phases: plan.summary.phases,
+            },
+            weekOverview: weekSummaries,
+            firstWeekSample: firstWeekDetails,
+            athleteContext: {
+              ctl: Math.round(currentCTL),
+              atl: Math.round(currentATL),
+              ftp: athleteFTP,
+              fitnessSource,
+            },
+            warnings: result.warnings,
+            tip: 'This plan is generated based on your current fitness. Review the week-by-week structure and let me know if you want to adjust intensity, add rest days, or modify any workouts.',
+          }
+        },
+      },
+
+      // Tool 16: Analyze athlete patterns (outcome learning)
+      analyzePatterns: {
+        description: 'Analyze the athlete\'s training outcome patterns to understand what works best for them. Looks at recovery rate, optimal TSB range, best days for intensity, volume vs intensity preferences, and workout type success rates. Patterns are automatically saved as memories for future personalization.',
+        inputSchema: z.object({
+          days: z.number().optional().describe('Number of days to analyze (default: 90)'),
+          saveAsMemories: z.boolean().optional().describe('Save discovered patterns as athlete memories (default: true)'),
+        }),
+        execute: async ({ days = 90, saveAsMemories = true }: { days?: number; saveAsMemories?: boolean }) => {
+          if (!athleteId) {
+            return { error: 'No athlete ID available. Pattern analysis requires a logged-in user.' }
+          }
+
+          try {
+            const patterns = await analyzeAthletePatterns(athleteId, { days, saveAsMemories })
+
+            if (patterns.dataPoints < 5) {
+              return {
+                message: 'Not enough workout outcome data to detect patterns yet.',
+                dataPoints: patterns.dataPoints,
+                tip: 'Keep logging workout outcomes (RPE, feedback) using the logWorkoutOutcome tool. After about 10-15 outcomes, patterns will start emerging.',
+              }
+            }
+
+            const summary = summarizePatterns(patterns)
+
+            return {
+              summary,
+              dataPoints: patterns.dataPoints,
+              analyzedAt: patterns.analyzedAt,
+              patterns: {
+                recovery: patterns.recovery ? {
+                  averageDays: patterns.recovery.averageRecoveryDays,
+                  profile: patterns.recovery.fastRecoverer ? 'fast' : patterns.recovery.slowRecoverer ? 'slow' : 'average',
+                  confidence: Math.round(patterns.recovery.confidence * 100),
+                } : null,
+                optimalTSB: patterns.tsb ? {
+                  range: `${patterns.tsb.optimalTSB.min} to ${patterns.tsb.optimalTSB.max}`,
+                  peakTSB: patterns.tsb.peakPerformanceTSB,
+                  riskZone: `${patterns.tsb.riskZone.min} to ${patterns.tsb.riskZone.max}`,
+                  confidence: Math.round(patterns.tsb.confidence * 100),
+                } : null,
+                volumeIntensity: patterns.volumeIntensity ? {
+                  preference: patterns.volumeIntensity.prefersVolume ? 'volume-focused' :
+                    patterns.volumeIntensity.prefersIntensity ? 'intensity-focused' : 'balanced',
+                  weeklyHoursSweet: patterns.volumeIntensity.weeklyHoursSweet,
+                  confidence: Math.round(patterns.volumeIntensity.confidence * 100),
+                } : null,
+                dayOfWeek: patterns.dayOfWeek ? {
+                  bestIntensityDays: patterns.dayOfWeek.bestIntensityDays,
+                  avoidIntensityDays: patterns.dayOfWeek.avoidIntensityDays,
+                  confidence: Math.round(patterns.dayOfWeek.confidence * 100),
+                } : null,
+                workoutTypes: patterns.workoutTypes.slice(0, 5).map(t => ({
+                  type: t.workoutType,
+                  completionRate: Math.round(t.completionRate * 100),
+                  averageRPE: t.averageRPE,
+                  bestDays: t.bestDays,
+                  sampleSize: t.sampleSize,
+                })),
+              },
+              memoriesSaved: saveAsMemories,
+              tip: 'These patterns are now being used to personalize workout suggestions and training plans. Patterns update automatically as more outcomes are logged.',
+            }
+          } catch (error) {
+            console.error('[analyzePatterns] Error:', error)
+            return { error: 'Failed to analyze patterns' }
+          }
+        },
+      },
     },
   })
 

@@ -156,9 +156,32 @@ export interface Integration {
   updated_at: string
 }
 
+// All available workout types
+export type WorkoutType =
+  // Basic (original 5)
+  | 'recovery'
+  | 'endurance'
+  | 'tempo'
+  | 'threshold'
+  | 'intervals'
+  // Sweet spot workouts
+  | 'sweetspot_2x20'
+  | 'sweetspot_3x15'
+  | 'sweetspot_over_under'
+  // VO2max workouts
+  | 'vo2max_5x5'
+  | 'vo2max_4x4'
+  | 'vo2max_3x3'
+  // Threshold workouts
+  | 'threshold_2x20'
+  | 'threshold_3x12'
+  // Endurance workouts
+  | 'endurance_long'
+  | 'tempo_progression'
+
 // Workout suggestion from AI
 export interface WorkoutSuggestion {
-  type: 'recovery' | 'endurance' | 'tempo' | 'threshold' | 'intervals'
+  type: WorkoutType
   duration_minutes: number
   description: string
   target_tss: number

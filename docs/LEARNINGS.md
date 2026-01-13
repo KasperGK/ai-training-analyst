@@ -158,13 +158,90 @@ See `~/.claude/plans/calm-sleeping-llama.md`
 
 **Completed:**
 - [x] Phase 0: Knowledge Governance Foundation
+- [x] Phase 1: Knowledge Content (16 wiki articles, expanded workout templates)
+- [x] Phase 2: Analysis Tools (power curve, efficiency, training load)
+- [x] Phase 3: Smart Workout Library (34 templates, intelligent prescription)
+- [x] Phase 4: Plan Generation (5 plan templates, generateTrainingPlan tool)
+- [x] Phase 5: Outcome Learning (pattern recognition, personalized recommendations)
 
-**Next Up:**
-- [ ] Phase 1: Knowledge Content (10 new wiki articles)
-- [ ] Phase 2: Analysis Tools (power curve, efficiency, training load)
-- [ ] Phase 3: Smart Workout Library
-- [ ] Phase 4: Plan Generation
-- [ ] Phase 5: Outcome Learning
+**Target 85+/100 Achieved!**
+
+---
+
+## Analysis Tools (Phase 2)
+
+### analyzePowerCurve
+Analyzes power at key durations (5s, 1min, 5min, 20min) to identify:
+- Rider profile (sprinter, pursuiter, climber, TT specialist, all-rounder)
+- Strengths and limiters
+- Period-over-period comparison
+
+### analyzeEfficiency
+Tracks aerobic development through:
+- Efficiency Factor (NP/HR) trends
+- Decoupling analysis for long rides
+- Weekly progression
+
+### analyzeTrainingLoad
+Monitors training load balance:
+- ACWR (Acute:Chronic Workload Ratio) - sweet spot is 0.8-1.3
+- Monotony (training variety)
+- Strain (weekly load × monotony)
+- TSB status interpretation
+
+---
+
+## Smart Workout Library (Phase 3)
+
+### Workout Categories (34 total)
+- **Recovery (3)**: Easy spin, flush ride, pre-event openers
+- **Endurance (5)**: Zone 2 foundation to 3-hour long rides
+- **Tempo (4)**: 3x10 through continuous 45min
+- **Sweet Spot (5)**: 3x10 through 2x30, including over-unders
+- **Threshold (5)**: 3x8 through 40-minute TT
+- **VO2max (5)**: 6x3 through pyramid workouts
+- **Anaerobic (4)**: 30/30, 40/20, 1-min and 2-min repeats
+- **Sprint (3)**: Neuromuscular, standing starts, race simulation
+
+### Intelligent Prescription
+Located in `src/lib/workouts/prescribe.ts`:
+- Scores workouts based on CTL, ATL, TSB, training phase
+- Checks prerequisites (min fitness, freshness, recovery time)
+- Personalizes descriptions with actual power targets
+- Returns best match with alternatives and warnings
+
+### Key Files
+- `src/lib/workouts/library.ts` - 34 structured workout templates
+- `src/lib/workouts/prescribe.ts` - Intelligent selection logic
+
+---
+
+## Plan Generation (Phase 4)
+
+### Plan Templates (5 total)
+- **4-Week Base Build** - Aerobic foundation, Zone 2 focus, progressive volume
+- **8-Week FTP Build** - Sweet spot + threshold progression, 2 build blocks
+- **3-Week Taper** - Pre-event load reduction while maintaining intensity
+- **12-Week Event Prep** - Complete periodization: base → build → peak → taper
+- **4-Week Maintenance** - Balanced training to hold fitness
+
+### generateTrainingPlan Tool
+Generates personalized multi-week plans based on:
+- Current fitness (CTL/ATL)
+- Training goal
+- Available weekly hours
+- Key workout days
+- Target event date (for taper timing)
+
+### Database Tables
+- `training_plans` - Main plan with goal, dates, status
+- `plan_days` - Individual days with workout assignments
+- `power_bests` - Personal records at key durations
+
+### Key Files
+- `src/lib/plans/templates.ts` - Plan template definitions
+- `src/lib/plans/generator.ts` - Plan generation logic
+- `supabase/migrations/010_training_plans.sql` - Database schema
 
 ---
 
@@ -182,3 +259,45 @@ See `~/.claude/plans/calm-sleeping-llama.md`
 ### RLS blocking queries
 - Check `auth.uid()` matches expected column
 - Use Supabase dashboard SQL editor to test queries directly
+
+---
+
+## Outcome Learning (Phase 5)
+
+### Pattern Analyzer
+Located in `src/lib/learning/outcome-analyzer.ts`:
+- Analyzes workout outcomes to detect personalized patterns
+- Detects: recovery rate, optimal TSB, day preferences, volume/intensity response
+- Auto-saves patterns as athlete memories with confidence levels
+
+### Pattern Types Detected
+- **Recovery Pattern**: How fast athlete recovers from intensity (fast/average/slow)
+- **TSB Pattern**: What form level produces best outcomes (optimal vs risk zones)
+- **Day of Week**: Best/worst days for intensity workouts
+- **Volume/Intensity**: Whether athlete responds better to volume or intensity focus
+- **Workout Types**: Completion rates and RPE by workout category
+
+### Integration Points
+1. **Workout Prescription** (`prescribe.ts`)
+   - Scores adjusted based on day-of-week patterns
+   - TSB patterns inform workout intensity recommendations
+   - Recovery patterns adjust intensity spacing
+   - Workout type success rates influence suggestions
+
+2. **Plan Generation** (`generator.ts`)
+   - Key workout days suggested from patterns
+   - Weekly hours adjusted to athlete's sweet spot
+   - Volume/intensity emphasis matched to preference
+   - Recovery warnings for slow recoverers
+
+3. **AI Tool** (`analyzePatterns`)
+   - Analyzes last 90 days of outcomes
+   - Returns structured pattern data
+   - Auto-saves discoveries as memories
+   - Used automatically by plan generation
+
+### Key Files
+- `src/lib/learning/outcome-analyzer.ts` - Core pattern detection
+- `src/lib/learning/index.ts` - Module exports
+- `src/lib/workouts/prescribe.ts` - Pattern-aware prescription
+- `src/lib/plans/generator.ts` - Pattern-aware plan generation

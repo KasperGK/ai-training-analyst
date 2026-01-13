@@ -35,27 +35,30 @@ npm run build  # Build for production
 - [x] ConfidenceBadge + SourceDetails components
 - [x] Flag button on wiki article pages
 
-### Phase 1: Knowledge Content (Next)
-- [ ] Add 10 new wiki articles with governance fields
-- [ ] Expand workout templates (5 → 15)
-- [ ] Wire outcome tracking tool
+### Phase 1: Knowledge Content ✅ Complete
+- [x] Add 10 new wiki articles with governance fields
+- [x] Expand workout templates (5 → 15)
+- [x] Wire outcome tracking tool (logWorkoutOutcome)
 
-### Phase 2: Analysis Tools
-- [ ] Power curve analysis tool
-- [ ] Efficiency trends tool
-- [ ] Training load tool (ACWR, monotony)
+### Phase 2: Analysis Tools ✅ Complete
+- [x] Power curve analysis tool (analyzePowerCurve)
+- [x] Efficiency trends tool (analyzeEfficiency)
+- [x] Training load tool (analyzeTrainingLoad - ACWR, monotony, strain)
 
-### Phase 3: Smart Workout Library
-- [ ] 30+ workout templates
-- [ ] Intelligent selection logic
+### Phase 3: Smart Workout Library ✅ Complete
+- [x] 34 workout templates across 8 categories
+- [x] Intelligent selection logic (prescribe.ts)
 
-### Phase 4: Plan Generation
-- [ ] generateTrainingPlan tool
-- [ ] Plan templates (base build, FTP build, taper)
+### Phase 4: Plan Generation ✅ Complete
+- [x] generateTrainingPlan tool
+- [x] 5 plan templates (4-week base, 8-week FTP, 3-week taper, 12-week event prep, 4-week maintenance)
+- [x] Database migration (010_training_plans.sql)
 
-### Phase 5: Outcome Learning
-- [ ] Outcome pattern analyzer
-- [ ] Pattern-aware recommendations
+### Phase 5: Outcome Learning ✅ Complete
+- [x] Outcome pattern analyzer (`src/lib/learning/outcome-analyzer.ts`)
+- [x] Pattern-aware workout prescription (prescribe.ts updated)
+- [x] Pattern-aware plan generation (generator.ts updated)
+- [x] analyzePatterns AI tool
 
 ## Architecture
 
@@ -75,9 +78,15 @@ npm run build  # Build for production
 - `getDetailedSession` - Fetch workout details
 - `queryHistoricalTrends` - Analyze training patterns
 - `getAthleteGoals` - Get goals, events, periodization
-- `suggestWorkout` - Generate workout recommendations
+- `suggestWorkout` - Generate workout recommendations (34 templates)
 - `searchKnowledge` - RAG search with confidence metadata
 - `getAthleteMemory` / `saveAthleteMemory` - Personalization
+- `analyzePowerCurve` - Power profile and rider type analysis
+- `analyzeEfficiency` - Aerobic efficiency (EF, decoupling)
+- `analyzeTrainingLoad` - ACWR, monotony, strain analysis
+- `generateTrainingPlan` - Multi-week structured plans (now pattern-aware)
+- `logWorkoutOutcome` - Record workout outcomes for learning
+- `analyzePatterns` - Discover and save training patterns from outcome history
 
 ### Feature Flags
 ```bash
@@ -88,6 +97,6 @@ FEATURE_INSIGHTS=true     # Enable proactive insights
 ```
 
 ## Migrations
-Latest: `009_knowledge_governance.sql` (knowledge_flags, knowledge_versions)
+Latest: `010_training_plans.sql` (training_plans, plan_days, power_bests)
 
 Run pending: `npx supabase migration up`
