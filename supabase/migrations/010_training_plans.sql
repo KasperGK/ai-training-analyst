@@ -92,11 +92,13 @@ CREATE TABLE public.power_bests (
   is_current_best BOOLEAN DEFAULT TRUE, -- False when superseded
 
   -- Metadata
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-
-  -- Unique constraint for current bests at each duration
-  UNIQUE(athlete_id, duration_seconds) WHERE is_current_best = TRUE
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Partial unique index for current bests (only one current best per duration per athlete)
+CREATE UNIQUE INDEX idx_power_bests_current_unique
+  ON public.power_bests(athlete_id, duration_seconds)
+  WHERE is_current_best = TRUE;
 
 -- Indexes for performance
 CREATE INDEX idx_training_plans_athlete ON public.training_plans(athlete_id);
