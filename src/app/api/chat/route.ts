@@ -56,9 +56,36 @@ export async function POST(req: Request) {
     intervalsClient.setCredentials(accessToken!, intervalsAthleteId!)
   }
 
-  // Build system prompt with optional personalization
-  // Athlete profile is now synced from intervals.icu to Supabase via syncAthleteProfile()
-  let systemPrompt = buildSystemPrompt(athleteContext)
+  // If athlete data is missing from frontend context, fetch from intervals.icu
+  let effectiveAthleteContext = athleteContext
+  const parsedContext = athleteContext ? JSON.parse(athleteContext) : {}
+
+  if (intervalsConnected && !parsedContext.athlete?.ftp) {
+    try {
+      const athlete = await intervalsClient.getAthlete()
+      const cycling = athlete.sportSettings?.find((s: { type?: string }) => s.type === 'Bike') || athlete.sportSettings?.[0]
+
+      const enrichedContext = {
+        ...parsedContext,
+        athlete: {
+          ...parsedContext.athlete,
+          ftp: cycling?.ftp ?? null,
+          max_hr: cycling?.max_hr ?? null,
+          lthr: cycling?.lthr ?? null,
+          weight_kg: athlete.icu_weight ?? athlete.weight ?? null,
+          resting_hr: athlete.icu_resting_hr ?? null,
+          name: athlete.name ?? null,
+        }
+      }
+      effectiveAthleteContext = JSON.stringify(enrichedContext, null, 2)
+      console.log('[chat] Enriched context from intervals.icu:', enrichedContext.athlete)
+    } catch (error) {
+      console.error('[chat] Failed to fetch athlete from intervals.icu:', error)
+    }
+  }
+
+  // Build system prompt with athlete context
+  let systemPrompt = buildSystemPrompt(effectiveAthleteContext)
 
   // Add personalization section if memory feature is enabled
   if (ENABLE_MEMORY && athleteId) {

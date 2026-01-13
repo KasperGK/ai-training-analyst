@@ -68,11 +68,11 @@ export default function Dashboard() {
   const athleteContextString = useMemo(() => JSON.stringify(
     {
       athlete: {
-        ftp: athlete?.ftp || 250,
-        max_hr: athlete?.max_hr || null,
-        lthr: athlete?.lthr || null,
-        weight_kg: athlete?.weight_kg || 75,
-        name: athlete?.name || null,
+        ftp: athlete?.ftp ?? null,
+        max_hr: athlete?.max_hr ?? null,
+        lthr: athlete?.lthr ?? null,
+        weight_kg: athlete?.weight_kg ?? null,
+        name: athlete?.name ?? null,
       },
       currentFitness: {
         ctl: displayFitness?.ctl ?? null,

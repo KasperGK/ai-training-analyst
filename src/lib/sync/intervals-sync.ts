@@ -229,7 +229,6 @@ export async function syncAthleteProfile(
         lthr: cycling?.lthr ?? null,
         weight_kg: athlete.icu_weight ?? athlete.weight ?? null,
         resting_hr: athlete.icu_resting_hr ?? null,
-        intervals_icu_id: athlete.id || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', athleteId)
