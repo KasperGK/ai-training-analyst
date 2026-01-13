@@ -7,17 +7,29 @@ export interface IntervalsAthlete {
   id: string
   name: string
   email: string
-  weight: number // kg
-  ftp: number
-  lthr: number
-  maxHr: number
-  restingHr: number
+  // Note: weight, ftp, etc. are in icu_ prefixed fields or sportSettings
+  weight: number | null // kg - often null, use icu_weight
+  icu_weight: number | null
+  icu_resting_hr: number | null
   sportSettings: {
     type: string
     ftp: number
+    indoor_ftp: number | null
     lthr: number
-    maxHr: number
+    max_hr: number
   }[]
+}
+
+// Helper to get athlete metrics from sportSettings (cycling by default)
+export function getAthleteMetrics(athlete: IntervalsAthlete) {
+  const cycling = athlete.sportSettings?.find(s => s.type === 'Bike') || athlete.sportSettings?.[0]
+  return {
+    ftp: cycling?.ftp || null,
+    lthr: cycling?.lthr || null,
+    maxHr: cycling?.max_hr || null,
+    weight: athlete.icu_weight || athlete.weight || null,
+    restingHr: athlete.icu_resting_hr || null,
+  }
 }
 
 export interface IntervalsActivity {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
+import { intervalsClient, getDateRange, getAthleteMetrics } from '@/lib/intervals-icu'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -89,15 +89,19 @@ export async function GET(request: Request) {
       ? Math.round(wellness[wellness.length - 1].ctl - wellness[wellness.length - 8].ctl)
       : 0
 
+    // Extract metrics from sportSettings
+    const metrics = getAthleteMetrics(athlete)
+
     return NextResponse.json({
       connected: true,
       athlete: {
         id: athlete.id,
         name: athlete.name,
-        ftp: athlete.ftp,
-        max_hr: athlete.maxHr,
-        lthr: athlete.lthr,
-        weight_kg: athlete.weight,
+        ftp: metrics.ftp,
+        max_hr: metrics.maxHr,
+        lthr: metrics.lthr,
+        weight_kg: metrics.weight,
+        resting_hr: metrics.restingHr,
       },
       currentFitness: {
         ctl: today?.ctl || 0,
