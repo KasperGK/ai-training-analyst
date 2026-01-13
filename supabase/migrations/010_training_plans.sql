@@ -1,6 +1,15 @@
 -- Training Plans Schema
 -- Phase 4: Plan Generation for multi-week structured training plans
 
+-- Helper function for updated_at triggers (if not exists)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Main training plans table
 CREATE TABLE public.training_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
