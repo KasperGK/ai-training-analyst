@@ -57,6 +57,7 @@ export async function POST(req: Request) {
   }
 
   // Build system prompt with optional personalization
+  // Athlete profile is now synced from intervals.icu to Supabase via syncAthleteProfile()
   let systemPrompt = buildSystemPrompt(athleteContext)
 
   // Add personalization section if memory feature is enabled

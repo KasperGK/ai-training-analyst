@@ -200,6 +200,62 @@ function inferWorkoutType(activity: IntervalsActivity): string | null {
 }
 
 /**
+ * Sync athlete profile from intervals.icu to Supabase
+ * Updates FTP, max_hr, lthr, weight, and resting_hr from sportSettings
+ */
+export async function syncAthleteProfile(
+  athleteId: string
+): Promise<{ updated: boolean; error?: string }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { updated: false, error: 'Supabase not configured' }
+  }
+
+  try {
+    // Fetch athlete data from intervals.icu
+    const athlete = await intervalsClient.getAthlete()
+
+    // Extract cycling settings (or first sport if no cycling)
+    const cycling = athlete.sportSettings?.find(
+      (s: { type?: string }) => s.type === 'Bike'
+    ) || athlete.sportSettings?.[0]
+
+    // Update the athletes table with intervals.icu values
+    const { error } = await supabase
+      .from('athletes')
+      .update({
+        ftp: cycling?.ftp ?? null,
+        max_hr: cycling?.max_hr ?? null,
+        lthr: cycling?.lthr ?? null,
+        weight_kg: athlete.icu_weight ?? athlete.weight ?? null,
+        resting_hr: athlete.icu_resting_hr ?? null,
+        intervals_icu_id: athlete.id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', athleteId)
+
+    if (error) {
+      console.error('[Sync] Failed to sync athlete profile:', error)
+      return { updated: false, error: error.message }
+    }
+
+    console.log('[Sync] Synced athlete profile:', {
+      ftp: cycling?.ftp,
+      max_hr: cycling?.max_hr,
+      lthr: cycling?.lthr,
+      weight_kg: athlete.icu_weight ?? athlete.weight,
+      resting_hr: athlete.icu_resting_hr,
+    })
+
+    return { updated: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[Sync] Failed to fetch athlete from intervals.icu:', message)
+    return { updated: false, error: message }
+  }
+}
+
+/**
  * Transform intervals.icu wellness to our FitnessHistory format
  */
 function transformWellness(wellness: IntervalsWellness, athleteId: string): FitnessHistoryInsert {
@@ -424,7 +480,13 @@ export async function syncAll(
   // Mark as syncing
   await upsertSyncLog(athleteId, { status: 'syncing' })
 
-  // Sync activities first
+  // Sync athlete profile first (FTP, max_hr, lthr, weight, resting_hr)
+  const profileResult = await syncAthleteProfile(athleteId)
+  if (profileResult.error) {
+    allErrors.push(`Profile: ${profileResult.error}`)
+  }
+
+  // Sync activities
   const activitiesResult = await syncActivities(athleteId, options)
   allErrors.push(...activitiesResult.errors)
 
