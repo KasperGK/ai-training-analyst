@@ -39,7 +39,7 @@ interface UIMessage {
 }
 
 export async function POST(req: Request) {
-  const { messages, athleteContext, athleteId } = await req.json()
+  const { messages, athleteContext, athleteId, canvasMode } = await req.json()
 
   // Get intervals.icu credentials (same pattern as /api/intervals/data)
   const cookieStore = await cookies()
@@ -125,6 +125,36 @@ Note: These insights are already available - you don't need to call getActiveIns
     }
   }
   // === END PHASE 8.2 ===
+
+  // === CANVAS MODE: Add widget display instructions ===
+  if (canvasMode) {
+    const canvasInstructions = `## Canvas Mode (AI Coach Page)
+
+You are on the AI Coach page with a canvas that can display training widgets. When the user asks to see or show data, include a canvas command in your response.
+
+**Available widgets:**
+- \`[CANVAS:fitness]\` - Shows CTL, ATL, TSB metrics
+- \`[CANVAS:pmc-chart]\` - Shows Performance Management Chart (fitness history)
+- \`[CANVAS:sessions]\` - Shows recent training sessions table
+- \`[CANVAS:sleep]\` - Shows sleep metrics
+- \`[CANVAS:power-curve]\` - Shows power duration curve
+
+**How to use:**
+When the user asks to "show", "display", or wants to "see" their data, include the appropriate canvas command at the START of your response. The command will be parsed and the widget displayed - it won't show in the chat.
+
+**Examples:**
+- User: "Show my fitness" → Start response with \`[CANVAS:fitness]\` then explain the data
+- User: "How's my power curve?" → Start with \`[CANVAS:power-curve]\` then analyze
+- User: "Show me my recent workouts" → Start with \`[CANVAS:sessions]\` then summarize
+- User: "I want to see my PMC" → Start with \`[CANVAS:pmc-chart]\` then explain trends
+
+You can show multiple widgets by including multiple commands: \`[CANVAS:fitness][CANVAS:pmc-chart]\`
+
+Always explain what the widget shows after displaying it. Be proactive - if the conversation is about fitness trends, show the PMC chart.`
+
+    systemPrompt = `${systemPrompt}\n\n${canvasInstructions}`
+  }
+  // === END CANVAS MODE ===
 
   // Convert UI messages (with parts) to API messages (with content)
   const convertedMessages = (messages as UIMessage[]).map(msg => ({
