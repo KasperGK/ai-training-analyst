@@ -47,7 +47,7 @@ export function SleepCard({ sleepSeconds, sleepScore, className }: SleepCardProp
 
   const handleClick = () => {
     if (wasDragging()) return
-    router.push('/recovery')
+    router.push('/athlete?tab=recovery')
   }
 
   const status = getSleepStatus(sleepScore)
