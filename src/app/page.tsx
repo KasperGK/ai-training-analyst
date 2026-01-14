@@ -21,7 +21,7 @@ import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useUser } from '@/hooks/use-user'
 import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
-import { Settings, BookOpen, Check, Link2, LayoutGrid, CalendarCheck, User } from 'lucide-react'
+import { Settings, BookOpen, Check, Link2, LayoutGrid, CalendarCheck, User, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/ui/logo'
 import { InsightFeed } from '@/components/insights/insight-feed'
@@ -127,6 +127,12 @@ export default function Dashboard() {
             <Button variant="ghost" size="icon" onClick={resetLayout} title="Reset layout">
               <LayoutGrid className="h-5 w-5" />
               <span className="sr-only">Reset layout</span>
+            </Button>
+            <Button variant="ghost" size="icon" asChild title="AI Coach">
+              <Link href="/coach">
+                <Sparkles className="h-5 w-5" />
+                <span className="sr-only">AI Coach</span>
+              </Link>
             </Button>
             <Button variant="ghost" size="icon" asChild>
               <Link href="/training">
