@@ -40,7 +40,7 @@ export function FitnessCard({ fitness }: FitnessMetricsProps) {
         value="—"
         description="Connect to see data"
         status="neutral"
-        href="/analytics#fitness"
+        href="/athlete?tab=history"
       />
     )
   }
@@ -55,7 +55,7 @@ export function FitnessCard({ fitness }: FitnessMetricsProps) {
       trend={fitness.ctl_trend}
       trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : '0'}
       status={ctlStatus}
-      href="/analytics#fitness"
+      href="/athlete?tab=history"
     />
   )
 }
@@ -71,7 +71,7 @@ export function FatigueCard({ fitness }: FitnessMetricsProps) {
         value="—"
         description="Connect to see data"
         status="neutral"
-        href="/analytics#fatigue"
+        href="/athlete?tab=history"
       />
     )
   }
@@ -82,7 +82,7 @@ export function FatigueCard({ fitness }: FitnessMetricsProps) {
       value={Math.round(fitness.atl)}
       description="7-day training load"
       status="neutral"
-      href="/analytics#fatigue"
+      href="/athlete?tab=history"
     />
   )
 }
@@ -98,7 +98,7 @@ export function FormCard({ fitness }: FitnessMetricsProps) {
         value="—"
         description="Connect to see data"
         status="neutral"
-        href="/analytics#form"
+        href="/athlete?tab=history"
       />
     )
   }
@@ -111,7 +111,7 @@ export function FormCard({ fitness }: FitnessMetricsProps) {
       value={fitness.tsb > 0 ? `+${Math.round(fitness.tsb)}` : Math.round(fitness.tsb)}
       description={getTSBDescription(fitness.tsb)}
       status={tsbStatus}
-      href="/analytics#form"
+      href="/athlete?tab=history"
     />
   )
 }

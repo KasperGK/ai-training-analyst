@@ -249,6 +249,9 @@ export interface PlanDay {
   compliance_score?: number | null
   coach_notes?: string | null
   athlete_notes?: string | null
+  skipped?: boolean
+  rescheduled_from?: string | null
+  rescheduled_to?: string | null
   created_at: string
   updated_at: string
 }

@@ -43,12 +43,20 @@ export type PlanDayRow = {
   compliance_score: number | null
   coach_notes: string | null
   athlete_notes: string | null
+  skipped: boolean
+  rescheduled_from: string | null
+  rescheduled_to: string | null
   created_at: string
   updated_at: string
 }
 
 export type TrainingPlanInsert = Omit<TrainingPlanRow, 'id' | 'created_at' | 'updated_at' | 'progress_percent'>
-export type PlanDayInsert = Omit<PlanDayRow, 'id' | 'created_at' | 'updated_at'>
+// These fields have defaults or are nullable, so make them optional for insert
+export type PlanDayInsert = Omit<PlanDayRow, 'id' | 'created_at' | 'updated_at' | 'skipped' | 'rescheduled_from' | 'rescheduled_to'> & {
+  skipped?: boolean
+  rescheduled_from?: string | null
+  rescheduled_to?: string | null
+}
 
 function rowToPlan(row: TrainingPlanRow): TrainingPlan {
   return {
@@ -94,6 +102,9 @@ function rowToPlanDay(row: PlanDayRow): PlanDay {
     compliance_score: row.compliance_score,
     coach_notes: row.coach_notes,
     athlete_notes: row.athlete_notes,
+    skipped: row.skipped,
+    rescheduled_from: row.rescheduled_from,
+    rescheduled_to: row.rescheduled_to,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
@@ -344,4 +355,119 @@ export async function calculatePlanProgress(planId: string): Promise<number> {
 
   const completedDays = data.filter((d) => d.completed).length
   return Math.round((completedDays / data.length) * 100)
+}
+
+// Skip a workout day
+export async function skipPlanDay(dayId: string): Promise<PlanDay | null> {
+  return updatePlanDay(dayId, {
+    skipped: true,
+    completed: false,
+  })
+}
+
+// Reschedule a workout to a different date
+export async function reschedulePlanDay(
+  dayId: string,
+  newDate: string,
+  planId: string
+): Promise<{ originalDay: PlanDay | null; newDay: PlanDay | null }> {
+  const supabase = await createClient()
+  if (!supabase) return { originalDay: null, newDay: null }
+
+  // Get the original day
+  const originalDay = await getPlanDay(dayId)
+  if (!originalDay) return { originalDay: null, newDay: null }
+
+  // Mark original day as rescheduled
+  const updatedOriginal = await updatePlanDay(dayId, {
+    rescheduled_to: newDate,
+    skipped: true,
+  })
+
+  // Check if there's already a day on the new date
+  const existingDay = await getPlanDayByDate(planId, newDate)
+
+  if (existingDay) {
+    // Update existing day with the workout from original
+    const updatedNew = await updatePlanDay(existingDay.id, {
+      workout_template_id: originalDay.workout_template_id,
+      workout_type: originalDay.workout_type,
+      workout_name: originalDay.workout_name,
+      target_tss: originalDay.target_tss,
+      target_duration_minutes: originalDay.target_duration_minutes,
+      target_if: originalDay.target_if,
+      custom_description: originalDay.custom_description,
+      intervals_json: originalDay.intervals_json,
+      rescheduled_from: originalDay.date,
+    })
+    return { originalDay: updatedOriginal, newDay: updatedNew }
+  } else {
+    // Create a new day for the rescheduled workout
+    const newDayDate = new Date(newDate)
+    const planStartDate = new Date(originalDay.date)
+    const weekNumber = Math.ceil(
+      (newDayDate.getTime() - planStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    ) + originalDay.week_number
+
+    const [newDay] = await createPlanDays([{
+      plan_id: planId,
+      date: newDate,
+      week_number: weekNumber,
+      day_of_week: newDayDate.getDay(),
+      workout_template_id: originalDay.workout_template_id ?? null,
+      workout_type: originalDay.workout_type ?? null,
+      workout_name: originalDay.workout_name ?? null,
+      target_tss: originalDay.target_tss ?? null,
+      target_duration_minutes: originalDay.target_duration_minutes ?? null,
+      target_if: originalDay.target_if ?? null,
+      custom_description: originalDay.custom_description ?? null,
+      intervals_json: originalDay.intervals_json ?? null,
+      completed: false,
+      actual_session_id: null,
+      actual_tss: null,
+      actual_duration_minutes: null,
+      compliance_score: null,
+      coach_notes: null,
+      athlete_notes: null,
+      skipped: false,
+      rescheduled_from: originalDay.date,
+      rescheduled_to: null,
+    }])
+
+    return { originalDay: updatedOriginal, newDay: newDay || null }
+  }
+}
+
+// Get plan days with events for projection
+export async function getPlanDaysWithEvents(
+  planId: string,
+  athleteId: string
+): Promise<{ days: PlanDay[]; events: Array<{ date: string; name: string; priority: string }> }> {
+  const supabase = await createClient()
+  if (!supabase) return { days: [], events: [] }
+
+  // Get all plan days
+  const days = await getPlanDays(planId)
+
+  // Get the plan to find date range
+  const plan = await getTrainingPlan(planId)
+  if (!plan) return { days, events: [] }
+
+  // Get events in the plan date range
+  const { data: eventsData } = await supabase
+    .from('events')
+    .select('date, name, priority')
+    .eq('athlete_id', athleteId)
+    .gte('date', plan.start_date)
+    .lte('date', plan.end_date)
+    .eq('status', 'planned')
+    .order('date', { ascending: true })
+
+  const events = (eventsData || []).map(e => ({
+    date: e.date,
+    name: e.name,
+    priority: e.priority,
+  }))
+
+  return { days, events }
 }

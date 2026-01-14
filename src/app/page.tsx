@@ -21,10 +21,11 @@ import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useUser } from '@/hooks/use-user'
 import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
-import { Settings, Calendar, BookOpen, Check, Link2, LayoutGrid } from 'lucide-react'
+import { Settings, BookOpen, Check, Link2, LayoutGrid, CalendarCheck, User } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/ui/logo'
 import { InsightFeed } from '@/components/insights/insight-feed'
+import { InsightsDropdown } from '@/components/insights/insights-dropdown'
 import type { Session } from '@/types'
 
 
@@ -128,17 +129,24 @@ export default function Dashboard() {
               <span className="sr-only">Reset layout</span>
             </Button>
             <Button variant="ghost" size="icon" asChild>
+              <Link href="/training">
+                <CalendarCheck className="h-5 w-5" />
+                <span className="sr-only">Training Plan</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/athlete">
+                <User className="h-5 w-5" />
+                <span className="sr-only">Athlete Profile</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
               <Link href="/learn">
                 <BookOpen className="h-5 w-5" />
                 <span className="sr-only">Learn</span>
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/events">
-                <Calendar className="h-5 w-5" />
-                <span className="sr-only">Events & Goals</span>
-              </Link>
-            </Button>
+            <InsightsDropdown />
             <Button variant="ghost" size="icon" asChild>
               <Link href="/settings">
                 <Settings className="h-5 w-5" />
