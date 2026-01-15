@@ -70,7 +70,7 @@ export function MetricCard({
       </div>
 
       <div className="flex-1 flex items-center justify-center">
-        <span className={cn('text-5xl font-semibold tabular-nums tracking-tight', statusColors[status])}>
+        <span className={cn('text-3xl font-bold tabular-nums tracking-tight', statusColors[status])}>
           {value}
         </span>
       </div>

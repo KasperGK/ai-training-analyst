@@ -137,3 +137,48 @@
 .dark .react-grid-item.react-grid-placeholder {
   background: oklch(0.985 0 0 / 0.1);
 }
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Scrollbar on left side */
+.scrollbar-left {
+  direction: rtl;
+}
+.scrollbar-left > * {
+  direction: ltr;
+}
+
+/* Subtle scrollbar */
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.7 0 0 / 0.3) transparent;
+}
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0 0 / 0.3);
+  border-radius: 3px;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0 0 / 0.5);
+}
+.dark .scrollbar-subtle {
+  scrollbar-color: oklch(0.4 0 0 / 0.3) transparent;
+}
+.dark .scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: oklch(0.4 0 0 / 0.3);
+}
+.dark .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0 0 / 0.5);
+}

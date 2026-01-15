@@ -33,9 +33,7 @@ export default function RootLayout({
         <ThemeProvider>
           <Navbar />
           <PageTransitionProvider>
-            <div className="flex-1 min-h-0 flex flex-col">
-              {children}
-            </div>
+            {children}
           </PageTransitionProvider>
         </ThemeProvider>
       </body>

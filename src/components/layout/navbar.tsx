@@ -27,11 +27,11 @@ export function Navbar() {
   const isActive = (path: string) => pathname === path
 
   return (
-    <header className="border-b bg-background px-6 py-4 shrink-0">
+    <header className="fixed top-4 left-4 right-4 z-50 border border-border/50 bg-background/50 backdrop-blur-md px-6 py-2.5 rounded-full">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Logo className="h-8 w-8" />
-          <h1 className="text-xl font-semibold tracking-tight">Conundrum.</h1>
+        <div className="flex items-center gap-2.5">
+          <Logo className="h-7 w-7" />
+          <h1 className="text-lg font-semibold tracking-tight">Conundrum.</h1>
         </div>
         <nav className="flex items-center gap-1">
           {/* Dashboard */}
@@ -43,7 +43,7 @@ export function Navbar() {
             className={cn(isActive('/') && 'bg-muted')}
           >
             <Link href="/">
-              <LayoutGrid className="h-5 w-5" />
+              <LayoutGrid className="h-[18px] w-[18px]" />
               <span className="sr-only">Dashboard</span>
             </Link>
           </Button>
@@ -57,7 +57,7 @@ export function Navbar() {
             className={cn(isActive('/coach') && 'bg-muted')}
           >
             <Link href="/coach">
-              <Brain className="h-5 w-5" />
+              <Brain className="h-[18px] w-[18px]" />
               <span className="sr-only">AI Coach</span>
             </Link>
           </Button>
@@ -71,7 +71,7 @@ export function Navbar() {
             className={cn(isActive('/training') && 'bg-muted')}
           >
             <Link href="/training">
-              <CalendarCheck className="h-5 w-5" />
+              <CalendarCheck className="h-[18px] w-[18px]" />
               <span className="sr-only">Training Plan</span>
             </Link>
           </Button>
@@ -85,7 +85,7 @@ export function Navbar() {
             className={cn(isActive('/athlete') && 'bg-muted')}
           >
             <Link href="/athlete">
-              <User className="h-5 w-5" />
+              <User className="h-[18px] w-[18px]" />
               <span className="sr-only">Athlete Profile</span>
             </Link>
           </Button>
@@ -99,7 +99,7 @@ export function Navbar() {
             className={cn(pathname.startsWith('/learn') && 'bg-muted')}
           >
             <Link href="/learn">
-              <BookOpen className="h-5 w-5" />
+              <BookOpen className="h-[18px] w-[18px]" />
               <span className="sr-only">Learn</span>
             </Link>
           </Button>
@@ -127,7 +127,7 @@ export function Navbar() {
             className={cn(isActive('/settings') && 'bg-muted')}
           >
             <Link href="/settings">
-              <Settings className="h-5 w-5" />
+              <Settings className="h-[18px] w-[18px]" />
               <span className="sr-only">Settings</span>
             </Link>
           </Button>
