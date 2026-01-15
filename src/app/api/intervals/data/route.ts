@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         atl: today?.atl || 0,
         tsb: today ? Math.round(today.ctl - today.atl) : 0,
         ctl_trend: ctlTrend > 0 ? 'up' : ctlTrend < 0 ? 'down' : 'stable',
+        ctl_change: ctlTrend,
         // Sleep data from Garmin via intervals.icu
         sleep_seconds: today?.sleepSecs ?? null,
         sleep_score: today?.sleepScore ?? null,

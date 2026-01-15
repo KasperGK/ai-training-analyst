@@ -269,7 +269,13 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   const scrollRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
   const [activeTab, setActiveTab] = useState('chat')
+  const [mounted, setMounted] = useState(false)
   const lastSavedMessageCount = useRef(0)
+
+  // Track client-side mount to avoid hydration mismatch with timestamps
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Conversation persistence
   const {
@@ -484,9 +490,9 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     }]
   }, [messages, savedDisplayMessages])
 
-  // Format timestamp
+  // Format timestamp (only after mount to avoid hydration mismatch)
   const formatTime = (date: Date | undefined) => {
-    if (!date) return ''
+    if (!date || !mounted) return ''
     return new Date(date).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',

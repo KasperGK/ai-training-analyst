@@ -123,6 +123,7 @@ export interface CurrentFitness {
   atl: number
   tsb: number
   ctl_trend: 'up' | 'down' | 'stable'
+  ctl_change?: number
   days_until_event?: number
   event_name?: string
   // Sleep data from last night

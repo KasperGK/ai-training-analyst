@@ -47,13 +47,16 @@ export function FitnessCard({ fitness }: FitnessMetricsProps) {
 
   const ctlStatus = getCTLStatus(fitness.ctl_trend)
 
+  const ctlChange = fitness.ctl_change ?? 0
+  const trendValue = ctlChange > 0 ? `+${ctlChange}` : ctlChange.toString()
+
   return (
     <MetricCard
       title="Fitness (CTL)"
       value={Math.round(fitness.ctl)}
       description="42-day training load"
       trend={fitness.ctl_trend}
-      trendValue={fitness.ctl_trend === 'up' ? '+3' : fitness.ctl_trend === 'down' ? '-2' : '0'}
+      trendValue={trendValue}
       status={ctlStatus}
       href="/athlete?tab=history"
     />

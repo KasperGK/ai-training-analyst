@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/hooks/use-user'
 import { useTheme } from 'next-themes'
-import { ArrowLeft, Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock } from 'lucide-react'
+import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock } from 'lucide-react'
 
 interface AthleteProfile {
   name: string
@@ -206,24 +206,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      {/* Header */}
-      <header className="border-b bg-background px-6 py-4">
-        <div className="mx-auto max-w-3xl flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your profile and integrations
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="mx-auto max-w-3xl p-6">
+    <main className="flex-1 overflow-auto bg-muted/40">
+      <div className="mx-auto max-w-3xl p-6">
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
@@ -647,7 +631,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </main>
   )
 }

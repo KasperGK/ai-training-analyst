@@ -2,12 +2,7 @@
 
 import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { ArrowLeft, Settings } from 'lucide-react'
-import { Logo } from '@/components/ui/logo'
-import { InsightsDropdown } from '@/components/insights/insights-dropdown'
 import { AthleteProfileTab } from '@/components/athlete/profile-tab'
 import { AthleteDataTab } from '@/components/athlete/data-tab'
 
@@ -43,32 +38,8 @@ function AthletePageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="mr-2">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Logo className="h-6 w-6" />
-            <h1 className="text-lg font-semibold">Athlete</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <InsightsDropdown />
-            <Link href="/settings">
-              <Button variant="ghost" size="icon">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="container px-4 py-6">
+    <main className="flex-1 overflow-auto bg-muted/40">
+      <div className="container px-4 py-6">
         <div className="mx-auto max-w-4xl">
           <Tabs value={tab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 max-w-xs">
@@ -85,8 +56,8 @@ function AthletePageContent() {
             </TabsContent>
           </Tabs>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   )
 }
 
@@ -100,21 +71,15 @@ export default function AthletePage() {
 
 function AthletePageSkeleton() {
   return (
-    <div className="min-h-screen bg-muted/40">
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-        <div className="container flex h-14 items-center px-4">
-          <div className="h-6 w-6 bg-muted rounded animate-pulse mr-3" />
-          <div className="h-6 w-32 bg-muted rounded animate-pulse" />
-        </div>
-      </header>
-      <main className="container px-4 py-6">
+    <main className="flex-1 overflow-auto bg-muted/40">
+      <div className="container px-4 py-6">
         <div className="mx-auto max-w-4xl space-y-6">
           <div className="h-10 w-48 bg-muted rounded animate-pulse" />
           <div className="h-40 bg-muted rounded animate-pulse" />
           <div className="h-52 bg-muted rounded animate-pulse" />
           <div className="h-64 bg-muted rounded animate-pulse" />
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   )
 }

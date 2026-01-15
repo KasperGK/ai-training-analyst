@@ -189,24 +189,14 @@ export default function WorkoutDetailPage() {
   })) || []
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      {/* Header */}
-      <header className="border-b bg-background px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Back to Dashboard</span>
-          </Button>
+    <main className="flex-1 overflow-auto bg-muted/40 p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Workout Header */}
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{activity.name || 'Workout'}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{activity.name || 'Workout'}</h1>
             <p className="text-sm text-muted-foreground">{formatDateTime(activity.date)}</p>
           </div>
-        </div>
-      </header>
 
-      {/* Content */}
-      <main className="p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
           {/* Key Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             <MetricCard icon={Clock} label="Duration" value={formatDuration(activity.duration_seconds)} />
@@ -291,7 +281,6 @@ export default function WorkoutDetailPage() {
             </Card>
           )}
         </div>
-      </main>
-    </div>
+    </main>
   )
 }

@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/select'
 import { useUser } from '@/hooks/use-user'
 import {
-  ArrowLeft,
   Plus,
   Calendar,
   Target,
@@ -295,24 +294,8 @@ export default function EventsPage() {
   const completedGoals = goals.filter(g => g.status === 'completed')
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      {/* Header */}
-      <header className="border-b bg-background px-6 py-4">
-        <div className="mx-auto max-w-4xl flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Events & Goals</h1>
-            <p className="text-sm text-muted-foreground">
-              Track your races and training objectives
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="mx-auto max-w-4xl p-6">
+    <main className="flex-1 overflow-auto bg-muted/40">
+      <div className="mx-auto max-w-4xl p-6">
         {!user && !userLoading ? (
           <Card>
             <CardContent className="py-8 text-center">
@@ -547,7 +530,7 @@ export default function EventsPage() {
             </TabsContent>
           </Tabs>
         )}
-      </main>
+      </div>
 
       {/* Event Dialog */}
       <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
@@ -749,6 +732,6 @@ export default function EventsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   )
 }

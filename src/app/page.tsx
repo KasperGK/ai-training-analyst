@@ -16,21 +16,17 @@ import {
 } from '@/components/dashboard/skeletons'
 import { Card, CardContent } from '@/components/ui/card'
 import { DragHandle } from '@/components/ui/drag-handle'
-import { Button } from '@/components/ui/button'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
-import { useUser } from '@/hooks/use-user'
 import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
-import { Settings, BookOpen, Check, Link2, LayoutGrid, CalendarCheck, User, Sparkles } from 'lucide-react'
-import Link from 'next/link'
-import { Logo } from '@/components/ui/logo'
+import { useUser } from '@/hooks/use-user'
+import { PageTransition } from '@/components/layout/page-transition'
 import { InsightFeed } from '@/components/insights/insight-feed'
-import { InsightsDropdown } from '@/components/insights/insights-dropdown'
 import type { Session } from '@/types'
 
 
 export default function Dashboard() {
-  const { user, signOut } = useUser()
+  const { user } = useUser()
   const {
     connected,
     loading,
@@ -39,7 +35,6 @@ export default function Dashboard() {
     sessions,
     pmcData,
     ctlTrend,
-    connect,
   } = useIntervalsData()
 
   // Auto-sync data to Supabase when needed
@@ -104,72 +99,9 @@ export default function Dashboard() {
   ), [athlete, displayFitness, displaySessions])
 
   return (
-    <div className="flex h-screen flex-col bg-muted/40">
-      {/* Header */}
-      <header className="border-b bg-background px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo className="h-8 w-8" />
-            <h1 className="text-xl font-semibold tracking-tight">Conundrum.</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            {connected ? (
-              <Button variant="ghost" size="icon" className="relative" title="Connected to intervals.icu">
-                <div className="h-5 w-5 rounded-full bg-green-600 flex items-center justify-center">
-                  <Check className="h-1.5 w-1.5 text-white" strokeWidth={3} />
-                </div>
-              </Button>
-            ) : (
-              <Button variant="ghost" size="icon" onClick={connect} disabled={loading} title="Connect intervals.icu">
-                <Link2 className="h-5 w-5" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" onClick={resetLayout} title="Reset layout">
-              <LayoutGrid className="h-5 w-5" />
-              <span className="sr-only">Reset layout</span>
-            </Button>
-            <Button variant="ghost" size="icon" asChild title="AI Coach">
-              <Link href="/coach">
-                <Sparkles className="h-5 w-5" />
-                <span className="sr-only">AI Coach</span>
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/training">
-                <CalendarCheck className="h-5 w-5" />
-                <span className="sr-only">Training Plan</span>
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/athlete">
-                <User className="h-5 w-5" />
-                <span className="sr-only">Athlete Profile</span>
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/learn">
-                <BookOpen className="h-5 w-5" />
-                <span className="sr-only">Learn</span>
-              </Link>
-            </Button>
-            <InsightsDropdown />
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/settings">
-                <Settings className="h-5 w-5" />
-                <span className="sr-only">Settings</span>
-              </Link>
-            </Button>
-            {user && (
-              <Button variant="ghost" size="sm" onClick={signOut}>
-                Sign out
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
-
+    <PageTransition>
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto p-6 bg-muted/40">
         <div className="mx-auto max-w-7xl">
           {/* Connect prompt when not connected */}
           {!connected && !loading && (
@@ -265,6 +197,6 @@ export default function Dashboard() {
           </DashboardGrid>
         </div>
       </main>
-    </div>
+    </PageTransition>
   )
 }

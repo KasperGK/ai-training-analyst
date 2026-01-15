@@ -189,41 +189,7 @@ export default function ArticlePage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      {/* Header */}
-      <header className="border-b bg-background px-6 py-4">
-        <div className="mx-auto max-w-3xl flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/learn')}>
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Back to Knowledge Base</span>
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="secondary" className={categoryColors[article.category]}>
-                {categories[article.category].label}
-              </Badge>
-              <ConfidenceBadge level={article.confidenceLevel} />
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                {article.readingTime} min read
-              </div>
-            </div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {article.title}
-            </h1>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => setShowFlagDialog(true)}
-          >
-            <Flag className="h-4 w-4 mr-1" />
-            Report
-          </Button>
-        </div>
-      </header>
-
+    <main className="flex-1 overflow-auto bg-muted/40">
       {/* Flag Dialog */}
       <FlagArticleDialog
         open={showFlagDialog}
@@ -233,8 +199,35 @@ export default function ArticlePage() {
       />
 
       {/* Main Content */}
-      <main className="px-6 py-6">
+      <div className="px-6 py-6">
         <div className="mx-auto max-w-3xl space-y-6">
+          {/* Article Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="secondary" className={categoryColors[article.category]}>
+                  {categories[article.category].label}
+                </Badge>
+                <ConfidenceBadge level={article.confidenceLevel} />
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  {article.readingTime} min read
+                </div>
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {article.title}
+              </h1>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground shrink-0"
+              onClick={() => setShowFlagDialog(true)}
+            >
+              <Flag className="h-4 w-4 mr-1" />
+              Report
+            </Button>
+          </div>
           {/* Consensus Note (if present) */}
           {article.consensusNote && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-4">
@@ -318,7 +311,7 @@ export default function ArticlePage() {
             </Button>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   )
 }

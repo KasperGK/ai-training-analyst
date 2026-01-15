@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { articles, categories, type WikiArticle } from '@/lib/wiki/articles'
 import {
-  ArrowLeft,
   Search,
   BookOpen,
   Clock,
@@ -79,7 +77,6 @@ function ArticleListItem({ article }: { article: WikiArticle }) {
 }
 
 export default function LearnPage() {
-  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
@@ -114,15 +111,10 @@ export default function LearnPage() {
   }, [filteredArticles])
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      {/* Header */}
-      <header className="border-b bg-background px-6 py-4">
-        <div className="mx-auto max-w-5xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back to Dashboard</span>
-            </Button>
+    <main className="flex-1 overflow-auto bg-muted/40 px-6 py-6">
+        <div className="mx-auto max-w-5xl space-y-6">
+          {/* Header with title and search */}
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
@@ -132,23 +124,17 @@ export default function LearnPage() {
                 Learn about training metrics and concepts
               </p>
             </div>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
-          {/* Search in header */}
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="px-6 py-6">
-        <div className="mx-auto max-w-5xl space-y-6">
           {/* Category Filters + View Toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
@@ -270,7 +256,6 @@ export default function LearnPage() {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+    </main>
   )
 }

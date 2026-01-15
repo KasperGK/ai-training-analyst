@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Settings } from 'lucide-react'
 import { PlanOverviewCard } from '@/components/training/plan-overview-card'
 import { ScheduleView } from '@/components/training/schedule-view'
 import { WorkoutDayDetail } from '@/components/training/workout-day-detail'
@@ -66,74 +65,34 @@ export default function TrainingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="container flex h-14 items-center px-4">
-            <Link href="/" className="mr-4">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <h1 className="text-lg font-semibold">Training Plan</h1>
-          </div>
-        </header>
-        <main className="container px-4 py-6">
+      <main className="flex-1 overflow-auto bg-background">
+        <div className="container px-4 py-6">
           <div className="space-y-4 animate-pulse">
             <div className="h-32 bg-muted rounded-lg" />
             <div className="h-64 bg-muted rounded-lg" />
             <div className="h-96 bg-muted rounded-lg" />
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="container flex h-14 items-center px-4">
-            <Link href="/" className="mr-4">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <h1 className="text-lg font-semibold">Training Plan</h1>
-          </div>
-        </header>
-        <main className="container px-4 py-6">
+      <main className="flex-1 overflow-auto bg-background">
+        <div className="container px-4 py-6">
           <div className="text-center py-12">
             <p className="text-destructive">Error loading training plan</p>
             <Button onClick={refresh} className="mt-4">Try Again</Button>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container flex h-14 items-center justify-between px-4">
-          <div className="flex items-center">
-            <Link href="/" className="mr-4">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <h1 className="text-lg font-semibold">Training Plan</h1>
-          </div>
-          <Link href="/settings">
-            <Button variant="ghost" size="icon">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="container px-4 py-6 space-y-6">
+    <main className="flex-1 overflow-auto bg-background">
+      <div className="container px-4 py-6 space-y-6">
         {plan ? (
           <>
             {/* Plan overview */}
@@ -182,7 +141,7 @@ export default function TrainingPage() {
             </div>
           </>
         )}
-      </main>
+      </div>
 
       {/* Workout detail sheet */}
       <WorkoutDayDetail
@@ -213,6 +172,6 @@ export default function TrainingPage() {
         events={upcomingEvents}
         onGenerate={handleGeneratePlan}
       />
-    </div>
+    </main>
   )
 }

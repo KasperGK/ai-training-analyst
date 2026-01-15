@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { DragHandle } from '@/components/ui/drag-handle'
 import { cn } from '@/lib/utils'
 import {
   TrendingUp,
@@ -155,7 +156,8 @@ export function InsightFeed({
 
   if (loading) {
     return (
-      <Card className={cn('h-full flex flex-col overflow-hidden animate-pulse', className)}>
+      <Card className={cn('group relative h-full flex flex-col overflow-hidden animate-pulse', className)}>
+        <DragHandle />
         {showHeader && (
           <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -176,7 +178,8 @@ export function InsightFeed({
   }
 
   return (
-    <Card className={cn('h-full flex flex-col overflow-hidden', className)}>
+    <Card className={cn('group relative h-full flex flex-col overflow-hidden', className)}>
+      <DragHandle />
       {showHeader && (
         <CardHeader className="pb-2 flex-shrink-0">
           <div className="flex items-center justify-between">
