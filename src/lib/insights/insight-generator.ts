@@ -323,3 +323,58 @@ export async function getInsightCounts(athleteId: string): Promise<Record<string
 
   return counts
 }
+
+/**
+ * Create a fitness discrepancy alert
+ * Called when local fitness values differ significantly from intervals.icu
+ */
+export async function createFitnessDiscrepancyInsight(
+  athleteId: string,
+  localCtl: number,
+  remoteCtl: number,
+  diff: number
+): Promise<boolean> {
+  const supabase = await createClient()
+  if (!supabase) return false
+
+  // Check if we already have a similar insight in the last 24 hours
+  const { data: existing } = await supabase
+    .from('insights')
+    .select('id')
+    .eq('athlete_id', athleteId)
+    .eq('insight_type', 'warning')
+    .ilike('title', '%fitness%discrepancy%')
+    .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .limit(1)
+
+  if (existing && existing.length > 0) {
+    console.log('[InsightGenerator] Skipping discrepancy insight - already exists')
+    return false
+  }
+
+  const severity = diff > 10 ? 'high' : 'medium'
+  const insight = {
+    athlete_id: athleteId,
+    insight_type: 'warning',
+    priority: severity,
+    title: 'Fitness Data Discrepancy Detected',
+    content: `Your local CTL (${localCtl}) differs from intervals.icu (${remoteCtl}) by ${diff} points. This may indicate intervals.icu recalculated historical data. Your local values are preserved as your training history.`,
+    data: {
+      local_ctl: localCtl,
+      remote_ctl: remoteCtl,
+      diff: diff,
+      detected_at: new Date().toISOString(),
+    },
+    source: 'discrepancy_check',
+  }
+
+  const { error } = await supabase.from('insights').insert(insight)
+
+  if (error) {
+    console.error('[InsightGenerator] Error creating discrepancy insight:', error)
+    return false
+  }
+
+  console.log(`[InsightGenerator] Created fitness discrepancy insight: CTL diff of ${diff}`)
+  return true
+}

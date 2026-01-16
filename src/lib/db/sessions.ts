@@ -1,45 +1,87 @@
 import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
 import type { Session, PowerZones, HRZones } from '@/types'
 
-export type SessionRow = {
-  id: string
-  athlete_id: string
-  date: string
-  duration_seconds: number
-  distance_meters: number | null
-  sport: string
-  workout_type: string | null
-  avg_power: number | null
-  max_power: number | null
-  normalized_power: number | null
-  intensity_factor: number | null
-  tss: number | null
-  avg_hr: number | null
-  max_hr: number | null
-  avg_cadence: number | null
-  total_ascent: number | null
-  power_zones: PowerZones | null
-  hr_zones: HRZones | null
-  notes: string | null
-  ai_summary: string | null
-  source: string
-  external_id: string | null
-  raw_data: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
+// Zod schema for validating DB rows
+const powerZonesSchema = z.object({
+  z1: z.number(),
+  z2: z.number(),
+  z3: z.number(),
+  z4: z.number(),
+  z5: z.number(),
+  z6: z.number(),
+})
+
+const hrZonesSchema = z.object({
+  z1: z.number(),
+  z2: z.number(),
+  z3: z.number(),
+  z4: z.number(),
+  z5: z.number(),
+})
+
+const sessionRowSchema = z.object({
+  id: z.string(),
+  athlete_id: z.string(),
+  date: z.string(),
+  duration_seconds: z.number(),
+  distance_meters: z.number().nullable(),
+  sport: z.string(),
+  workout_type: z.string().nullable(),
+  avg_power: z.number().nullable(),
+  max_power: z.number().nullable(),
+  normalized_power: z.number().nullable(),
+  intensity_factor: z.number().nullable(),
+  tss: z.number().nullable(),
+  avg_hr: z.number().nullable(),
+  max_hr: z.number().nullable(),
+  avg_cadence: z.number().nullable(),
+  total_ascent: z.number().nullable(),
+  power_zones: powerZonesSchema.nullable(),
+  hr_zones: hrZonesSchema.nullable(),
+  notes: z.string().nullable(),
+  ai_summary: z.string().nullable(),
+  source: z.string(),
+  external_id: z.string().nullable(),
+  raw_data: z.record(z.string(), z.unknown()).nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export type SessionRow = z.infer<typeof sessionRowSchema>
+
+// Valid sport values for type narrowing
+const VALID_SPORTS = ['cycling', 'running', 'swimming', 'other'] as const
+
+/**
+ * Parse and validate a row from the database
+ * Returns null if validation fails (logs warning)
+ */
+function parseSessionRow(row: unknown): SessionRow | null {
+  const result = sessionRowSchema.safeParse(row)
+  if (!result.success) {
+    console.warn('[sessions] Invalid session row:', result.error.issues)
+    return null
+  }
+  return result.data
 }
 
 export type SessionInsert = Omit<SessionRow, 'id' | 'created_at' | 'updated_at'>
 
 function rowToSession(row: SessionRow): Session {
+  // Validate sport is a known value, default to 'other' if not
+  const sport = VALID_SPORTS.includes(row.sport as typeof VALID_SPORTS[number])
+    ? (row.sport as Session['sport'])
+    : 'other'
+
   return {
     id: row.id,
     athlete_id: row.athlete_id,
     date: row.date,
     duration_seconds: row.duration_seconds,
     distance_meters: row.distance_meters ?? undefined,
-    sport: row.sport as Session['sport'],
-    workout_type: row.workout_type as Session['workout_type'],
+    sport,
+    workout_type: row.workout_type ?? undefined,
     avg_power: row.avg_power ?? undefined,
     max_power: row.max_power ?? undefined,
     normalized_power: row.normalized_power ?? undefined,
@@ -92,7 +134,12 @@ export async function getSessions(
   const { data, error } = await query
 
   if (error || !data) return []
-  return data.map((row) => rowToSession(row as SessionRow))
+
+  // Validate and transform each row, filtering out invalid ones
+  return data
+    .map((row) => parseSessionRow(row))
+    .filter((row): row is SessionRow => row !== null)
+    .map((row) => rowToSession(row))
 }
 
 export async function getSession(sessionId: string): Promise<Session | null> {
@@ -106,7 +153,12 @@ export async function getSession(sessionId: string): Promise<Session | null> {
     .single()
 
   if (error || !data) return null
-  return rowToSession(data as SessionRow)
+
+  // Validate row before transforming
+  const validatedRow = parseSessionRow(data)
+  if (!validatedRow) return null
+
+  return rowToSession(validatedRow)
 }
 
 export async function createSession(session: SessionInsert): Promise<Session | null> {

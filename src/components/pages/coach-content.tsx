@@ -308,7 +308,7 @@ export function CoachContent() {
   }, [messages, savedDisplayMessages])
 
   return (
-    <main className="h-full bg-muted/40 pt-[61px] lg:pt-[69px] pb-4 lg:pb-6 pl-2 pr-4 lg:pr-6">
+    <main className="h-full bg-muted/40 pt-[80px] lg:pt-[88px] pb-4 lg:pb-6 pl-2 pr-4 lg:pr-6">
       <div ref={containerRef} className="h-full">
         {/* Mobile: Stack vertically, Desktop: Side by side with resize */}
         <div className="flex flex-col lg:flex-row h-full gap-6 lg:gap-0 pl-2 lg:pl-4 pr-0">

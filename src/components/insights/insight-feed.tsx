@@ -7,7 +7,7 @@
  * mark as read or dismiss.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { DragHandle } from '@/components/ui/drag-handle'
@@ -78,16 +78,29 @@ export function InsightFeed({
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchInsights = useCallback(async () => {
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
     try {
       setLoading(true)
-      const res = await fetch(`/api/insights?limit=${maxItems}&includeRead=false`)
+      const res = await fetch(`/api/insights?limit=${maxItems}&includeRead=false`, {
+        signal: abortControllerRef.current.signal,
+      })
       if (!res.ok) throw new Error('Failed to fetch insights')
       const data = await res.json()
       setInsights(data.insights || [])
       setError(null)
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        return
+      }
       setError(err instanceof Error ? err.message : 'Failed to load insights')
     } finally {
       setLoading(false)
@@ -138,6 +151,13 @@ export function InsightFeed({
 
   useEffect(() => {
     fetchInsights()
+
+    // Cleanup: abort any in-flight request on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [fetchInsights])
 
   const formatDate = (dateStr: string) => {
@@ -288,22 +308,29 @@ export function InsightBadge({ className }: { className?: string }) {
   const [count, setCount] = useState(0)
 
   useEffect(() => {
+    const abortController = new AbortController()
+
     const fetchCount = async () => {
       try {
-        const res = await fetch('/api/insights?countsOnly=true')
+        const res = await fetch('/api/insights?countsOnly=true', {
+          signal: abortController.signal,
+        })
         if (res.ok) {
           const data = await res.json()
           setCount(data.total || 0)
         }
       } catch {
-        // Ignore errors for badge
+        // Ignore errors for badge (including AbortError)
       }
     }
 
     fetchCount()
     // Refresh every 5 minutes
     const interval = setInterval(fetchCount, 5 * 60 * 1000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      abortController.abort()
+    }
   }, [])
 
   if (count === 0) return null

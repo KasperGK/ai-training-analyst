@@ -59,48 +59,52 @@ export async function getCurrentFitness(athleteId: string): Promise<CurrentFitne
   const supabase = await createClient()
   if (!supabase) return null
 
-  // Get the latest fitness entry
-  const { data: latest, error: latestError } = await supabase
-    .from('fitness_history')
-    .select('*')
-    .eq('athlete_id', athleteId)
-    .order('date', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (latestError || !latest) return null
-
-  // Get fitness from 7 days ago to calculate trend
+  // Run fitness history and events queries in parallel
+  // Get last 8 days of fitness for trend calculation (instead of 2 queries)
   const weekAgo = new Date()
-  weekAgo.setDate(weekAgo.getDate() - 7)
+  weekAgo.setDate(weekAgo.getDate() - 8)
 
-  const { data: weekAgoData } = await supabase
-    .from('fitness_history')
-    .select('ctl')
-    .eq('athlete_id', athleteId)
-    .lte('date', weekAgo.toISOString().split('T')[0])
-    .order('date', { ascending: false })
-    .limit(1)
-    .single()
+  const [fitnessResult, eventResult] = await Promise.all([
+    // Single query: Get recent fitness for both latest value and trend
+    supabase
+      .from('fitness_history')
+      .select('date, ctl, atl, tsb, sleep_seconds, sleep_score, hrv, resting_hr')
+      .eq('athlete_id', athleteId)
+      .gte('date', weekAgo.toISOString().split('T')[0])
+      .order('date', { ascending: false })
+      .limit(8),
+    // Get upcoming event
+    supabase
+      .from('events')
+      .select('name, date')
+      .eq('athlete_id', athleteId)
+      .eq('status', 'planned')
+      .gte('date', new Date().toISOString().split('T')[0])
+      .order('date', { ascending: true })
+      .limit(1)
+      .single(),
+  ])
+
+  const { data: fitnessData, error: fitnessError } = fitnessResult
+  if (fitnessError || !fitnessData || fitnessData.length === 0) return null
+
+  // Latest is first (sorted desc)
+  const latest = fitnessData[0]
+
+  // Find entry closest to 7 days ago for trend
+  const weekAgoEntry = fitnessData.find((f, i) => i > 0 && fitnessData.length > 6)
+    ? fitnessData[Math.min(6, fitnessData.length - 1)]
+    : null
 
   // Calculate trend
   let ctlTrend: 'up' | 'down' | 'stable' = 'stable'
-  if (weekAgoData) {
-    const diff = latest.ctl - weekAgoData.ctl
+  if (weekAgoEntry) {
+    const diff = latest.ctl - weekAgoEntry.ctl
     if (diff > 2) ctlTrend = 'up'
     else if (diff < -2) ctlTrend = 'down'
   }
 
-  // Get upcoming event
-  const { data: nextEvent } = await supabase
-    .from('events')
-    .select('name, date')
-    .eq('athlete_id', athleteId)
-    .eq('status', 'planned')
-    .gte('date', new Date().toISOString().split('T')[0])
-    .order('date', { ascending: true })
-    .limit(1)
-    .single()
+  const { data: nextEvent } = eventResult
 
   let daysUntilEvent: number | undefined
   let eventName: string | undefined

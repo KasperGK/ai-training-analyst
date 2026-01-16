@@ -9,7 +9,7 @@ import {
   type GoalUpdate,
 } from '@/lib/db/goals'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json(
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(goals)
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json(
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json(
@@ -139,7 +139,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json(

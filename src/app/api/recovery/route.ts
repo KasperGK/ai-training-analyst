@@ -34,7 +34,7 @@ export interface RecoveryData {
   }>
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url)
   const days = parseInt(searchParams.get('days') || '90', 10)
 

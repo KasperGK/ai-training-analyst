@@ -167,7 +167,7 @@ class IntervalsICUClient {
       throw new Error(`intervals.icu API error: ${response.status} ${response.statusText}`)
     }
 
-    return response.json()
+    return response.json() as Promise<T>
   }
 
   // Get athlete profile
@@ -274,7 +274,7 @@ export async function exchangeCodeForToken(
     throw new Error(`Token exchange failed: ${response.status}`)
   }
 
-  return response.json()
+  return response.json() as Promise<{ access_token: string; athlete_id: string }>
 }
 
 // Helper to format date for API (YYYY-MM-DD)

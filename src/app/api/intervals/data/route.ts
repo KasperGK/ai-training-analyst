@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
 import { transformActivities, transformAthlete, buildPMCData } from '@/lib/transforms'
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url)
   const days = parseInt(searchParams.get('days') || '90', 10)
 
@@ -41,7 +41,9 @@ export async function GET(request: Request) {
     ])
 
     // Get today's fitness data (wellness uses 'id' field for date, not 'date')
-    const today = wellness.find(w => w.id === newest) || wellness[wellness.length - 1]
+    // Safe array access with bounds checking
+    const today = wellness.find(w => w.id === newest)
+      ?? (wellness.length > 0 ? wellness[wellness.length - 1] : null)
 
     // Transform using shared transforms
     const sessions = transformActivities(activities, athleteId, { limit: 20 })
@@ -51,9 +53,9 @@ export async function GET(request: Request) {
     const sampleRate = days <= 42 ? 1 : days <= 90 ? 3 : days <= 180 ? 7 : 14
     const pmcData = buildPMCData(wellness, { sampleRate })
 
-    // Calculate CTL trend (this week vs last week)
-    const ctlTrend = wellness.length > 7
-      ? Math.round(wellness[wellness.length - 1].ctl - wellness[wellness.length - 8].ctl)
+    // Calculate CTL trend (this week vs last week) - requires at least 8 data points
+    const ctlTrend = wellness.length >= 8
+      ? Math.round(wellness[wellness.length - 1]!.ctl - wellness[wellness.length - 8]!.ctl)
       : 0
 
     return NextResponse.json({

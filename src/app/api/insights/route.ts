@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getInsights, markInsightRead, dismissInsight, getInsightCounts } from '@/lib/insights/insight-generator'
 
-export async function GET(req: Request) {
+export async function GET(req: Request): Promise<NextResponse> {
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json({ error: 'Database not available' }, { status: 500 })
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PATCH(req: Request) {
+export async function PATCH(req: Request): Promise<NextResponse> {
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json({ error: 'Database not available' }, { status: 500 })

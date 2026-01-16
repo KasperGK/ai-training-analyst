@@ -73,37 +73,53 @@ function getDayName(date: Date): string {
   return DAY_NAMES[date.getDay()]
 }
 
-function findFitnessForDate(
-  date: string,
-  fitnessHistory: FitnessHistory[]
-): FitnessHistory | null {
-  return fitnessHistory.find(f => f.date === date) || null
+/**
+ * Build a Map for O(1) fitness lookups by date
+ */
+function buildFitnessMap(fitnessHistory: FitnessHistory[]): Map<string, FitnessHistory> {
+  return new Map(fitnessHistory.map(f => [f.date, f]))
 }
 
-function findSessionForDate(
-  date: string,
-  sessions: Session[]
-): Session | null {
-  return sessions.find(s => s.date.startsWith(date)) || null
+/**
+ * Build a Map for O(1) session lookups by date
+ */
+function buildSessionMap(sessions: Session[]): Map<string, Session> {
+  const map = new Map<string, Session>()
+  for (const s of sessions) {
+    const dateKey = s.date.split('T')[0]
+    if (!map.has(dateKey)) {
+      map.set(dateKey, s)
+    }
+  }
+  return map
+}
+
+/**
+ * Build a Map for O(1) session lookups by ID
+ */
+function buildSessionIdMap(sessions: Session[]): Map<string, Session> {
+  return new Map(sessions.map(s => [s.id, s]))
 }
 
 /**
  * Analyze recovery patterns from fitness history
+ * Uses pre-built Map for O(1) lookups instead of O(n) find()
  */
 function analyzeRecoveryPatterns(
-  fitnessHistory: FitnessHistory[],
+  fitnessMap: Map<string, FitnessHistory>,
   sessions: Session[]
 ): RecoveryPattern | null {
-  if (fitnessHistory.length < 14) return null
+  if (fitnessMap.size < 14) return null
 
   // Find intensity days (TSS > 80 or IF > 0.85)
   const intensityDays: { date: string; tsb: number }[] = []
 
   for (const session of sessions) {
     if ((session.tss && session.tss > 80) || (session.intensity_factor && session.intensity_factor > 0.85)) {
-      const fitness = findFitnessForDate(session.date.split('T')[0], fitnessHistory)
+      const dateKey = session.date.split('T')[0]
+      const fitness = fitnessMap.get(dateKey)
       if (fitness) {
-        intensityDays.push({ date: session.date.split('T')[0], tsb: fitness.tsb })
+        intensityDays.push({ date: dateKey, tsb: fitness.tsb })
       }
     }
   }
@@ -122,7 +138,7 @@ function analyzeRecoveryPatterns(
     for (let j = 1; j <= 7; j++) {
       const checkDate = new Date(intensityDate)
       checkDate.setDate(checkDate.getDate() + j)
-      const checkFitness = findFitnessForDate(checkDate.toISOString().split('T')[0], fitnessHistory)
+      const checkFitness = fitnessMap.get(checkDate.toISOString().split('T')[0])
 
       if (checkFitness && checkFitness.tsb >= baselineTSB) {
         recoveryDays = j
@@ -154,19 +170,19 @@ function analyzeRecoveryPatterns(
  */
 function analyzeTSBPatterns(
   outcomes: WorkoutOutcome[],
-  fitnessHistory: FitnessHistory[],
-  sessions: Session[]
+  fitnessMap: Map<string, FitnessHistory>,
+  sessionIdMap: Map<string, Session>
 ): TSBPattern | null {
-  if (outcomes.length < 5 || fitnessHistory.length < 7) return null
+  if (outcomes.length < 5 || fitnessMap.size < 7) return null
 
   // Correlate outcomes with TSB on workout day
   const tsbOutcomes: { tsb: number; rpe: number; followed: boolean }[] = []
 
   for (const outcome of outcomes) {
     if (outcome.session_id) {
-      const session = sessions.find(s => s.id === outcome.session_id)
+      const session = sessionIdMap.get(outcome.session_id)
       if (session) {
-        const fitness = findFitnessForDate(session.date.split('T')[0], fitnessHistory)
+        const fitness = fitnessMap.get(session.date.split('T')[0])
         if (fitness && outcome.rpe) {
           tsbOutcomes.push({
             tsb: fitness.tsb,
@@ -245,7 +261,7 @@ function analyzeTSBPatterns(
  */
 function analyzeWorkoutTypePatterns(
   outcomes: WorkoutOutcome[],
-  sessions: Session[]
+  sessionIdMap: Map<string, Session>
 ): WorkoutTypePattern[] {
   // Group outcomes by workout type
   const typeStats: Record<string, {
@@ -279,7 +295,7 @@ function analyzeWorkoutTypePatterns(
 
     // Track day of week stats
     if (outcome.session_id) {
-      const session = sessions.find(s => s.id === outcome.session_id)
+      const session = sessionIdMap.get(outcome.session_id)
       if (session && outcome.rpe) {
         const day = getDayName(new Date(session.date))
         if (!typeStats[workoutType].dayStats[day]) {
@@ -432,7 +448,7 @@ function analyzeVolumeIntensityPattern(
  */
 function analyzeDayOfWeekPatterns(
   outcomes: WorkoutOutcome[],
-  sessions: Session[]
+  sessionIdMap: Map<string, Session>
 ): DayOfWeekPattern | null {
   if (outcomes.length < 14) return null
 
@@ -446,7 +462,7 @@ function analyzeDayOfWeekPatterns(
   for (const outcome of outcomes) {
     if (!outcome.session_id || !outcome.rpe) continue
 
-    const session = sessions.find(s => s.id === outcome.session_id)
+    const session = sessionIdMap.get(outcome.session_id)
     if (!session) continue
 
     const day = getDayName(new Date(session.date))
@@ -509,20 +525,24 @@ export async function analyzeAthletePatterns(
     getWorkoutOutcomes(athleteId, { limit: 200, days }),
     getSessions(athleteId, {
       startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      limit: 500,
+      limit: 200,
     }),
     getFitnessHistory(athleteId, days),
   ])
 
   const dataPoints = outcomes.length
 
+  // Pre-build Maps for O(1) lookups (instead of O(n) find() in loops)
+  const fitnessMap = buildFitnessMap(fitnessHistory)
+  const sessionIdMap = buildSessionIdMap(sessions)
+
   // Run all analyses
   const patterns: AthletePatterns = {
-    recovery: analyzeRecoveryPatterns(fitnessHistory, sessions),
-    tsb: analyzeTSBPatterns(outcomes, fitnessHistory, sessions),
-    workoutTypes: analyzeWorkoutTypePatterns(outcomes, sessions),
+    recovery: analyzeRecoveryPatterns(fitnessMap, sessions),
+    tsb: analyzeTSBPatterns(outcomes, fitnessMap, sessionIdMap),
+    workoutTypes: analyzeWorkoutTypePatterns(outcomes, sessionIdMap),
     volumeIntensity: analyzeVolumeIntensityPattern(fitnessHistory, sessions, outcomes),
-    dayOfWeek: analyzeDayOfWeekPatterns(outcomes, sessions),
+    dayOfWeek: analyzeDayOfWeekPatterns(outcomes, sessionIdMap),
     analyzedAt: new Date().toISOString(),
     dataPoints,
   }

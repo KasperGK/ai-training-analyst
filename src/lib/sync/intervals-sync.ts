@@ -13,6 +13,8 @@ import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
 import type { IntervalsActivity, IntervalsWellness } from '@/lib/intervals-icu'
 import type { SyncLog, SyncResult, SyncOptions, SessionInsert, FitnessHistoryInsert } from './types'
 import { updatePowerBestsFromSession, STANDARD_DURATIONS } from '@/lib/db/power-bests'
+import { getCurrentFitness } from '@/lib/db/fitness'
+import { createFitnessDiscrepancyInsight } from '@/lib/insights/insight-generator'
 
 const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
@@ -599,6 +601,49 @@ export async function syncPowerBests(
 }
 
 /**
+ * Check for discrepancy between local and intervals.icu fitness values
+ * Creates an insight alert if CTL differs significantly
+ */
+async function checkFitnessDiscrepancy(athleteId: string): Promise<void> {
+  try {
+    // Get local fitness from database
+    const localFitness = await getCurrentFitness(athleteId)
+    if (!localFitness) {
+      console.log('[Sync] No local fitness data to compare')
+      return
+    }
+
+    // Get live fitness from intervals.icu
+    const today = formatDateForApi(new Date())
+    const yesterday = formatDateForApi(new Date(Date.now() - 24 * 60 * 60 * 1000))
+    const wellness = await intervalsClient.getWellness(yesterday, today)
+
+    const remoteFitness = wellness.find(w => w.id === today) || wellness[wellness.length - 1]
+    if (!remoteFitness) {
+      console.log('[Sync] No remote fitness data to compare')
+      return
+    }
+
+    // Calculate difference
+    const ctlDiff = Math.abs(localFitness.ctl - remoteFitness.ctl)
+    const threshold = Math.max(5, localFitness.ctl * 0.1) // 5 points or 10%, whichever is greater
+
+    if (ctlDiff > threshold) {
+      console.log(`[Sync] Fitness discrepancy detected: local=${localFitness.ctl}, remote=${Math.round(remoteFitness.ctl)}, diff=${Math.round(ctlDiff)}`)
+      await createFitnessDiscrepancyInsight(
+        athleteId,
+        localFitness.ctl,
+        Math.round(remoteFitness.ctl),
+        Math.round(ctlDiff)
+      )
+    }
+  } catch (error) {
+    console.error('[Sync] Error checking fitness discrepancy:', error)
+    // Don't throw - discrepancy check is non-critical
+  }
+}
+
+/**
  * Full sync: activities + wellness + power bests
  */
 export async function syncAll(
@@ -637,6 +682,9 @@ export async function syncAll(
   // Then sync wellness
   const wellnessResult = await syncWellness(athleteId, options)
   allErrors.push(...wellnessResult.errors)
+
+  // Check for fitness discrepancies after wellness sync
+  await checkFitnessDiscrepancy(athleteId)
 
   // Sync power bests
   const powerBestsResult = await syncPowerBests(athleteId, options)

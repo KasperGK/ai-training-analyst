@@ -138,6 +138,41 @@
   background: oklch(0.985 0 0 / 0.1);
 }
 
+/* Lighter border on dashboard cards */
+.react-grid-item [data-slot="card"] {
+  border-color: oklch(0.9 0 0 / 0.5);
+}
+.dark .react-grid-item [data-slot="card"] {
+  border-color: oklch(1 0 0 / 0.05);
+}
+
+/* Resize handle - curved corner matching card radius */
+.react-resizable-handle-se {
+  background: transparent !important;
+  width: 20px !important;
+  height: 20px !important;
+  bottom: 0 !important;
+  right: 0 !important;
+}
+.react-resizable-handle-se::after {
+  content: '' !important;
+  position: absolute !important;
+  width: 9px !important;
+  height: 9px !important;
+  right: 4px !important;
+  bottom: 4px !important;
+  border: none !important;
+  border-right: 1.5px solid oklch(0.7 0 0 / 0.3) !important;
+  border-bottom: 1.5px solid oklch(0.7 0 0 / 0.3) !important;
+  border-bottom-right-radius: var(--radius-lg) !important;
+}
+.dark .react-resizable-handle-se::after {
+  border-right-color: oklch(1 0 0 / 0.15) !important;
+  border-bottom-color: oklch(1 0 0 / 0.15) !important;
+}
+
+
+
 /* Scrollbar hide utility */
 .scrollbar-hide {
   -ms-overflow-style: none;

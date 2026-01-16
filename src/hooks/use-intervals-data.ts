@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { CurrentFitness, Session } from '@/types'
 
 // Auto-refresh interval: 5 minutes
@@ -24,6 +24,7 @@ interface IntervalsData {
   pmcData: { date: string; ctl: number; atl: number; tsb: number }[]
   ctlTrend: number
   lastUpdated: Date | null
+  fitnessSource: 'local' | 'intervals_icu' | null
 }
 
 export function useIntervalsData() {
@@ -37,39 +38,71 @@ export function useIntervalsData() {
     pmcData: [],
     ctlTrend: 0,
     lastUpdated: null,
+    fitnessSource: null,
   })
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchData = useCallback(async (showLoading = false) => {
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
     if (showLoading) {
       setData(prev => ({ ...prev, loading: true }))
     }
 
     try {
-      const response = await fetch('/api/intervals/data')
-      const json = await response.json()
+      // Fetch fitness from local database (source of truth) and sessions from intervals.icu in parallel
+      const [fitnessResponse, intervalsResponse] = await Promise.all([
+        fetch('/api/fitness', {
+          signal: abortControllerRef.current.signal,
+        }),
+        fetch('/api/intervals/data', {
+          signal: abortControllerRef.current.signal,
+        }),
+      ])
 
-      if (!response.ok) {
+      const fitnessJson = await fitnessResponse.json()
+      const intervalsJson = await intervalsResponse.json()
+
+      // Check connection status - both endpoints should be accessible
+      const connected = fitnessJson.connected || intervalsJson.connected
+
+      if (!connected) {
         setData(prev => ({
           ...prev,
           loading: false,
-          connected: json.connected ?? false,
-          error: json.error,
+          connected: false,
+          error: fitnessJson.error || intervalsJson.error || 'Not connected',
         }))
         return
       }
+
+      // Use fitness data from local endpoint (source of truth)
+      // Fall back to intervals.icu data if local fitness is not available
+      const currentFitness = fitnessJson.currentFitness || intervalsJson.currentFitness
+      const pmcData = fitnessJson.pmcData || intervalsJson.pmcData || []
+      const ctlTrend = fitnessJson.ctlTrend ?? intervalsJson.ctlTrend ?? 0
 
       setData({
         connected: true,
         loading: false,
         error: null,
-        athlete: json.athlete,
-        currentFitness: json.currentFitness,
-        sessions: json.sessions,
-        pmcData: json.pmcData,
-        ctlTrend: json.ctlTrend,
+        athlete: intervalsJson.athlete || null,
+        currentFitness,
+        sessions: intervalsJson.sessions || [],
+        pmcData,
+        ctlTrend,
         lastUpdated: new Date(),
+        fitnessSource: fitnessJson.source || 'intervals_icu',
       })
     } catch (error) {
+      // Ignore abort errors - they're expected when component unmounts
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
       setData(prev => ({
         ...prev,
         loading: false,
@@ -81,6 +114,13 @@ export function useIntervalsData() {
   // Initial fetch on mount
   useEffect(() => {
     fetchData(true)
+
+    // Cleanup: abort any in-flight request on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [fetchData])
 
   // Auto-refresh every 5 minutes

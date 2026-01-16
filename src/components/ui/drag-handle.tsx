@@ -1,8 +1,27 @@
 'use client'
 
 import { useEffect } from 'react'
-import { GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+/**
+ * 4-dot grip icon (2x2 grid)
+ */
+function Grip4({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
+      <circle cx="5" cy="5" r="1.5" />
+      <circle cx="11" cy="5" r="1.5" />
+      <circle cx="5" cy="11" r="1.5" />
+      <circle cx="11" cy="11" r="1.5" />
+    </svg>
+  )
+}
 
 interface DragHandleProps {
   className?: string
@@ -57,7 +76,7 @@ export function DragHandle({ className }: DragHandleProps) {
     <div
       className={cn(
         'drag-handle cursor-grab active:cursor-grabbing',
-        'absolute top-2 right-2 z-10',
+        'absolute top-0.5 right-0.5 z-10',
         'p-1 rounded hover:bg-muted/50 transition-all duration-200',
         'text-muted-foreground/50 hover:text-muted-foreground',
         'opacity-0 group-hover:opacity-100',
@@ -66,7 +85,7 @@ export function DragHandle({ className }: DragHandleProps) {
       title="Drag to move"
       onMouseDown={handleMouseDown}
     >
-      <GripVertical className="h-4 w-4" />
+      <Grip4 className="h-4 w-4" />
     </div>
   )
 }

@@ -13,7 +13,7 @@ AI-powered training analyst for cyclists. Provides personalized coaching insight
 ## Tech Stack
 - Next.js 16 (App Router, Turbopack)
 - AI SDK 6 (`ai@6.0.6`) - uses `inputSchema` not `parameters`
-- Anthropic Claude (claude-sonnet-4-20250514)
+- Anthropic Claude (claude-opus-4-5-20251101)
 - Supabase (PostgreSQL + Auth + pgvector)
 - shadcn/ui, Tailwind CSS, Recharts
 

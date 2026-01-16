@@ -35,12 +35,15 @@ export async function listConversations(athleteId: string): Promise<Conversation
   const supabase = await createClient()
   if (!supabase) return []
 
-  // Get distinct conversation IDs with metadata
+  // Get recent messages to build conversation list
+  // Limit to last 500 messages to avoid loading entire history
+  // This covers ~50 conversations with 10 messages each
   const { data, error } = await supabase
     .from('chat_messages')
     .select('conversation_id, content, role, created_at')
     .eq('athlete_id', athleteId)
     .order('created_at', { ascending: false })
+    .limit(500)
 
   if (error || !data) {
     console.error('Error listing conversations:', error)
@@ -110,10 +113,11 @@ export async function getConversationMessages(
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('*')
+    .select('id, conversation_id, athlete_id, role, content, tool_calls, created_at')
     .eq('conversation_id', conversationId)
     .eq('athlete_id', athleteId)
     .order('created_at', { ascending: true })
+    .limit(200) // Reasonable limit for a single conversation
 
   if (error) {
     console.error('Error getting conversation:', error)

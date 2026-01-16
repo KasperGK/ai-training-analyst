@@ -8,11 +8,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateInsights } from '@/lib/insights/insight-generator'
+import { features } from '@/lib/features'
 
-const ENABLE_INSIGHTS = process.env.FEATURE_INSIGHTS === 'true'
-
-export async function POST(request: Request) {
-  if (!ENABLE_INSIGHTS) {
+export async function POST(request: Request): Promise<NextResponse> {
+  if (!features.insights) {
     return NextResponse.json({ error: 'Insights feature not enabled' }, { status: 400 })
   }
 
@@ -66,8 +65,8 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
-  if (!ENABLE_INSIGHTS) {
+export async function GET(request: Request): Promise<NextResponse> {
+  if (!features.insights) {
     return NextResponse.json({ enabled: false })
   }
 
