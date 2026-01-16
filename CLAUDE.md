@@ -86,13 +86,15 @@ npm run build  # Build for production
 3. Fallback to live intervals.icu if local data missing
 
 ### Key Files
-- `src/app/api/chat/route.ts` - AI endpoint with tools
+- `src/app/api/chat/route.ts` - AI endpoint (uses Opus 4.5)
+- `src/app/api/chat/tools/` - Modular AI tool definitions
+- `src/lib/features.ts` - Centralized feature flags
 - `src/lib/wiki/articles.ts` - Wiki articles with governance fields
 - `src/lib/rag/vector-store.ts` - RAG search with metadata
 - `src/lib/ai/system-prompt.ts` - AI personality + transparency rules
 - `src/components/dashboard/ai-coach-panel.tsx` - Chat UI
 
-### AI Tools (in route.ts)
+### AI Tools (in src/app/api/chat/tools/)
 - `getDetailedSession` - Fetch workout details
 - `queryHistoricalTrends` - Analyze training patterns
 - `getAthleteGoals` - Get goals, events, periodization
