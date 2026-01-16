@@ -13,6 +13,10 @@ interface WikiResult {
   title: string
   content: string
   relevance: number
+  // Governance metadata for transparency
+  confidence?: 'established' | 'strong_evidence' | 'emerging' | 'debated'
+  consensusNote?: string
+  sourceCount?: number
 }
 
 interface SessionResult {
@@ -52,6 +56,10 @@ export const searchKnowledge = defineTool<Input, Output>({
           title: r.title,
           content: r.content,
           relevance: Math.round((r.similarity || 0) * 100),
+          // Include governance metadata for AI transparency
+          confidence: r.confidenceLevel,
+          consensusNote: r.consensusNote,
+          sourceCount: r.sourceCount,
         }))
       } catch (error) {
         console.error('[searchKnowledge] Wiki search error:', error)
@@ -81,7 +89,7 @@ export const searchKnowledge = defineTool<Input, Output>({
       query,
       results,
       totalResults,
-      tip: 'Use this information to provide accurate, evidence-based advice to the athlete.',
+      tip: 'Use this information to provide accurate, evidence-based advice. Reference confidence levels: "established" facts can be stated directly; "strong_evidence" use "Research shows..."; "emerging" use "Emerging evidence suggests..."; "debated" explain different positions.',
     }
   },
 })

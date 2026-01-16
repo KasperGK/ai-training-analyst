@@ -7,6 +7,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding } from './embeddings'
 import { getArticleBySlug, type ConfidenceLevel } from '@/lib/wiki/articles'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface WikiChunk {
   id: string
@@ -117,20 +118,23 @@ export async function searchWiki(
 
 /**
  * Store session embedding
+ * @param supabase - Optional Supabase client. If not provided, creates a new one.
+ *                   Passing the client from the caller preserves auth context.
  */
 export async function storeSessionEmbedding(
   sessionId: string,
   athleteId: string,
   summary: string,
-  embedding: number[]
+  embedding: number[],
+  supabase?: SupabaseClient
 ): Promise<boolean> {
-  const supabase = await createClient()
-  if (!supabase) {
+  const client = supabase || await createClient()
+  if (!client) {
     console.error('Supabase client not available')
     return false
   }
 
-  const { error } = await supabase.from('session_embeddings').upsert(
+  const { error } = await client.from('session_embeddings').upsert(
     {
       session_id: sessionId,
       athlete_id: athleteId,

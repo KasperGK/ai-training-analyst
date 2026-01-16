@@ -6,10 +6,12 @@
  */
 
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { articles } from '@/lib/wiki/articles'
 import { chunkWikiArticle } from '@/lib/rag/chunker'
 import { generateEmbeddings, getProviderInfo } from '@/lib/rag/embeddings'
 import { storeWikiChunks, clearWikiChunks, getWikiChunkCount } from '@/lib/rag/vector-store'
+import { reembedAllSessions } from '@/lib/rag/session-embeddings'
 
 /**
  * GET /api/rag/seed - Check seed status
@@ -31,11 +33,34 @@ export async function GET() {
  *
  * Body:
  * - force: boolean (optional) - Clear existing chunks first
+ * - reembedSessions: boolean (optional) - Re-embed all session embeddings
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { force = false } = body
+    const { force = false, reembedSessions = false } = body
+
+    // Handle session re-embedding if requested
+    if (reembedSessions) {
+      const supabase = await createClient()
+      if (!supabase) {
+        return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      }
+
+      console.log('[RAG Seed] Re-embedding sessions for user:', user.id)
+      const sessionsReembedded = await reembedAllSessions(user.id)
+
+      return NextResponse.json({
+        success: true,
+        sessionsReembedded,
+        message: `Re-embedded ${sessionsReembedded} sessions with updated summaries`,
+      })
+    }
 
     // Check if already seeded
     const existingCount = await getWikiChunkCount()

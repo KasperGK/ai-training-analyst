@@ -15,6 +15,8 @@ import type { SyncLog, SyncResult, SyncOptions, SessionInsert, FitnessHistoryIns
 import { updatePowerBestsFromSession, STANDARD_DURATIONS } from '@/lib/db/power-bests'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import { createFitnessDiscrepancyInsight } from '@/lib/insights/insight-generator'
+import { embedNewSessions } from '@/lib/rag/session-embeddings'
+import { features } from '@/lib/features'
 
 const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
@@ -689,6 +691,17 @@ export async function syncAll(
   // Sync power bests
   const powerBestsResult = await syncPowerBests(athleteId, options)
   allErrors.push(...powerBestsResult.errors)
+
+  // Generate session embeddings for RAG (if enabled and activities were synced)
+  if (features.rag && activitiesResult.synced > 0) {
+    try {
+      const embeddedCount = await embedNewSessions(athleteId)
+      console.log(`[Sync] Generated embeddings for ${embeddedCount} sessions`)
+    } catch (error) {
+      console.error('[Sync] Session embedding error (non-critical):', error)
+      // Don't add to errors - this is non-critical
+    }
+  }
 
   // Update final status
   const syncLog = await getSyncLog(athleteId)

@@ -5,6 +5,7 @@ import { buildSystemPrompt } from '@/lib/ai/system-prompt'
 import { intervalsClient } from '@/lib/intervals-icu'
 import { getPersonalizationSection } from '@/lib/personalization/prompt-builder'
 import { getInsights } from '@/lib/insights/insight-generator'
+import { ensureWikiSeeded } from '@/lib/rag/auto-seed'
 import { features } from '@/lib/features'
 import { buildTools, type ToolContext } from './tools'
 import { parseAthleteContext } from './tools/types'
@@ -139,6 +140,13 @@ Always explain what the widget shows after displaying it. Be proactive - if the 
     role: msg.role,
     content: msg.content || msg.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || '',
   }))
+
+  // Ensure wiki is seeded for RAG (lazy initialization, runs in background)
+  if (features.rag) {
+    ensureWikiSeeded().catch(err => {
+      console.error('[chat] Auto-seed error:', err)
+    })
+  }
 
   // Build tool context
   const toolContext: ToolContext = {
