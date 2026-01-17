@@ -56,7 +56,7 @@ export function DashboardContent() {
   const athleteFtp = athlete?.ftp || 250
 
   return (
-    <main className="h-full overflow-auto bg-muted/40 pt-[88px] pb-6 pl-[96px] pr-6 scrollbar-left scrollbar-subtle">
+    <main className="h-full overflow-auto bg-muted/40 pt-24 pb-6 pl-[96px] pr-6 scrollbar-left scrollbar-subtle">
       <div className="mx-auto max-w-7xl">
         {/* Connect prompt when not connected */}
         {!connected && !loading && (

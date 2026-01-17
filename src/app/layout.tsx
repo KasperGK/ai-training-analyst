@@ -28,11 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950`}
       >
         <ThemeProvider>
           <Navbar />
-          <div className="pt-20 flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden">
             <PageTransitionProvider>
               {children}
             </PageTransitionProvider>
