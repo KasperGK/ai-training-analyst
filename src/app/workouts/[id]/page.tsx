@@ -108,7 +108,7 @@ function MetricCard({
 
 function LoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-muted/40 p-6">
+    <div className="min-h-screen bg-muted/40 pt-24 px-6 pb-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-12 w-96" />
@@ -159,7 +159,7 @@ export default function WorkoutDetailPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-muted/40 p-6">
+      <div className="min-h-screen bg-muted/40 pt-24 px-6 pb-6">
         <div className="max-w-6xl mx-auto">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -189,10 +189,14 @@ export default function WorkoutDetailPage() {
   })) || []
 
   return (
-    <main className="flex-1 overflow-auto bg-muted/40 p-6">
+    <main className="flex-1 overflow-auto bg-muted/40 pt-24 px-6 pb-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Workout Header */}
+          {/* Back Button & Workout Header */}
           <div>
+            <Button variant="ghost" size="sm" onClick={() => router.back()} className="mb-2 -ml-2">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
             <h1 className="text-2xl font-semibold tracking-tight">{activity.name || 'Workout'}</h1>
             <p className="text-sm text-muted-foreground">{formatDateTime(activity.date)}</p>
           </div>
