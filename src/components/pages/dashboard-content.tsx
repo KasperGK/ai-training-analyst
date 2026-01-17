@@ -25,6 +25,7 @@ export function DashboardContent() {
     loading,
     athlete,
     currentFitness,
+    recovery,
     sessions,
     pmcData,
     ctlTrend,
@@ -93,14 +94,14 @@ export function DashboardContent() {
             )}
           </div>
 
-          {/* Sleep Card */}
+          {/* Sleep Card - uses recovery data (separate from training load) */}
           <div key="sleep" className="h-full">
             {loading ? (
               <MetricCardSkeleton />
             ) : (
               <SleepCard
-                sleepSeconds={displayFitness?.sleep_seconds}
-                sleepScore={displayFitness?.sleep_score}
+                sleepSeconds={recovery?.sleepSeconds}
+                sleepScore={recovery?.sleepScore}
               />
             )}
           </div>

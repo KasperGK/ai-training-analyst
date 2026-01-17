@@ -32,9 +32,11 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <Navbar />
-          <PageTransitionProvider>
-            {children}
-          </PageTransitionProvider>
+          <div className="pt-20 flex-1 flex flex-col overflow-hidden">
+            <PageTransitionProvider>
+              {children}
+            </PageTransitionProvider>
+          </div>
         </ThemeProvider>
       </body>
     </html>

@@ -124,12 +124,24 @@ export function transformActivities(
 }
 
 /**
+ * PMC (Performance Management Chart) data point
+ * Contains only training load metrics - CTL, ATL, TSB
+ */
+export interface PMCDataPoint {
+  date: string
+  ctl: number
+  atl: number
+  tsb: number
+}
+
+/**
  * Build PMC chart data from wellness records
+ * Returns only training load metrics (CTL/ATL/TSB) for the PMC chart
  */
 export function buildPMCData(
   wellness: IntervalsWellness[],
   options: { sampleRate?: number } = {}
-): Array<{ date: string; ctl: number; atl: number; tsb: number }> {
+): PMCDataPoint[] {
   const { sampleRate = 3 } = options
 
   return wellness

@@ -4,8 +4,10 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Session Start
 1. Read `docs/LEARNINGS.md` for tech gotchas and patterns
-2. Check current phase below and work on next unchecked item
-3. Update this file when phases complete
+2. Read `docs/ARCHITECTURE_DECISIONS.md` for key design decisions
+3. Check current phase below and work on next unchecked item
+4. Update this file when phases complete
+5. Document significant architecture decisions in `docs/ARCHITECTURE_DECISIONS.md`
 
 ## Project Overview
 AI-powered training analyst for cyclists. Provides personalized coaching insights based on training data from intervals.icu.
