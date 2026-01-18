@@ -80,6 +80,53 @@ npm run build  # Build for production
 - [x] All features now default to enabled
 - [x] Set `FEATURE_X=false` to disable (instead of `=true` to enable)
 
+---
+
+## Next: AI-Coach & Canvas Enhancement
+
+**Detailed Plan**: `/Users/kramme/.claude/plans/soft-sniffing-hinton.md`
+**HTML Export**: `/Users/kramme/Desktop/AI-Coach-Enhancement-Plan.html`
+
+### Vision
+Transform the AI-Coach into a clarity-focused coaching experience where:
+- Canvas displays data that supports the coaching conversation
+- AI proactively analyzes sessions with sports science-backed insights
+- Users set metric goals (e.g., "HR under 150bpm at 300W") and event goals
+- AI proposes training plans with clear rationale, user reviews and accepts/modifies
+- Daily insights tie directly to goal progression
+
+### Architecture: Tool-Driven Canvas
+Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` tool:
+- AI calls tool to control canvas (reliable, typed)
+- Tool returns `canvasAction` that frontend processes
+- Keep text parsing as fallback during transition
+- Widgets include `context.insightSummary` for AI explanations
+
+### Phase 10: Canvas-Backed Coaching (Ready to Implement)
+- [ ] Add `showOnCanvas` tool (`src/app/api/chat/tools/show-on-canvas.ts`)
+- [ ] Enhance `WidgetConfig` with context fields
+- [ ] Process tool results for canvas in `coach-content.tsx`
+- [ ] Create `InsightCard` component with expand/collapse
+- [ ] Update system prompt with tool instructions
+- [ ] Keep text fallback `[CANVAS:X]` during transition
+
+### Phase 11: Overlay Charts
+- [ ] Add `chart` widget type with dual Y-axis support
+- [ ] Power + HR overlay visualization
+- [ ] Session data fetching for charts
+
+### Phase 12: Goal Tracking System
+- [ ] Enhanced goal schema (metric goals, event goals)
+- [ ] Auto-detect goal progress from activities
+- [ ] Goal-aware insight generation
+
+### Phase 13: Training Plan Proposals
+- [ ] Plan proposal canvas (calendar + rationale + projection views)
+- [ ] Accept/modify flow with AI
+- [ ] Calendar integration
+
+---
+
 ## Architecture
 
 ### Data Flow
