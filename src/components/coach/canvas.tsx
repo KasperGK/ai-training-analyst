@@ -9,24 +9,53 @@
  * insight-first display.
  */
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { FitnessCard, FatigueCard, FormCard } from '@/components/dashboard/fitness-metrics'
 import { PMCChart } from '@/components/dashboard/pmc-chart'
 import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { SleepCard } from '@/components/dashboard/sleep-card'
 import { PowerCurveChart } from '@/components/power/power-curve-chart'
+import { ChartWidget } from '@/components/coach/chart-widget'
 import { InsightCard } from '@/components/coach/insight-card'
+import { WidgetFullscreenDialog } from '@/components/coach/widget-fullscreen-dialog'
+import { WidgetHistorySheet } from '@/components/coach/widget-history-sheet'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { usePowerCurve } from '@/hooks/use-power-curve'
-import type { WidgetConfig, CanvasState } from '@/lib/widgets/types'
-import { Sparkles, LayoutGrid } from 'lucide-react'
+import type { WidgetConfig, CanvasState, ChartConfig } from '@/lib/widgets/types'
+import { Sparkles, LayoutGrid, History } from 'lucide-react'
 
 interface CanvasProps {
   state: CanvasState
   className?: string
+  /** Callback when user dismisses a widget */
+  onDismissWidget?: (widgetId: string) => void
+  /** Callback when user pins a widget */
+  onPinWidget?: (widgetId: string) => void
+  /** Callback when user unpins a widget */
+  onUnpinWidget?: (widgetId: string) => void
+  /** Callback when user restores a dismissed widget */
+  onRestoreWidget?: (widget: WidgetConfig) => void
+  /** Callback to clear dismissed widget history */
+  onClearHistory?: () => void
+  /** Callback when user clicks analyze on a widget */
+  onAnalyzeWidget?: (widget: WidgetConfig) => void
 }
 
-export function Canvas({ state, className }: CanvasProps) {
+export function Canvas({
+  state,
+  className,
+  onDismissWidget,
+  onPinWidget,
+  onUnpinWidget,
+  onRestoreWidget,
+  onClearHistory,
+  onAnalyzeWidget,
+}: CanvasProps) {
+  const [expandedWidget, setExpandedWidget] = useState<WidgetConfig | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+
   const {
     currentFitness,
     sessions,
@@ -41,9 +70,24 @@ export function Canvas({ state, className }: CanvasProps) {
     loading: powerLoading
   } = usePowerCurve()
 
+  const hasHistory = state.dismissedWidgets.length > 0
+
   if (state.widgets.length === 0) {
     return (
       <div className={className}>
+        {hasHistory && (
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setHistoryOpen(true)}
+            >
+              <History className="h-4 w-4" />
+              History ({state.dismissedWidgets.length})
+            </Button>
+          </div>
+        )}
         <Card className="h-full flex flex-col items-center justify-center text-center p-8">
           <Sparkles className="h-12 w-12 text-muted-foreground/30 mb-4" />
           <h3 className="font-medium text-lg mb-2">Ask the AI Coach</h3>
@@ -57,15 +101,50 @@ export function Canvas({ state, className }: CanvasProps) {
             <SuggestedQuery text="Show recent workouts" />
           </div>
         </Card>
+
+        {/* History Sheet */}
+        <WidgetHistorySheet
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          dismissedWidgets={state.dismissedWidgets}
+          onRestore={onRestoreWidget || (() => {})}
+          onClearHistory={onClearHistory || (() => {})}
+        />
       </div>
     )
   }
 
+  const data = {
+    fitness: currentFitness,
+    sessions,
+    pmcData,
+    ctlTrend,
+    athlete,
+    powerCurve,
+    loading: dataLoading || powerLoading
+  }
+
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-        <LayoutGrid className="h-4 w-4" />
-        <span>Showing {state.widgets.length} widget{state.widgets.length !== 1 ? 's' : ''}</span>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <LayoutGrid className="h-4 w-4" />
+          <span>Showing {state.widgets.length} widget{state.widgets.length !== 1 ? 's' : ''}</span>
+        </div>
+        {hasHistory && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 h-8"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="h-4 w-4" />
+            <span className="hidden sm:inline">History</span>
+            <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+              {state.dismissedWidgets.length}
+            </span>
+          </Button>
+        )}
       </div>
 
       <div className={
@@ -77,18 +156,39 @@ export function Canvas({ state, className }: CanvasProps) {
           <WidgetRenderer
             key={widget.id}
             widget={widget}
-            data={{
-              fitness: currentFitness,
-              sessions,
-              pmcData,
-              ctlTrend,
-              athlete,
-              powerCurve,
-              loading: dataLoading || powerLoading
-            }}
+            data={data}
+            isPinned={state.pinnedWidgetIds.has(widget.id)}
+            onDismiss={onDismissWidget ? () => onDismissWidget(widget.id) : undefined}
+            onPin={onPinWidget ? () => onPinWidget(widget.id) : undefined}
+            onUnpin={onUnpinWidget ? () => onUnpinWidget(widget.id) : undefined}
+            onExpand={() => setExpandedWidget(widget)}
+            onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(widget) : undefined}
           />
         ))}
       </div>
+
+      {/* Fullscreen Dialog */}
+      <WidgetFullscreenDialog
+        widget={expandedWidget}
+        open={!!expandedWidget}
+        onOpenChange={(open) => !open && setExpandedWidget(null)}
+      >
+        {expandedWidget && (
+          <WidgetContent
+            widget={expandedWidget}
+            data={data}
+          />
+        )}
+      </WidgetFullscreenDialog>
+
+      {/* History Sheet */}
+      <WidgetHistorySheet
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        dismissedWidgets={state.dismissedWidgets}
+        onRestore={onRestoreWidget || (() => {})}
+        onClearHistory={onClearHistory || (() => {})}
+      />
     </div>
   )
 }
@@ -104,6 +204,12 @@ interface WidgetRendererProps {
     powerCurve: ReturnType<typeof usePowerCurve>['powerCurve']
     loading: boolean
   }
+  isPinned?: boolean
+  onDismiss?: () => void
+  onPin?: () => void
+  onUnpin?: () => void
+  onExpand?: () => void
+  onAnalyze?: () => void
 }
 
 /**
@@ -152,10 +258,16 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
       )
 
     case 'chart':
-      // TODO: Implement custom chart widget
-      return (
-        <p className="text-muted-foreground text-sm">Custom chart coming soon</p>
-      )
+      // Chart widget with dual Y-axis support for overlays
+      const chartConfig = widget.chartConfig || (widget.params as ChartConfig | undefined)
+      if (!chartConfig?.sessionId) {
+        return (
+          <p className="text-muted-foreground text-sm">
+            Chart requires a session ID to display
+          </p>
+        )
+      }
+      return <ChartWidget config={chartConfig} />
 
     default:
       return (
@@ -164,7 +276,16 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
   }
 }
 
-function WidgetRenderer({ widget, data }: WidgetRendererProps) {
+function WidgetRenderer({
+  widget,
+  data,
+  isPinned,
+  onDismiss,
+  onPin,
+  onUnpin,
+  onExpand,
+  onAnalyze,
+}: WidgetRendererProps) {
   if (data.loading) {
     return (
       <Card className="h-[300px] animate-pulse">
@@ -181,12 +302,23 @@ function WidgetRenderer({ widget, data }: WidgetRendererProps) {
   // Widgets that have their own card wrapper (don't wrap again)
   const selfWrappedWidgets = ['pmc-chart', 'sessions', 'sleep', 'power-curve']
 
+  // Common props for InsightCard
+  const insightCardProps = {
+    widget,
+    isPinned,
+    onDismiss,
+    onPin,
+    onUnpin,
+    onExpand,
+    onAnalyze,
+  }
+
   // If widget has AI context, use InsightCard wrapper
   if (widget.context?.insightSummary) {
     // For self-wrapped widgets, InsightCard wraps the whole thing
     if (selfWrappedWidgets.includes(widget.type)) {
       return (
-        <InsightCard widget={widget}>
+        <InsightCard {...insightCardProps}>
           <WidgetContent widget={widget} data={data} />
         </InsightCard>
       )
@@ -194,26 +326,25 @@ function WidgetRenderer({ widget, data }: WidgetRendererProps) {
 
     // For other widgets, InsightCard provides the card
     return (
-      <InsightCard widget={widget}>
+      <InsightCard {...insightCardProps}>
         <WidgetContent widget={widget} data={data} />
       </InsightCard>
     )
   }
 
-  // No AI context - render with basic card wrapper
+  // No AI context - render with basic card wrapper but still include InsightCard for controls
   if (selfWrappedWidgets.includes(widget.type)) {
-    return <WidgetContent widget={widget} data={data} />
+    return (
+      <InsightCard {...insightCardProps}>
+        <WidgetContent widget={widget} data={data} />
+      </InsightCard>
+    )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{widget.title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <WidgetContent widget={widget} data={data} />
-      </CardContent>
-    </Card>
+    <InsightCard {...insightCardProps}>
+      <WidgetContent widget={widget} data={data} />
+    </InsightCard>
   )
 }
 

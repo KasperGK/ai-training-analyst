@@ -144,6 +144,7 @@ export const PROVIDERS = {
   INTERVALS_ICU: 'intervals_icu',
   STRAVA: 'strava',
   GARMIN: 'garmin',
+  WITHINGS: 'withings',
 } as const
 
 export type Provider = (typeof PROVIDERS)[keyof typeof PROVIDERS]

@@ -1,0 +1,191 @@
+import { z } from 'zod'
+import { defineTool } from './types'
+import { getSessions } from '@/lib/db/sessions'
+
+const inputSchema = z.object({
+  // Date-based filters
+  dateFrom: z.string().optional().describe('Start date (YYYY-MM-DD) for date range search'),
+  dateTo: z.string().optional().describe('End date (YYYY-MM-DD) for date range search'),
+  daysBack: z.number().optional().describe('Number of days to look back from today (e.g., 7 for last week)'),
+
+  // Type-based filters
+  sessionType: z.enum(['race', 'workout', 'endurance', 'recovery', 'any']).optional()
+    .describe('Filter by session type. "race" finds high-intensity events, "workout" finds structured training'),
+
+  // Characteristic filters
+  minTSS: z.number().optional().describe('Minimum TSS'),
+  maxTSS: z.number().optional().describe('Maximum TSS'),
+  minDurationMinutes: z.number().optional().describe('Minimum duration in minutes'),
+  minIntensityFactor: z.number().optional().describe('Minimum IF (e.g., 0.9 for race-level efforts)'),
+
+  // Sorting and limits
+  sortBy: z.enum(['date', 'tss', 'duration', 'intensity']).optional().describe('How to sort results'),
+  limit: z.number().optional().describe('Max number of sessions to return (default 10)'),
+})
+
+type Input = z.infer<typeof inputSchema>
+
+interface SessionSummary {
+  id: string
+  date: string
+  name: string | null
+  sport: string
+  duration_minutes: number | null
+  tss: number | null
+  intensity_factor: number | null
+  avg_power: number | null
+  normalized_power: number | null
+  avg_hr: number | null
+  isLikelyRace: boolean
+}
+
+interface Output {
+  sessions: SessionSummary[]
+  totalFound: number
+  searchCriteria: string
+}
+
+/**
+ * Determine if a session is likely a race based on characteristics
+ */
+function isLikelyRace(session: {
+  workout_type?: string | null
+  intensity_factor?: number | null
+  tss?: number | null
+  duration_seconds?: number | null
+}): boolean {
+  // Check name/type for race keywords
+  const name = (session.workout_type || '').toLowerCase()
+  if (name.includes('race') || name.includes('event') || name.includes('competition') ||
+      name.includes('gran fondo') || name.includes('crit') || name.includes('tt ')) {
+    return true
+  }
+
+  // High intensity factor suggests race effort
+  if (session.intensity_factor && session.intensity_factor > 0.9) {
+    return true
+  }
+
+  // High TSS relative to duration suggests race (>1.5 TSS per minute)
+  if (session.tss && session.duration_seconds) {
+    const tssPerMinute = session.tss / (session.duration_seconds / 60)
+    if (tssPerMinute > 1.5) {
+      return true
+    }
+  }
+
+  return false
+}
+
+export const findSessions = defineTool<Input, Output>({
+  description: `Search for sessions by various criteria. Use this to find specific sessions like "last race", "yesterday's ride", or "hardest workout this month".
+
+Common patterns:
+- "last race" → sessionType: "race", limit: 1, sortBy: "date"
+- "yesterday" → daysBack: 1
+- "this week" → daysBack: 7
+- "longest ride this month" → daysBack: 30, sortBy: "duration"
+- "hardest workout" → sortBy: "intensity", limit: 1`,
+
+  inputSchema,
+
+  execute: async (input, ctx) => {
+    if (!ctx.athleteId) {
+      return {
+        sessions: [],
+        totalFound: 0,
+        searchCriteria: 'No athlete connected',
+      }
+    }
+
+    // Calculate date range
+    let dateFrom: string | undefined = input.dateFrom
+    let dateTo: string | undefined = input.dateTo
+
+    if (input.daysBack) {
+      const now = new Date()
+      dateTo = now.toISOString().split('T')[0]
+      const fromDate = new Date(now)
+      fromDate.setDate(fromDate.getDate() - input.daysBack)
+      dateFrom = fromDate.toISOString().split('T')[0]
+    }
+
+    // Build search criteria description
+    const criteriaDesc: string[] = []
+    if (dateFrom && dateTo) criteriaDesc.push(`${dateFrom} to ${dateTo}`)
+    else if (dateFrom) criteriaDesc.push(`from ${dateFrom}`)
+    else if (dateTo) criteriaDesc.push(`until ${dateTo}`)
+    if (input.sessionType && input.sessionType !== 'any') criteriaDesc.push(`type: ${input.sessionType}`)
+    if (input.minTSS) criteriaDesc.push(`TSS ≥ ${input.minTSS}`)
+    if (input.minIntensityFactor) criteriaDesc.push(`IF ≥ ${input.minIntensityFactor}`)
+
+    try {
+      // Get sessions from database
+      const allSessions = await getSessions(ctx.athleteId, {
+        limit: 100, // Get more than we need for filtering
+        startDate: dateFrom,
+        endDate: dateTo,
+      })
+
+      // Apply additional filters
+      let filtered = allSessions.filter(s => {
+        // Type filter
+        if (input.sessionType === 'race' && !isLikelyRace(s)) return false
+        if (input.sessionType === 'recovery' && (s.intensity_factor || 0) > 0.65) return false
+        if (input.sessionType === 'endurance' && ((s.intensity_factor || 0) > 0.85 || (s.intensity_factor || 0) < 0.55)) return false
+        if (input.sessionType === 'workout' && (s.intensity_factor || 0) < 0.75) return false
+
+        // Numeric filters
+        if (input.minTSS && (s.tss || 0) < input.minTSS) return false
+        if (input.maxTSS && (s.tss || 0) > input.maxTSS) return false
+        if (input.minDurationMinutes && (s.duration_seconds || 0) / 60 < input.minDurationMinutes) return false
+        if (input.minIntensityFactor && (s.intensity_factor || 0) < input.minIntensityFactor) return false
+
+        return true
+      })
+
+      // Sort
+      if (input.sortBy === 'tss') {
+        filtered.sort((a, b) => (b.tss || 0) - (a.tss || 0))
+      } else if (input.sortBy === 'duration') {
+        filtered.sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0))
+      } else if (input.sortBy === 'intensity') {
+        filtered.sort((a, b) => (b.intensity_factor || 0) - (a.intensity_factor || 0))
+      } else {
+        // Default: sort by date descending (most recent first)
+        filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      }
+
+      // Apply limit
+      const limit = input.limit || 10
+      const limited = filtered.slice(0, limit)
+
+      // Map to summary format
+      const sessions: SessionSummary[] = limited.map(s => ({
+        id: s.id,
+        date: s.date,
+        name: s.workout_type || null,
+        sport: s.sport,
+        duration_minutes: s.duration_seconds ? Math.round(s.duration_seconds / 60) : null,
+        tss: s.tss || null,
+        intensity_factor: s.intensity_factor || null,
+        avg_power: s.avg_power || null,
+        normalized_power: s.normalized_power || null,
+        avg_hr: s.avg_hr || null,
+        isLikelyRace: isLikelyRace(s),
+      }))
+
+      return {
+        sessions,
+        totalFound: filtered.length,
+        searchCriteria: criteriaDesc.length > 0 ? criteriaDesc.join(', ') : 'all recent sessions',
+      }
+    } catch (error) {
+      return {
+        sessions: [],
+        totalFound: 0,
+        searchCriteria: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }
+    }
+  },
+})

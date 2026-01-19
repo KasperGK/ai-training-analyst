@@ -14,6 +14,46 @@ export type WidgetType =
   | 'chart'
 
 /**
+ * Chart-specific types for overlay visualizations
+ */
+export type ChartMetric = 'power' | 'heartRate' | 'cadence' | 'speed' | 'altitude'
+
+export interface ChartSeries {
+  key: ChartMetric
+  name: string
+  color: string
+  yAxisId: 'left' | 'right'
+  type?: 'line' | 'area'
+}
+
+export interface YAxisConfig {
+  id: 'left' | 'right'
+  label: string
+  unit: string
+  domain?: [number | 'auto', number | 'auto']
+}
+
+export interface ChartAnnotation {
+  id: string
+  type: 'line' | 'area'
+  x?: number
+  xStart?: number
+  xEnd?: number
+  label: string
+  color?: string
+}
+
+export interface ChartConfig {
+  chartType: 'line' | 'area' | 'overlay'
+  sessionId: string
+  metrics: ChartMetric[]
+  /** Optional: specific time range to display (in seconds from start) */
+  timeRange?: { start: number; end: number }
+  /** Annotations like intervals or markers */
+  annotations?: ChartAnnotation[]
+}
+
+/**
  * Context provided by AI when displaying a widget
  * Enables insight-first display where the AI explains what matters
  */
@@ -39,6 +79,17 @@ export interface WidgetConfig {
   error?: string
   /** Optional parameters the AI can pass */
   params?: Record<string, unknown>
+  /** Chart-specific configuration (when type is 'chart') */
+  chartConfig?: ChartConfig
+  /** Whether the widget is pinned (persists across AI messages) */
+  isPinned?: boolean
+}
+
+/**
+ * Type guard to check if widget has chart config
+ */
+export function isChartWidget(widget: WidgetConfig): widget is WidgetConfig & { chartConfig: ChartConfig } {
+  return widget.type === 'chart' && widget.chartConfig !== undefined
 }
 
 export type CanvasAction = 'show' | 'add' | 'compare' | 'clear'
@@ -46,6 +97,10 @@ export type CanvasAction = 'show' | 'add' | 'compare' | 'clear'
 export interface CanvasState {
   widgets: WidgetConfig[]
   layout: 'single' | 'grid' | 'stacked' | 'compare'
+  /** IDs of pinned widgets that persist across AI messages */
+  pinnedWidgetIds: Set<string>
+  /** History of dismissed widgets for restoration */
+  dismissedWidgets: WidgetConfig[]
 }
 
 /**
@@ -62,5 +117,7 @@ export const DEFAULT_CANVAS_STATE: CanvasState = {
   widgets: [
     { id: 'fitness-default', type: 'fitness', title: 'Current Fitness', description: 'CTL, ATL, TSB metrics' }
   ],
-  layout: 'single'
+  layout: 'single',
+  pinnedWidgetIds: new Set<string>(),
+  dismissedWidgets: []
 }

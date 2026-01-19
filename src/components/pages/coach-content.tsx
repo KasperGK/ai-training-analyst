@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card'
 import { ResizeHandle } from '@/components/ui/resize-handle'
 import { cn } from '@/lib/utils'
 import { Canvas } from '@/components/coach/canvas'
+import { FormattedMessage } from '@/components/coach/formatted-message'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useConversations } from '@/hooks/use-conversations'
 import { useCanvasState } from '@/hooks/use-canvas-state'
@@ -100,43 +101,6 @@ function getWidgetTitle(type: string): string {
   return titles[type] || type
 }
 
-// Simple text formatter
-function FormattedText({ text }: { text: string }) {
-  // Remove canvas commands from display
-  const cleanText = text.replace(/\[CANVAS:[^\]]+\]/g, '').trim()
-  if (!cleanText) return null
-
-  const paragraphs = cleanText.split(/\n\n+/)
-
-  return (
-    <div className="space-y-2">
-      {paragraphs.map((para, pIdx) => {
-        const lines = para.split('\n')
-        const isNumberedList = lines.every(l => /^\d+\.\s/.test(l.trim()) || l.trim() === '')
-        const isBulletList = lines.every(l => /^[-•]\s/.test(l.trim()) || l.trim() === '')
-
-        if (isNumberedList || isBulletList) {
-          return (
-            <ul key={pIdx} className={cn("space-y-1 pl-4", isNumberedList ? "list-decimal" : "list-disc")}>
-              {lines.filter(l => l.trim()).map((line, lIdx) => (
-                <li key={lIdx} className="text-sm leading-relaxed">
-                  {line.replace(/^(\d+\.|-|•)\s*/, '')}
-                </li>
-              ))}
-            </ul>
-          )
-        }
-
-        return (
-          <p key={pIdx} className="text-sm leading-relaxed">
-            {para.replace(/\n/g, ' ')}
-          </p>
-        )
-      })}
-    </div>
-  )
-}
-
 export function CoachContent() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -146,7 +110,16 @@ export function CoachContent() {
   const [activeView, setActiveView] = useState<'chat' | 'history'>('chat')
 
   // Canvas state management with tool support
-  const { state: canvasState, processCanvasAction, showWidgets } = useCanvasState()
+  const {
+    state: canvasState,
+    processCanvasAction,
+    showWidgets,
+    dismissWidget,
+    pinWidget,
+    unpinWidget,
+    restoreWidget,
+    clearHistory,
+  } = useCanvasState()
 
   const { athlete, currentFitness, sessions } = useIntervalsData()
 
@@ -187,16 +160,41 @@ export function CoachContent() {
     })
   }, [])
 
-  // Build athlete context for AI
+  // Build athlete context for AI - include recent sessions for smart lookup
   const athleteContext = useMemo(() => {
     if (!athlete) return undefined
+
+    // Format recent sessions for AI context (last 20, most recent first)
+    const recentSessions = (sessions || [])
+      .slice(0, 20)
+      .map(s => ({
+        id: s.id,
+        date: s.date,
+        name: s.workout_type || s.sport,
+        sport: s.sport,
+        duration_min: s.duration_seconds ? Math.round(s.duration_seconds / 60) : null,
+        tss: s.tss,
+        intensity_factor: s.intensity_factor,
+        avg_power: s.avg_power,
+        normalized_power: s.normalized_power,
+        // Help AI identify races: high IF (>0.9), "race" in name, or high TSS relative to duration
+        likelyRace: (s.intensity_factor && s.intensity_factor > 0.9) ||
+          (s.workout_type?.toLowerCase().includes('race')) ||
+          (s.workout_type?.toLowerCase().includes('event')) ||
+          (s.workout_type?.toLowerCase().includes('competition'))
+      }))
+
     return JSON.stringify({
       name: athlete.name,
       ftp: athlete.ftp,
       weight_kg: athlete.weight_kg,
       max_hr: athlete.max_hr,
+      lthr: athlete.lthr,
+      resting_hr: athlete.resting_hr,
       currentFitness,
-      recentSessionCount: sessions?.length ?? 0
+      // Include actual sessions so AI can find them by date/type
+      recentSessions,
+      today: new Date().toISOString().split('T')[0], // Help AI calculate "yesterday", "last week", etc.
     })
   }, [athlete, currentFitness, sessions])
 
@@ -308,6 +306,22 @@ export function CoachContent() {
   const handleQuickAction = useCallback((text: string) => {
     setInput(text)
   }, [])
+
+  // Handle analyze widget - sends contextual prompt to chat
+  const handleAnalyzeWidget = useCallback((widget: WidgetConfig) => {
+    const analyzePrompts: Record<WidgetConfig['type'], string> = {
+      'fitness': `Analyze my current fitness metrics in detail. What do the CTL, ATL, and TSB values tell me about my current training state? What should I focus on?`,
+      'pmc-chart': `Analyze my PMC chart trends. How has my fitness evolved recently? Are there any concerning patterns or positive developments?`,
+      'sessions': `Analyze my recent training sessions. What patterns do you see? Am I training consistently? How is my training load distribution?`,
+      'sleep': `Analyze my sleep metrics. How is my recovery? Is my sleep quality affecting my training adaptations?`,
+      'power-curve': `Analyze my power curve. What does it tell me about my strengths and weaknesses as a cyclist? What power durations should I focus on improving?`,
+      'workout-card': `Analyze this workout in detail. How did I perform? What could be improved?`,
+      'chart': `Analyze this chart data in detail. What patterns or insights do you see?`,
+    }
+
+    const prompt = analyzePrompts[widget.type] || `Analyze the ${widget.title} widget in detail.`
+    sendMessage({ text: prompt })
+  }, [sendMessage])
 
   // Get message text helper
   const getMessageText = (message: typeof messages[0]) => {
@@ -487,7 +501,7 @@ export function CoachContent() {
                             {isUser ? (
                               <p className="text-sm whitespace-pre-wrap">{text}</p>
                             ) : (
-                              <FormattedText text={text} />
+                              <FormattedMessage text={text} />
                             )}
                           </div>
                         </div>
@@ -566,7 +580,15 @@ export function CoachContent() {
                 Canvas
               </span>
               <div className="flex-1 min-h-0 overflow-auto mt-3 -mx-2 px-2">
-                <Canvas state={canvasState} />
+                <Canvas
+                  state={canvasState}
+                  onDismissWidget={dismissWidget}
+                  onPinWidget={pinWidget}
+                  onUnpinWidget={unpinWidget}
+                  onRestoreWidget={restoreWidget}
+                  onClearHistory={clearHistory}
+                  onAnalyzeWidget={handleAnalyzeWidget}
+                />
               </div>
             </Card>
           </div>

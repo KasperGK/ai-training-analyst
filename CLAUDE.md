@@ -111,10 +111,10 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - [x] Update system prompt with tool instructions
 - [x] Keep text fallback `[CANVAS:X]` during transition
 
-### Phase 11: Overlay Charts
-- [ ] Add `chart` widget type with dual Y-axis support
-- [ ] Power + HR overlay visualization
-- [ ] Session data fetching for charts
+### Phase 11: Overlay Charts ✅ Complete
+- [x] Add `chart` widget type with dual Y-axis support
+- [x] Power + HR overlay visualization
+- [x] Session data fetching for charts (`useSessionChart` hook)
 
 ### Phase 12: Goal Tracking System
 - [ ] Enhanced goal schema (metric goals, event goals)

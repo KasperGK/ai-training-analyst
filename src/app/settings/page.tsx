@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/hooks/use-user'
 import { useTheme } from 'next-themes'
-import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock } from 'lucide-react'
+import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock, Scale } from 'lucide-react'
 
 interface AthleteProfile {
   name: string
@@ -43,7 +43,11 @@ export default function SettingsPage() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [intervalsConnected, setIntervalsConnected] = useState(false)
+  const [withingsConnected, setWithingsConnected] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [withingsDisconnecting, setWithingsDisconnecting] = useState(false)
+  const [withingsSyncing, setWithingsSyncing] = useState(false)
+  const [withingsSyncResult, setWithingsSyncResult] = useState<{ measurements_fetched: number; inserted: number } | null>(null)
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ activitiesSynced: number; wellnessSynced: number } | null>(null)
@@ -104,6 +108,22 @@ export default function SettingsPage() {
     }
     checkConnection()
   }, [])
+
+  // Check Withings connection status
+  useEffect(() => {
+    const checkWithingsConnection = async () => {
+      if (!user) return
+      try {
+        // Try to sync - if it fails with "not connected", we're not connected
+        const res = await fetch('/api/withings/sync', { method: 'POST' })
+        const data = await res.json()
+        setWithingsConnected(res.ok || data.error !== 'Withings not connected')
+      } catch {
+        setWithingsConnected(false)
+      }
+    }
+    checkWithingsConnection()
+  }, [user])
 
   // Fetch sync status
   const fetchSyncStatus = useCallback(async () => {
@@ -202,6 +222,50 @@ export default function SettingsPage() {
       console.error('Failed to disconnect:', error)
     } finally {
       setDisconnecting(false)
+    }
+  }
+
+  const handleConnectWithings = () => {
+    window.location.href = '/api/auth/withings/connect'
+  }
+
+  const handleDisconnectWithings = async () => {
+    setWithingsDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/disconnect', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'withings' }),
+      })
+
+      if (res.ok) {
+        setWithingsConnected(false)
+      }
+    } catch (error) {
+      console.error('Failed to disconnect Withings:', error)
+    } finally {
+      setWithingsDisconnecting(false)
+    }
+  }
+
+  const handleWithingsSync = async () => {
+    setWithingsSyncing(true)
+    setWithingsSyncResult(null)
+    try {
+      const res = await fetch('/api/withings/sync', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setWithingsSyncResult({
+          measurements_fetched: data.measurements_fetched,
+          inserted: data.inserted,
+        })
+        // Reload profile to get updated weight
+        await loadProfile()
+      }
+    } catch (error) {
+      console.error('Withings sync failed:', error)
+    } finally {
+      setWithingsSyncing(false)
     }
   }
 
@@ -503,6 +567,87 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Withings Integration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Scale className="h-5 w-5" />
+                  Withings
+                </CardTitle>
+                <CardDescription>
+                  Connect your Withings smart scale for automatic weight and body composition tracking
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {withingsConnected ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <Link2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Connected</p>
+                          <p className="text-sm text-muted-foreground">
+                            Your weight data is syncing
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="outline" onClick={handleDisconnectWithings} disabled={withingsDisconnecting}>
+                        {withingsDisconnecting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Unlink className="mr-2 h-4 w-4" />
+                        )}
+                        {withingsDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                      </Button>
+                    </div>
+
+                    {/* Sync Result Message */}
+                    {withingsSyncResult && (
+                      <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3 text-sm text-green-700 dark:text-green-300">
+                        <Check className="inline h-4 w-4 mr-1" />
+                        Synced {withingsSyncResult.measurements_fetched} measurements ({withingsSyncResult.inserted} new)
+                      </div>
+                    )}
+
+                    {/* Sync Button */}
+                    <Button onClick={handleWithingsSync} disabled={withingsSyncing} variant="outline">
+                      {withingsSyncing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Sync Weight Data
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                        <Scale className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Not Connected</p>
+                        <p className="text-sm text-muted-foreground">
+                          Connect to track weight and body composition
+                        </p>
+                      </div>
+                    </div>
+                    <Button onClick={handleConnectWithings}>
+                      <Link2 className="mr-2 h-4 w-4" />
+                      Connect
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

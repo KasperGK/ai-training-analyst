@@ -1,5 +1,6 @@
 import { type ToolContext } from './types'
 import { getDetailedSession } from './get-detailed-session'
+import { findSessions } from './find-sessions'
 import { queryHistoricalTrends } from './query-historical-trends'
 import { getAthleteGoals } from './get-athlete-goals'
 import { suggestWorkout } from './suggest-workout'
@@ -22,6 +23,7 @@ export type { ToolContext } from './types'
 export function buildTools(ctx: ToolContext) {
   return {
     // Core tools (always available)
+    findSessions: findSessions(ctx),
     getDetailedSession: getDetailedSession(ctx),
     queryHistoricalTrends: queryHistoricalTrends(ctx),
     getAthleteGoals: getAthleteGoals(ctx),
@@ -62,6 +64,7 @@ export function buildTools(ctx: ToolContext) {
 
 // Re-export individual tools for testing or direct use
 export {
+  findSessions,
   getDetailedSession,
   queryHistoricalTrends,
   getAthleteGoals,

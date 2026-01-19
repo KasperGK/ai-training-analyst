@@ -349,3 +349,46 @@ Widgets now have optional `context` field:
 
 ### Fallback
 Text commands `[CANVAS:fitness]` still work as fallback during transition
+
+---
+
+## Overlay Charts (Phase 11)
+
+### Overview
+Chart widget now supports dual Y-axis overlay visualizations for analyzing session data
+with multiple metrics (power + HR, power + cadence, etc.).
+
+### Chart Widget Configuration
+When using `showOnCanvas` with `type: 'chart'`, include `chartConfig`:
+```typescript
+chartConfig: {
+  chartType: 'overlay',          // 'line' | 'area' | 'overlay'
+  sessionId: 'latest',           // Session ID or 'latest' for most recent
+  metrics: ['power', 'heartRate'], // Metrics to display
+  timeRange?: { start: 0, end: 3600 }  // Optional: specific time range in seconds
+}
+```
+
+### Available Metrics
+- `power` - Displays on left Y-axis (blue)
+- `heartRate` - Displays on right Y-axis (red)
+- `cadence` - Displays on right Y-axis (green)
+- `speed` - Displays on right Y-axis (yellow)
+- `altitude` - Displays on right Y-axis (purple)
+
+### Use Cases
+- **Aerobic decoupling analysis**: Power + HR overlay to detect cardiac drift
+- **Efficiency analysis**: Power + cadence to analyze pedaling patterns
+- **Pacing analysis**: Power + speed to analyze race execution
+
+### Key Components
+- `OverlayChart` (`src/components/charts/overlay-chart.tsx`) - Dual Y-axis Recharts component
+- `ChartWidget` (`src/components/coach/chart-widget.tsx`) - Canvas widget wrapper
+- `useSessionChart` (`src/hooks/use-session-chart.ts`) - Hook for fetching session stream data
+- `ChartConfig` type (`src/lib/widgets/types.ts`) - Type definitions
+
+### Data Flow
+1. AI calls `showOnCanvas` with `type: 'chart'` and `chartConfig`
+2. Canvas renders `ChartWidget` component
+3. `useSessionChart` hook fetches `/api/sessions/[id]` for stream data
+4. `OverlayChart` renders dual Y-axis visualization with requested metrics
