@@ -169,7 +169,10 @@ CREATE POLICY "policy_name" ON tablename FOR SELECT USING (auth.uid() = user_id)
 - [x] Phase 8: Insights Auto-Generation (on sync + injected at chat start)
 - [x] Phase 9: Feature Flag Cleanup (all features default to enabled)
 
-**Score: ~88/100** (up from 74 after Phase 5 gaps identified)
+**AI-Coach Enhancement (Phase 10):**
+- [x] Phase 10: Canvas-Backed Coaching (showOnCanvas tool, InsightCard, context fields)
+
+**Score: ~90/100** (Phase 10 adds tool-driven canvas control)
 
 ---
 
@@ -310,3 +313,39 @@ Located in `src/lib/learning/outcome-analyzer.ts`:
 - `src/lib/learning/index.ts` - Module exports
 - `src/lib/workouts/prescribe.ts` - Pattern-aware prescription
 - `src/lib/plans/generator.ts` - Pattern-aware plan generation
+
+---
+
+## Canvas-Backed Coaching (Phase 10)
+
+### Overview
+AI now controls the canvas via the `showOnCanvas` tool instead of text-based `[CANVAS:X]` commands.
+This provides structured, type-safe canvas control with AI-generated insights.
+
+### showOnCanvas Tool
+Located in `src/app/api/chat/tools/show-on-canvas.ts`:
+- **Actions**: `show` (replace), `add` (append), `compare` (side-by-side)
+- **Widget types**: fitness, pmc-chart, sessions, sleep, power-curve, workout-card, chart
+- **Insight field**: Required - AI must explain what the user should notice
+- **Returns**: `canvasAction` payload processed by frontend
+
+### Widget Context
+Widgets now have optional `context` field:
+- `insightSummary`: AI-generated explanation of what matters
+- `sourceReference`: Wiki article slug for sports science citation
+- `expandable`: Whether widget collapses to show insight-only view
+
+### Key Components
+- `InsightCard` (`src/components/coach/insight-card.tsx`) - Insight-first card wrapper
+- `useCanvasState` (`src/hooks/use-canvas-state.ts`) - Canvas state management with reducer
+- `Canvas` (`src/components/coach/canvas.tsx`) - Updated to use InsightCard when context present
+
+### Processing Flow
+1. AI calls `showOnCanvas` tool with widgets and insights
+2. Tool returns `canvasAction` payload in result
+3. `coach-content.tsx` extracts action from message parts
+4. `useCanvasState` hook processes action and updates state
+5. Canvas renders widgets with InsightCard wrapper if context present
+
+### Fallback
+Text commands `[CANVAS:fitness]` still work as fallback during transition

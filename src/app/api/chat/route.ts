@@ -106,31 +106,56 @@ Note: These insights are already available - you don't need to call getActiveIns
     }
   }
 
-  // Canvas mode: Add widget display instructions
+  // Canvas mode: Add showOnCanvas tool instructions
   if (canvasMode) {
-    const canvasInstructions = `## Canvas Mode (AI Coach Page)
+    const canvasInstructions = `## Canvas Mode (MANDATORY)
 
-You are on the AI Coach page with a canvas that can display training widgets. When the user asks to see or show data, include a canvas command in your response.
+You are on the AI Coach page with a canvas. When users ask to see data, you MUST use the showOnCanvas tool.
 
-**Available widgets:**
-- \`[CANVAS:fitness]\` - Shows CTL, ATL, TSB metrics
-- \`[CANVAS:pmc-chart]\` - Shows Performance Management Chart (fitness history)
-- \`[CANVAS:sessions]\` - Shows recent training sessions table
-- \`[CANVAS:sleep]\` - Shows sleep metrics
-- \`[CANVAS:power-curve]\` - Shows power duration curve
+### MANDATORY: Call showOnCanvas First
+When the user asks to "show", "display", or "see" ANY data visualization:
+1. FIRST call the showOnCanvas tool
+2. THEN provide your text response explaining the data
 
-**How to use:**
-When the user asks to "show", "display", or wants to "see" their data, include the appropriate canvas command at the START of your response. The command will be parsed and the widget displayed - it won't show in the chat.
+**You MUST call showOnCanvas** for requests like:
+- "show my fitness" → call showOnCanvas with type: "fitness"
+- "show my form" → call showOnCanvas with type: "fitness"
+- "show PMC" → call showOnCanvas with type: "pmc-chart"
+- "show power curve" → call showOnCanvas with type: "power-curve"
+- "show recent sessions" → call showOnCanvas with type: "sessions"
 
-**Examples:**
-- User: "Show my fitness" → Start response with \`[CANVAS:fitness]\` then explain the data
-- User: "How's my power curve?" → Start with \`[CANVAS:power-curve]\` then analyze
-- User: "Show me my recent workouts" → Start with \`[CANVAS:sessions]\` then summarize
-- User: "I want to see my PMC" → Start with \`[CANVAS:pmc-chart]\` then explain trends
+### Widget Types
+- \`fitness\` - CTL, ATL, TSB metrics (use for "fitness", "form", "TSB" requests)
+- \`pmc-chart\` - Performance Management Chart
+- \`sessions\` - Recent training sessions
+- \`power-curve\` - Power duration curve
+- \`sleep\` - Sleep metrics
+- \`workout-card\` - Structured workout
 
-You can show multiple widgets by including multiple commands: \`[CANVAS:fitness][CANVAS:pmc-chart]\`
+### Required Fields
+Every showOnCanvas call needs:
+1. \`action\`: Usually "show" (replaces canvas)
+2. \`widgets\`: Array with type and insight
+3. \`reason\`: Why you're showing this
 
-Always explain what the widget shows after displaying it. Be proactive - if the conversation is about fitness trends, show the PMC chart.`
+### Insight Examples
+The "insight" field must explain what matters about the data:
+- BAD: "Showing your fitness data"
+- GOOD: "CTL 72, TSB -15: You're building fitness but need recovery before intensity"
+
+### Example Tool Call
+User: "Show my fitness"
+→ IMMEDIATELY call showOnCanvas:
+\`\`\`
+{
+  "action": "show",
+  "widgets": [{ "type": "fitness", "insight": "CTL 72 shows strong base. TSB -15 means moderate fatigue - good for tempo work." }],
+  "reason": "Displaying fitness metrics per user request"
+}
+\`\`\`
+
+### Critical Rule
+DO NOT just describe data in text when asked to "show" something. The user wants to SEE the widget. Call showOnCanvas first, then explain.`
 
     systemPrompt = `${systemPrompt}\n\n${canvasInstructions}`
   }

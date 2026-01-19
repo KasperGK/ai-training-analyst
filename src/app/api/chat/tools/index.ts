@@ -11,6 +11,7 @@ import { getActiveInsights } from './get-active-insights'
 import { logWorkoutOutcome } from './log-workout-outcome'
 import { analyzePowerCurve, analyzeEfficiency, analyzeTrainingLoad } from './analysis-tools'
 import { generateTrainingPlan, analyzePatterns, getTrainingPlan, updatePlanDay } from './plan-tools'
+import { showOnCanvas } from './show-on-canvas'
 
 export type { ToolContext } from './types'
 
@@ -28,6 +29,9 @@ export function buildTools(ctx: ToolContext) {
     generateChart: generateChart(ctx),
     getRecoveryTrends: getRecoveryTrends(ctx),
     logWorkoutOutcome: logWorkoutOutcome(ctx),
+
+    // Canvas control tool (always available in canvas mode)
+    showOnCanvas: showOnCanvas(ctx),
 
     // Analysis tools (always available)
     analyzePowerCurve: analyzePowerCurve(ctx),
@@ -76,4 +80,5 @@ export {
   analyzePatterns,
   getTrainingPlan,
   updatePlanDay,
+  showOnCanvas,
 }

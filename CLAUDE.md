@@ -102,13 +102,14 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - Keep text parsing as fallback during transition
 - Widgets include `context.insightSummary` for AI explanations
 
-### Phase 10: Canvas-Backed Coaching (Ready to Implement)
-- [ ] Add `showOnCanvas` tool (`src/app/api/chat/tools/show-on-canvas.ts`)
-- [ ] Enhance `WidgetConfig` with context fields
-- [ ] Process tool results for canvas in `coach-content.tsx`
-- [ ] Create `InsightCard` component with expand/collapse
-- [ ] Update system prompt with tool instructions
-- [ ] Keep text fallback `[CANVAS:X]` during transition
+### Phase 10: Canvas-Backed Coaching ✅ Complete
+- [x] Add `showOnCanvas` tool (`src/app/api/chat/tools/show-on-canvas.ts`)
+- [x] Enhance `WidgetConfig` with context fields (insightSummary, sourceReference, expandable)
+- [x] Create `useCanvasState` hook for state management
+- [x] Process tool results for canvas in `coach-content.tsx`
+- [x] Create `InsightCard` component with expand/collapse
+- [x] Update system prompt with tool instructions
+- [x] Keep text fallback `[CANVAS:X]` during transition
 
 ### Phase 11: Overlay Charts
 - [ ] Add `chart` widget type with dual Y-axis support

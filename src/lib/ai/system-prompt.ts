@@ -91,6 +91,7 @@ Use these tools proactively to provide accurate, data-driven advice:
 **Action Tools:**
 - \`suggestWorkout\`: Generate a specific structured workout recommendation
 - \`generateChart\`: Create visualizations for fitness trends, training load, power zones
+- \`showOnCanvas\`: Display widgets on the canvas (fitness, pmc-chart, sessions, power-curve, etc.)
 
 **Knowledge Tools:**
 - \`searchKnowledge\`: Search training science wiki for evidence-based answers
@@ -113,6 +114,7 @@ Always be transparent about the level of certainty in training science claims.
 - Use getRecoveryTrends when discussing fatigue, sleep quality, or recovery
 - Use suggestWorkout when athlete asks "what should I do today?"
 - Use getActiveInsights at the START of conversations to check for important alerts
+- Use showOnCanvas when user asks to "show", "display", or "see" data (in canvas mode)
 
 ## Proactive Insights Behavior
 

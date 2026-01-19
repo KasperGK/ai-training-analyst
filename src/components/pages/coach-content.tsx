@@ -5,13 +5,13 @@
  *
  * Full AI coaching experience with:
  * - Chat interface on the left
- * - Dynamic widget canvas on the right
+ * - Dynamic widget canvas on the right (tool-driven + text fallback)
  *
  * Extracted from coach/page.tsx for carousel rendering.
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { useChat } from '@ai-sdk/react'
+import { useChat, type UIMessage } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,8 +23,8 @@ import { cn } from '@/lib/utils'
 import { Canvas } from '@/components/coach/canvas'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useConversations } from '@/hooks/use-conversations'
-import type { CanvasState, WidgetConfig } from '@/lib/widgets/types'
-import { DEFAULT_CANVAS_STATE } from '@/lib/widgets/types'
+import { useCanvasState } from '@/hooks/use-canvas-state'
+import type { WidgetConfig, CanvasActionPayload } from '@/lib/widgets/types'
 import {
   Bot,
   User,
@@ -34,20 +34,49 @@ import {
   MessageSquare,
 } from 'lucide-react'
 
-// Parse canvas commands from AI messages
+/**
+ * Extract canvas action from showOnCanvas tool result in message parts
+ */
+function extractCanvasActionFromMessage(message: UIMessage): CanvasActionPayload | null {
+  if (!message.parts) return null
+
+  for (const part of message.parts) {
+    // AI SDK formats tool parts with type like "tool-{toolName}"
+    // Check for showOnCanvas tool results
+    if (part.type === 'tool-showOnCanvas') {
+      const toolPart = part as {
+        type: string
+        state?: string
+        output?: { canvasAction?: CanvasActionPayload }
+      }
+
+      // Check for result state (could be 'result' or 'output-available')
+      if (
+        (toolPart.state === 'result' || toolPart.state === 'output-available') &&
+        toolPart.output?.canvasAction
+      ) {
+        return toolPart.output.canvasAction
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Parse legacy [CANVAS:X] text commands (fallback)
+ */
 function parseCanvasCommands(text: string): WidgetConfig[] | null {
-  // Look for [CANVAS:widget-type] patterns in AI response
   const canvasMatch = text.match(/\[CANVAS:([^\]]+)\]/g)
   if (!canvasMatch) return null
 
   const widgets: WidgetConfig[] = []
   for (const match of canvasMatch) {
     const type = match.replace('[CANVAS:', '').replace(']', '').trim().toLowerCase()
-    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve']
+    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart']
 
     if (validTypes.includes(type)) {
       widgets.push({
-        id: `${type}-${Date.now()}`,
+        id: `${type}-${Date.now()}-${widgets.length}`,
         type: type as WidgetConfig['type'],
         title: getWidgetTitle(type),
         description: ''
@@ -64,7 +93,9 @@ function getWidgetTitle(type: string): string {
     'pmc-chart': 'Performance Management',
     'sessions': 'Recent Sessions',
     'sleep': 'Sleep Metrics',
-    'power-curve': 'Power Curve'
+    'power-curve': 'Power Curve',
+    'workout-card': 'Workout',
+    'chart': 'Chart'
   }
   return titles[type] || type
 }
@@ -110,10 +141,12 @@ export function CoachContent() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
-  const [canvasState, setCanvasState] = useState<CanvasState>(DEFAULT_CANVAS_STATE)
   const [leftPanelWidth, setLeftPanelWidth] = useState(30) // percentage (chat 30%, canvas 70%)
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [activeView, setActiveView] = useState<'chat' | 'history'>('chat')
+
+  // Canvas state management with tool support
+  const { state: canvasState, processCanvasAction, showWidgets } = useCanvasState()
 
   const { athlete, currentFitness, sessions } = useIntervalsData()
 
@@ -130,6 +163,7 @@ export function CoachContent() {
   } = useConversations()
 
   const lastSavedMessageCount = useRef(0)
+  const lastProcessedCanvasMessageId = useRef<string | null>(null)
 
   // Track screen size for responsive layout
   useEffect(() => {
@@ -185,13 +219,25 @@ export function CoachContent() {
     }
   }, [messages])
 
-  // Parse canvas commands from AI responses
+  // Process canvas actions from AI tool calls or text commands (fallback)
   useEffect(() => {
     if (messages.length === 0) return
 
     const lastMessage = messages[messages.length - 1]
     if (lastMessage.role !== 'assistant') return
 
+    // Skip if we already processed this message
+    if (lastProcessedCanvasMessageId.current === lastMessage.id) return
+
+    // First, try to extract canvas action from showOnCanvas tool result
+    const toolAction = extractCanvasActionFromMessage(lastMessage)
+    if (toolAction) {
+      lastProcessedCanvasMessageId.current = lastMessage.id
+      processCanvasAction(toolAction)
+      return
+    }
+
+    // Fallback: Parse legacy [CANVAS:X] text commands
     const text = lastMessage.parts
       .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
       .map(p => p.text)
@@ -199,13 +245,10 @@ export function CoachContent() {
 
     const widgets = parseCanvasCommands(text)
     if (widgets) {
-      setCanvasState(prev => ({
-        ...prev,
-        widgets: widgets,
-        layout: widgets.length > 1 ? 'stacked' : 'single'
-      }))
+      lastProcessedCanvasMessageId.current = lastMessage.id
+      showWidgets(widgets)
     }
-  }, [messages])
+  }, [messages, processCanvasAction, showWidgets])
 
   // Save messages to database
   useEffect(() => {
