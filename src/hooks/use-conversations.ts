@@ -129,9 +129,8 @@ export function useConversations(): UseConversationsReturn {
         const data = await res.json()
         // Add to local messages
         setCurrentMessages((prev) => [...prev, data.message])
-
-        // Refresh conversations list to update preview/timestamp
-        loadConversations()
+        // Note: Don't call loadConversations() here - it causes excessive API calls
+        // The list will refresh when user switches views
       }
     } catch (error) {
       console.error('Failed to save message:', error)
