@@ -21,8 +21,15 @@ interface FormattedMessageProps {
 /**
  * Regex for metric values with units
  * Matches: 285 TSS, 150 bpm, 300 W, 75.5 kg, 0.95 IF, etc.
+ * Uses word boundary or whitespace at start to avoid matching "v2", dates like "2024", etc.
  */
-const METRIC_PATTERN = /(\d+(?:\.\d+)?)\s*(W|bpm|kg|%|TSS|CTL|ATL|TSB|FTP|IF|NP|rpm|kJ|m|km|hr|min|s)\b/g
+const METRIC_PATTERN = /(?:^|[\s(])(\d+(?:\.\d+)?)\s*(W|bpm|kg|%|TSS|CTL|ATL|TSB|FTP|IF|NP|rpm|kJ|km|hr|min|s)\b/g
+
+/**
+ * Regex for URLs
+ * Matches http:// and https:// URLs
+ */
+const URL_PATTERN = /https?:\/\/[^\s<>[\]{}|\\^`"']+/g
 
 /**
  * Regex for collapsible sections
@@ -31,25 +38,92 @@ const METRIC_PATTERN = /(\d+(?:\.\d+)?)\s*(W|bpm|kg|%|TSS|CTL|ATL|TSB|FTP|IF|NP|
 const COLLAPSE_PATTERN = /:::collapse\s+(.+?)\n([\s\S]*?):::/g
 
 /**
+ * Parse and highlight metric values and URLs
+ */
+function formatMetricsAndUrls(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  let remaining = text
+  let keyIndex = 0
+
+  // First pass: extract URLs and create segments
+  const urlRegex = new RegExp(URL_PATTERN.source, 'g')
+  const segments: { type: 'text' | 'url'; content: string }[] = []
+  let lastUrlEnd = 0
+  let urlMatch: RegExpExecArray | null
+
+  while ((urlMatch = urlRegex.exec(text)) !== null) {
+    // Add text before URL
+    if (urlMatch.index > lastUrlEnd) {
+      segments.push({ type: 'text', content: text.slice(lastUrlEnd, urlMatch.index) })
+    }
+    // Add URL
+    segments.push({ type: 'url', content: urlMatch[0] })
+    lastUrlEnd = urlMatch.index + urlMatch[0].length
+  }
+
+  // Add remaining text after last URL
+  if (lastUrlEnd < text.length) {
+    segments.push({ type: 'text', content: text.slice(lastUrlEnd) })
+  }
+
+  // If no URLs found, just process text
+  if (segments.length === 0) {
+    segments.push({ type: 'text', content: text })
+  }
+
+  // Second pass: process each segment
+  for (const segment of segments) {
+    if (segment.type === 'url') {
+      // Render URL as link
+      parts.push(
+        <a
+          key={`url-${keyIndex++}`}
+          href={segment.content}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80 break-all"
+        >
+          {segment.content}
+        </a>
+      )
+    } else {
+      // Process text for metrics
+      const metricParts = formatMetrics(segment.content, keyIndex)
+      parts.push(...metricParts)
+      keyIndex += metricParts.length
+    }
+  }
+
+  return parts.length > 0 ? parts : [text]
+}
+
+/**
  * Parse and highlight metric values
  */
-function formatMetrics(text: string): React.ReactNode[] {
+function formatMetrics(text: string, startKey: number = 0): React.ReactNode[] {
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
+  let keyIndex = startKey
 
   const regex = new RegExp(METRIC_PATTERN.source, 'g')
   while ((match = regex.exec(text)) !== null) {
-    // Add text before match
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index))
+    // The full match includes the leading whitespace/boundary, extract just the number+unit
+    const fullMatch = match[0]
+    const leadingChar = fullMatch.match(/^[\s(]/) ? fullMatch[0] : ''
+    const value = match[1]
+    const unit = match[2]
+
+    // Add text before match (including any leading char that was part of the pattern)
+    const textBeforeMatch = text.slice(lastIndex, match.index) + leadingChar
+    if (textBeforeMatch) {
+      parts.push(textBeforeMatch)
     }
 
     // Add highlighted metric with badge-like styling
-    const [, value, unit] = match
     parts.push(
       <span
-        key={match.index}
+        key={`metric-${keyIndex++}`}
         className="inline-flex items-baseline px-1 py-0.5 mx-0.5 rounded bg-primary/10 text-primary"
       >
         <span className="font-semibold">{value}</span>
@@ -103,10 +177,10 @@ function CollapsibleSection({
 }
 
 /**
- * Format a single paragraph with metrics
+ * Format a single paragraph with metrics and URLs
  */
 function FormattedParagraph({ text }: { text: string }) {
-  const formatted = useMemo(() => formatMetrics(text), [text])
+  const formatted = useMemo(() => formatMetricsAndUrls(text), [text])
   return <>{formatted}</>
 }
 

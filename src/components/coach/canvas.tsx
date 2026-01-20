@@ -9,7 +9,7 @@
  * insight-first display.
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FitnessCard, FatigueCard, FormCard } from '@/components/dashboard/fitness-metrics'
@@ -19,6 +19,8 @@ import { SleepCard } from '@/components/dashboard/sleep-card'
 import { PowerCurveChart } from '@/components/power/power-curve-chart'
 import { ChartWidget } from '@/components/coach/chart-widget'
 import { InsightCard } from '@/components/coach/insight-card'
+import { WorkoutCardWidget } from '@/components/coach/workout-card-widget'
+import type { WorkoutTemplate } from '@/lib/workouts/library'
 import { WidgetFullscreenDialog } from '@/components/coach/widget-fullscreen-dialog'
 import { WidgetHistorySheet } from '@/components/coach/widget-history-sheet'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
@@ -72,6 +74,41 @@ export function Canvas({
 
   const hasHistory = state.dismissedWidgets.length > 0
 
+  // Generate contextual suggestions based on fitness data
+  const contextualSuggestions = useMemo(() => {
+    const suggestions: { text: string; urgent?: boolean }[] = []
+
+    if (currentFitness) {
+      const tsb = currentFitness.tsb ?? 0
+      const ctl = currentFitness.ctl ?? 0
+
+      // TSB-based suggestions (urgent if extreme)
+      if (tsb < -20) {
+        suggestions.push({ text: `TSB at ${Math.round(tsb)} - check recovery?`, urgent: true })
+      } else if (tsb < -10) {
+        suggestions.push({ text: `Fatigue building (TSB: ${Math.round(tsb)})` })
+      } else if (tsb > 15) {
+        suggestions.push({ text: `Fresh legs (TSB: ${Math.round(tsb)}) - ready for intensity?` })
+      }
+
+      // CTL-based suggestions
+      if (ctl > 50) {
+        suggestions.push({ text: `CTL is ${Math.round(ctl)} - show trends?` })
+      }
+    }
+
+    // Default suggestions if no contextual ones
+    if (suggestions.length === 0) {
+      suggestions.push({ text: 'Show my fitness' })
+      suggestions.push({ text: 'Show power curve' })
+    }
+
+    // Always include a default
+    suggestions.push({ text: 'Show recent workouts' })
+
+    return suggestions.slice(0, 3) // Max 3 suggestions
+  }, [currentFitness])
+
   if (state.widgets.length === 0) {
     return (
       <div className={className}>
@@ -96,9 +133,9 @@ export function Canvas({
             I&apos;ll display them here for you.
           </p>
           <div className="mt-6 flex flex-wrap gap-2 justify-center">
-            <SuggestedQuery text="Show my fitness" />
-            <SuggestedQuery text="Show power curve" />
-            <SuggestedQuery text="Show recent workouts" />
+            {contextualSuggestions.map((suggestion, idx) => (
+              <SuggestedQuery key={idx} text={suggestion.text} urgent={suggestion.urgent} />
+            ))}
           </div>
         </Card>
 
@@ -252,10 +289,11 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
       )
 
     case 'workout-card':
-      // TODO: Implement workout card widget
-      return (
-        <p className="text-muted-foreground text-sm">Workout details coming soon</p>
-      )
+      const workoutData = widget.params?.workout as WorkoutTemplate | undefined
+      if (!workoutData) {
+        return <p className="text-muted-foreground text-sm">No workout data</p>
+      }
+      return <WorkoutCardWidget workout={workoutData} ftp={data.athlete?.ftp ?? 250} />
 
     case 'chart':
       // Chart widget with dual Y-axis support for overlays
@@ -348,9 +386,13 @@ function WidgetRenderer({
   )
 }
 
-function SuggestedQuery({ text }: { text: string }) {
+function SuggestedQuery({ text, urgent }: { text: string; urgent?: boolean }) {
   return (
-    <span className="px-3 py-1.5 bg-muted rounded-full text-xs text-muted-foreground">
+    <span className={`px-3 py-1.5 rounded-full text-xs ${
+      urgent
+        ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+        : 'bg-muted text-muted-foreground'
+    }`}>
       &ldquo;{text}&rdquo;
     </span>
   )

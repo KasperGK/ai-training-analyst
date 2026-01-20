@@ -25,6 +25,7 @@ import { FormattedMessage } from '@/components/coach/formatted-message'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useConversations } from '@/hooks/use-conversations'
 import { useCanvasState } from '@/hooks/use-canvas-state'
+import { useSmartSuggestions } from '@/hooks/use-smart-suggestions'
 import type { WidgetConfig, CanvasActionPayload } from '@/lib/widgets/types'
 import {
   Bot,
@@ -123,6 +124,9 @@ export function CoachContent() {
 
   const { athlete, currentFitness, sessions } = useIntervalsData()
 
+  // Smart suggestions based on context
+  const smartSuggestions = useSmartSuggestions({ currentFitness, sessions })
+
   // Conversation persistence
   const {
     conversations,
@@ -164,9 +168,10 @@ export function CoachContent() {
   const athleteContext = useMemo(() => {
     if (!athlete) return undefined
 
-    // Format recent sessions for AI context (last 20, most recent first)
+    // Format recent sessions for AI context (last 7, most recent first)
+    // AI can use findSessions tool for older sessions if needed
     const recentSessions = (sessions || [])
-      .slice(0, 20)
+      .slice(0, 7)
       .map(s => ({
         id: s.id,
         date: s.date,
@@ -469,13 +474,13 @@ export function CoachContent() {
               {/* Messages */}
               <ScrollArea className="flex-1 min-h-0 -mx-6 px-6" ref={scrollRef}>
                 <div className="space-y-4 pb-4">
-                  {displayMessages.map((message) => {
+                  {displayMessages.map((message, index) => {
                     const text = getMessageText(message)
                     const isUser = message.role === 'user'
 
                     return (
                       <div
-                        key={message.id}
+                        key={`${message.id}-${index}`}
                         className={cn(
                           'flex gap-3',
                           isUser ? 'flex-row-reverse' : 'flex-row'
@@ -556,10 +561,13 @@ export function CoachContent() {
                 </form>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <QuickAction label="Show fitness" onClick={() => handleQuickAction("Show my current fitness")} />
-                  <QuickAction label="Show power curve" onClick={() => handleQuickAction("Show my power curve")} />
-                  <QuickAction label="Show PMC" onClick={() => handleQuickAction("Show my PMC chart")} />
-                  <QuickAction label="Recent workouts" onClick={() => handleQuickAction("Show my recent workouts")} />
+                  {smartSuggestions.map((suggestion, idx) => (
+                    <QuickAction
+                      key={idx}
+                      label={suggestion.label}
+                      onClick={() => handleQuickAction(suggestion.prompt)}
+                    />
+                  ))}
                 </div>
               </div>
                 </>

@@ -12,6 +12,35 @@ import { parseAthleteContext } from './tools/types'
 
 export const maxDuration = 30
 
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/**
+ * Determine if request needs Opus (complex analysis) vs Sonnet (routine queries).
+ * Use Opus 4.5 for: training plan generation, deep analysis, periodization.
+ * Use Sonnet 4 for: everything else (80% of requests).
+ */
+function shouldUseOpus(messages: Message[]): boolean {
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop()
+  if (!lastUserMessage) return false
+
+  const content = typeof lastUserMessage.content === 'string'
+    ? lastUserMessage.content.toLowerCase()
+    : ''
+
+  // Use Opus for: training plan generation, deep analysis requests
+  const opusPatterns = [
+    'generate.*plan',
+    'create.*plan',
+    'build.*training',
+    'analyze.*season',
+    'periodiz',
+  ]
+  return opusPatterns.some(p => new RegExp(p).test(content))
+}
+
 interface UIMessage {
   id: string
   role: 'user' | 'assistant'
@@ -190,8 +219,14 @@ DO NOT just describe data in text when asked to "show" something. The user wants
   // Build tools with context
   const tools = buildTools(toolContext)
 
+  // Use Opus for complex analysis, Sonnet for routine queries (80% cost savings)
+  const useOpus = shouldUseOpus(convertedMessages)
+  const model = useOpus
+    ? anthropic('claude-opus-4-5-20251101')
+    : anthropic('claude-sonnet-4-20250514')
+
   const result = streamText({
-    model: anthropic('claude-opus-4-5-20251101'),
+    model,
     system: systemPrompt,
     messages: convertedMessages,
     stopWhen: stepCountIs(5), // Allow up to 5 tool call + response cycles
