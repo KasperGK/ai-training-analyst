@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
 import { getNormalizedPower, getAveragePower } from '@/lib/transforms'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: Request,
@@ -30,15 +31,42 @@ export async function GET(
   try {
     intervalsClient.setCredentials(accessToken, athleteId)
 
-    // Fetch activity details first
-    const activity = await intervalsClient.getActivity(id)
+    // Check if ID is a UUID (local DB) or intervals.icu activity ID
+    // UUIDs have format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    // intervals.icu IDs have format: iXXXXXXXXX
+    let intervalsActivityId = id
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+    if (isUuid) {
+      // Look up external_id from local sessions table
+      const supabase = await createClient()
+      if (supabase) {
+        const { data: session } = await supabase
+          .from('sessions')
+          .select('external_id')
+          .eq('id', id)
+          .single()
+
+        if (session?.external_id) {
+          intervalsActivityId = session.external_id
+        } else {
+          return NextResponse.json(
+            { error: 'Session not found in local database' },
+            { status: 404 }
+          )
+        }
+      }
+    }
+
+    // Fetch activity details from intervals.icu
+    const activity = await intervalsClient.getActivity(intervalsActivityId)
 
     // Try to fetch streams (may fail for some activities)
     let streams: { time?: number[]; watts?: number[]; heartrate?: number[]; cadence?: number[] } = {}
     try {
-      streams = await intervalsClient.getActivityStreams(id, ['time', 'watts', 'heartrate', 'cadence'])
+      streams = await intervalsClient.getActivityStreams(intervalsActivityId, ['time', 'watts', 'heartrate', 'cadence'])
     } catch (streamError) {
-      console.warn('Could not fetch streams for activity:', id, streamError)
+      console.warn('Could not fetch streams for activity:', intervalsActivityId, streamError)
       // Continue without streams - they're optional
     }
 

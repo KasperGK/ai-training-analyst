@@ -7,6 +7,7 @@ import { getPersonalizationSection } from '@/lib/personalization/prompt-builder'
 import { getInsights } from '@/lib/insights/insight-generator'
 import { ensureWikiSeeded } from '@/lib/rag/auto-seed'
 import { features } from '@/lib/features'
+import { createClient } from '@/lib/supabase/server'
 import { buildTools, type ToolContext } from './tools'
 import { parseAthleteContext } from './tools/types'
 
@@ -50,6 +51,26 @@ interface UIMessage {
 
 export async function POST(req: Request): Promise<Response> {
   const { messages, athleteContext, athleteId, canvasMode } = await req.json()
+
+  // ALWAYS get Supabase user.id from auth for database queries
+  // The frontend might send an intervals.icu athlete ID which won't work for local DB queries
+  // Sessions are stored with Supabase user.id as athlete_id
+  let effectiveAthleteId: string | undefined
+  const supabase = await createClient()
+  if (supabase) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.id) {
+      effectiveAthleteId = user.id
+      if (athleteId && athleteId !== user.id) {
+        console.log('[chat] Overriding frontend athleteId with Supabase user.id:', user.id, '(frontend sent:', athleteId, ')')
+      }
+    }
+  }
+  // Fall back to frontend-provided athleteId only if auth unavailable
+  if (!effectiveAthleteId && athleteId) {
+    effectiveAthleteId = athleteId
+    console.log('[chat] Using frontend-provided athleteId (auth unavailable):', effectiveAthleteId)
+  }
 
   // Get intervals.icu credentials (same pattern as /api/intervals/data)
   const cookieStore = await cookies()
@@ -100,17 +121,17 @@ export async function POST(req: Request): Promise<Response> {
   let systemPrompt = buildSystemPrompt(effectiveAthleteContext)
 
   // Add personalization section if memory feature is enabled
-  if (features.memory && athleteId) {
-    const personalization = await getPersonalizationSection(athleteId)
+  if (features.memory && effectiveAthleteId) {
+    const personalization = await getPersonalizationSection(effectiveAthleteId)
     if (personalization) {
       systemPrompt = `${systemPrompt}\n\n${personalization}\n\nUse the getAthleteMemory and saveAthleteMemory tools to retrieve and store information about this athlete.`
     }
   }
 
   // Inject active insights at conversation start
-  if (features.insights && athleteId) {
+  if (features.insights && effectiveAthleteId) {
     try {
-      const activeInsights = await getInsights(athleteId, { limit: 5, includeRead: false })
+      const activeInsights = await getInsights(effectiveAthleteId, { limit: 5, includeRead: false })
       if (activeInsights.length > 0) {
         // Format insights for system prompt
         const insightLines = activeInsights.map(insight => {
@@ -204,7 +225,7 @@ DO NOT just describe data in text when asked to "show" something. The user wants
 
   // Build tool context
   const toolContext: ToolContext = {
-    athleteId,
+    athleteId: effectiveAthleteId,
     athleteContext: effectiveAthleteContext,
     intervalsConnected,
     intervalsClient,

@@ -139,8 +139,12 @@ function transformActivity(activity: IntervalsActivity, athleteId: string): Sess
     }
   }
 
-  // Determine workout type from activity type/name
-  const workoutType = inferWorkoutType(activity)
+  // Store the actual activity name from intervals.icu
+  // This contains the full name like "Zwift - Race: Stage 2 - Tour de Zwift"
+  // Note: activity.name might be empty string, so check for truthy value
+  const activityName = activity.name && activity.name.trim() !== '' ? activity.name : null
+  const workoutType = activityName || inferWorkoutType(activity)
+
 
   // Helper to safely round numbers
   const roundOrNull = (val: number | undefined | null): number | null =>
@@ -156,7 +160,8 @@ function transformActivity(activity: IntervalsActivity, athleteId: string): Sess
     avg_power: roundOrNull(activity.icu_average_watts ?? activity.average_watts),
     max_power: roundOrNull(activity.max_watts),
     normalized_power: roundOrNull(activity.icu_weighted_avg_watts ?? activity.weighted_average_watts),
-    intensity_factor: activity.icu_intensity || null, // This is DECIMAL in schema, keep as-is
+    // icu_intensity from intervals.icu is percentage (e.g., 83.61), convert to decimal (0.8361) for DECIMAL(4,2)
+    intensity_factor: activity.icu_intensity != null ? Math.round(activity.icu_intensity) / 100 : null,
     tss: roundOrNull(activity.icu_training_load),
     avg_hr: roundOrNull(activity.average_heartrate),
     max_hr: roundOrNull(activity.max_heartrate),
@@ -331,32 +336,59 @@ export async function syncActivities(
     }
 
     // Filter out STRAVA activities (blocked by API terms)
+    // Note: Use != null to allow moving_time=0 (0 is falsy but valid)
     const validActivities = activities.filter(a =>
-      a.source !== 'STRAVA' && a.type && a.moving_time
+      a.source !== 'STRAVA' && a.type && a.moving_time != null
     )
 
-    // Transform and batch insert
-    const sessions: SessionInsert[] = validActivities.map(a =>
-      transformActivity(a, athleteId)
-    )
+    console.log('[sync] API returned', activities.length, 'activities')
+    console.log('[sync] After filtering:', validActivities.length, 'valid activities (excluded', activities.length - validActivities.length, 'STRAVA/invalid)')
 
-    // Upsert in batches
+    // Transform activities individually to catch errors without crashing entire sync
+    const sessions: SessionInsert[] = []
+    const transformErrors: string[] = []
+    for (const activity of validActivities) {
+      try {
+        sessions.push(transformActivity(activity, athleteId))
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Unknown error'
+        transformErrors.push(`Activity ${activity.id}: ${msg}`)
+        console.error('[sync] Transform error for activity', activity.id, ':', msg)
+      }
+    }
+    if (transformErrors.length > 0) {
+      console.warn('[sync] Skipped', transformErrors.length, 'activities due to transform errors')
+      errors.push(...transformErrors.slice(0, 5)) // Only add first 5 to avoid huge error lists
+    }
+    console.log('[sync] After transform:', sessions.length, 'sessions ready for upsert')
+
+    // Upsert in batches with actual count tracking
+    const totalBatches = Math.ceil(sessions.length / batchSize)
     for (let i = 0; i < sessions.length; i += batchSize) {
       const batch = sessions.slice(i, i + batchSize)
+      const batchNum = Math.floor(i / batchSize) + 1
+      console.log(`[sync] Batch ${batchNum}/${totalBatches} - upserting ${batch.length} sessions`)
 
-      const { error } = await supabase
+      // Use .select('id') to get actual count of upserted rows
+      const { data, error } = await supabase
         .from('sessions')
         .upsert(batch, {
           onConflict: 'athlete_id,external_id',
           ignoreDuplicates: false,
         })
+        .select('id')
 
       if (error) {
-        errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${error.message}`)
+        console.error('[sync] Upsert error in batch', batchNum, ':', error)
+        errors.push(`Batch ${batchNum}: ${error.message}`)
       } else {
-        synced += batch.length
+        const actualCount = data?.length ?? batch.length
+        synced += actualCount
+        console.log(`[sync] Batch ${batchNum} complete: ${actualCount} sessions upserted`)
       }
     }
+
+    console.log('[sync] Sync complete:', synced, 'sessions upserted from', sessions.length, 'transformed')
 
     // Find the newest activity date for sync log
     const newestActivity = validActivities.reduce((newest, a) => {

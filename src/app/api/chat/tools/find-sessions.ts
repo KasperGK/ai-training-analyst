@@ -90,7 +90,10 @@ Common patterns:
   inputSchema,
 
   execute: async (input, ctx) => {
+    console.log('[findSessions] Querying with athleteId:', ctx.athleteId)
+
     if (!ctx.athleteId) {
+      console.log('[findSessions] No athleteId - returning empty')
       return {
         sessions: [],
         totalFound: 0,
@@ -126,6 +129,14 @@ Common patterns:
         startDate: dateFrom,
         endDate: dateTo,
       })
+      console.log('[findSessions] Got', allSessions.length, 'sessions from DB')
+      if (allSessions.length > 0) {
+        console.log('[findSessions] First session:', {
+          id: allSessions[0].id,
+          date: allSessions[0].date,
+          workout_type: allSessions[0].workout_type,
+        })
+      }
 
       // Apply additional filters
       let filtered = allSessions.filter(s => {

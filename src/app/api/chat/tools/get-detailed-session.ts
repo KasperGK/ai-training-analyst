@@ -203,7 +203,8 @@ function determineSessionType(
 }
 
 /**
- * Helper to build response from session data (local DB - limited data)
+ * Helper to build response from session data (local DB)
+ * Uses raw_data field if available for additional metrics
  */
 function buildSessionResponse(session: Session): SessionResponse {
   const powerZones = session.power_zones ?? null
@@ -213,6 +214,14 @@ function buildSessionResponse(session: Session): SessionResponse {
     session.duration_seconds,
     session.workout_type ?? null
   )
+
+  // Extract additional metrics from raw_data if available
+  const raw = session.raw_data as Record<string, unknown> | null
+  const avgCadence = raw?.average_cadence as number | undefined
+  const elevationGain = raw?.total_elevation_gain as number | undefined
+  const decoupling = raw?.decoupling as number | undefined
+  const calories = raw?.calories as number | undefined
+  const icuFtp = raw?.icu_ftp as number | undefined
 
   return {
     session: {
@@ -230,6 +239,10 @@ function buildSessionResponse(session: Session): SessionResponse {
       avg_hr: session.avg_hr ?? null,
       max_hr: session.max_hr ?? null,
       power_zones: powerZones,
+      avg_cadence: avgCadence,
+      elevation_gain: elevationGain,
+      decoupling,
+      calories,
     },
     analysis: {
       isHighIntensity: (session.intensity_factor || 0) > 0.85,
@@ -239,10 +252,15 @@ function buildSessionResponse(session: Session): SessionResponse {
       efficiencyFactor: session.normalized_power && session.avg_hr
         ? Math.round((session.normalized_power / session.avg_hr) * 100) / 100
         : null,
+      decoupling: decoupling
+        ? `${decoupling.toFixed(1)}% (${decoupling < 5 ? 'good aerobic fitness' : 'needs more base work'})`
+        : null,
       isLikelyRace: sessionType === 'race',
       sessionType,
     },
     source: 'local',
+    // Include FTP context if available for the AI
+    ...(icuFtp ? { athleteFtp: icuFtp } : {}),
   }
 }
 
@@ -261,7 +279,53 @@ Use this after finding a session with findSessions. Includes:
       try {
         const localSession = await getSession(sessionId)
         if (localSession) {
-          return buildSessionResponse(localSession)
+          const response = buildSessionResponse(localSession)
+
+          // If streams requested and intervals.icu connected, fetch peak powers & pacing
+          if (includeStreams && ctx.intervalsConnected && localSession.external_id) {
+            try {
+              const raw = localSession.raw_data as Record<string, unknown> | null
+              const ftp = (raw?.icu_ftp as number) || null
+              const streams = await ctx.intervalsClient.getActivityStreams(localSession.external_id, ['watts'])
+              if (streams.watts && streams.watts.length > 0) {
+                response.session.peakPowers = {
+                  peak_5s: calculatePeakPower(streams.watts, 5),
+                  peak_30s: calculatePeakPower(streams.watts, 30),
+                  peak_1min: calculatePeakPower(streams.watts, 60),
+                  peak_5min: calculatePeakPower(streams.watts, 300),
+                  peak_20min: calculatePeakPower(streams.watts, 1200),
+                }
+                response.session.pacing = analyzePacing(streams.watts, ftp)
+
+                // Add pacing assessment
+                const pacing = response.session.pacing
+                if (pacing) {
+                  let pacingAssessment: string | undefined
+                  if (pacing.variabilityIndex && pacing.variabilityIndex > 1.1) {
+                    pacingAssessment = `Variable pacing (VI: ${pacing.variabilityIndex}) - power fluctuated significantly`
+                  } else if (pacing.variabilityIndex && pacing.variabilityIndex < 1.02) {
+                    pacingAssessment = `Very steady pacing (VI: ${pacing.variabilityIndex}) - excellent power control`
+                  }
+                  if (pacing.negativeSplit && pacing.splitDifferencePercent) {
+                    pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
+                      `Negative split (+${pacing.splitDifferencePercent}% second half) - strong finish`
+                  } else if (!pacing.negativeSplit && pacing.splitDifferencePercent && pacing.splitDifferencePercent < -5) {
+                    pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
+                      `Positive split (${pacing.splitDifferencePercent}% fade) - started too hard`
+                  }
+                  if (pacing.matchBurns > 5) {
+                    pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
+                      `${pacing.matchBurns} match burns - high anaerobic cost`
+                  }
+                  response.analysis.pacingAssessment = pacingAssessment
+                }
+              }
+            } catch {
+              // Streams not available, continue without
+            }
+          }
+
+          return response
         }
       } catch {
         // Fall through to intervals.icu

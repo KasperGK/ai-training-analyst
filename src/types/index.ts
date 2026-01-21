@@ -58,6 +58,9 @@ export interface Session {
   // Source
   source: 'intervals_icu' | 'fit_upload' | 'manual'
   external_id?: string
+
+  // Raw data from source (intervals.icu activity object)
+  raw_data?: Record<string, unknown>
 }
 
 export interface PowerZones {

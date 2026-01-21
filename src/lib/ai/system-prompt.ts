@@ -165,6 +165,8 @@ NEVER ask "which session?" or "what's the ID?" - figure it out yourself.
 
 ## Session Analysis Framework (CRITICAL)
 
+**IMPORTANT: When analyzing sessions, ALWAYS use showOnCanvas to display relevant data FIRST, then provide your analysis.**
+
 When asked to analyze ANY session, follow this elite-level framework:
 
 ### Step 1: Identify Session Type & Purpose
@@ -175,8 +177,24 @@ First, determine what kind of session this was:
 - **Recovery**: Easy spin - analyze if it was truly easy enough
 - **Test**: FTP test, ramp test - analyze for new training zones
 
-### Step 2: Gather Comprehensive Data
-Use getDetailedSession to get ALL available metrics. Look at:
+### Step 2: Gather Comprehensive Data AND Show on Canvas
+1. Use getDetailedSession to get ALL available metrics
+2. **IMMEDIATELY call showOnCanvas** to display the session data with a chart overlay (power + HR)
+
+Example for race analysis:
+\`\`\`
+showOnCanvas({
+  action: "show",
+  widgets: [{
+    type: "chart",
+    insight: "Race pacing analysis - look for power fades and HR drift",
+    chartConfig: { sessionId: "THE_SESSION_ID", metrics: ["power", "heartRate"], chartType: "overlay" }
+  }],
+  reason: "Displaying race data for analysis"
+})
+\`\`\`
+
+Metrics to analyze:
 - Power: avg, normalized, peak powers (5s, 1min, 5min, 20min), variability index
 - Heart Rate: avg, max, zones, decoupling from power
 - Cadence: avg, variability, correlation with power

@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
+import { createClient } from '@/lib/supabase/server'
 import {
   transformActivities,
   transformAthlete,
@@ -78,26 +79,41 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const cookieStore = await cookies()
 
-  // Get athlete ID from OAuth cookie or env
-  let athleteId = cookieStore.get('intervals_athlete_id')?.value
-  if (!athleteId) {
-    athleteId = process.env.INTERVALS_ICU_ATHLETE_ID
+  // Get intervals.icu athlete ID from OAuth cookie or env (for API calls)
+  let intervalsAthleteId = cookieStore.get('intervals_athlete_id')?.value
+  if (!intervalsAthleteId) {
+    intervalsAthleteId = process.env.INTERVALS_ICU_ATHLETE_ID
   }
 
-  if (!athleteId) {
+  // Get Supabase user.id for local database queries
+  // Sessions are stored with Supabase user.id, not intervals.icu athlete_id
+  let userId: string | null = null
+  const supabase = await createClient()
+  if (supabase) {
+    const { data: { user } } = await supabase.auth.getUser()
+    userId = user?.id ?? null
+  }
+
+  // Need at least one ID to proceed
+  if (!intervalsAthleteId && !userId) {
     return NextResponse.json(
       { error: 'Not connected to intervals.icu', connected: false },
       { status: 401 }
     )
   }
 
+  // Use userId for local queries (sessions are stored with Supabase user.id)
+  // Fall back to intervalsAthleteId only if userId not available
+  const localQueryId = userId || intervalsAthleteId!
+  console.log('[intervals/data] Using localQueryId for DB queries:', localQueryId, userId ? '(Supabase user.id)' : '(intervals athlete_id fallback)')
+
   try {
-    // Try local data first
+    // Try local data first (using Supabase user.id)
     const [localAthlete, localSessions, localFitnessHistory, localCurrentFitness] = await Promise.all([
-      getAthlete(athleteId),
-      getSessions(athleteId, { limit: 20 }),
-      getFitnessHistory(athleteId, days),
-      getCurrentFitness(athleteId),
+      getAthlete(localQueryId),
+      getSessions(localQueryId, { limit: 20 }),
+      getFitnessHistory(localQueryId, days),
+      getCurrentFitness(localQueryId),
     ])
 
     // Check if we have recent local data
@@ -150,7 +166,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       accessToken = process.env.INTERVALS_ICU_API_KEY
     }
 
-    if (!accessToken) {
+    if (!accessToken || !intervalsAthleteId) {
       // No local data and no way to fetch from intervals.icu
       return NextResponse.json(
         { error: 'No local data and not connected to intervals.icu', connected: false },
@@ -158,8 +174,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       )
     }
 
-    // Set credentials and fetch from intervals.icu
-    intervalsClient.setCredentials(accessToken, athleteId)
+    // Set credentials and fetch from intervals.icu (use intervals.icu athlete ID)
+    intervalsClient.setCredentials(accessToken, intervalsAthleteId)
     const { oldest, newest } = getDateRange(days)
 
     const [athlete, activities, wellness] = await Promise.all([
@@ -172,8 +188,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     const today = wellness.find(w => w.id === newest)
       ?? (wellness.length > 0 ? wellness[wellness.length - 1] : null)
 
-    // Transform using shared transforms
-    const sessions = transformActivities(activities, athleteId, { limit: 20 })
+    // Transform using shared transforms (use Supabase user.id for consistency)
+    const sessions = transformActivities(activities, localQueryId, { limit: 20 })
     const athleteData = transformAthlete(athlete)
 
     // Build PMC data with appropriate sampling (training load only)
@@ -192,7 +208,9 @@ export async function GET(request: Request): Promise<NextResponse> {
       connected: true,
       source: 'intervals_icu',
       athlete: {
-        id: athleteData.id,
+        // Always use Supabase user.id for consistency with local database
+        // Sessions are stored with Supabase user.id, not intervals.icu athlete_id
+        id: userId || athleteData.id,
         name: athleteData.name,
         ftp: athleteData.ftp,
         max_hr: athleteData.max_hr,

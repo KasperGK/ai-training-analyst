@@ -168,10 +168,10 @@ export function CoachContent() {
   const athleteContext = useMemo(() => {
     if (!athlete) return undefined
 
-    // Format recent sessions for AI context (last 7, most recent first)
+    // Format recent sessions for AI context (last 20, most recent first)
     // AI can use findSessions tool for older sessions if needed
     const recentSessions = (sessions || [])
-      .slice(0, 7)
+      .slice(0, 20)
       .map(s => ({
         id: s.id,
         date: s.date,

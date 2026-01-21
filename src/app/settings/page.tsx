@@ -271,7 +271,7 @@ export default function SettingsPage() {
 
   return (
     <main className="flex-1 overflow-auto bg-muted/40">
-      <div className="mx-auto max-w-3xl p-6">
+      <div className="mx-auto max-w-3xl p-6 pt-20">
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
