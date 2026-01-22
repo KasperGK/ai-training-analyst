@@ -5,6 +5,7 @@
  *
  * Enhanced text formatting for AI Coach messages with:
  * - Metric highlighting (numbers + units)
+ * - Term tooltips (FTP, TSS, CTL, etc.)
  * - Collapsible sections (:::collapse Title ... :::)
  * - Section headers (## or ###)
  */
@@ -12,6 +13,8 @@
 import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { TermTooltip } from './term-tooltip'
+import { TERM_PATTERN, CYCLING_TERMS } from '@/lib/cycling-terms'
 
 interface FormattedMessageProps {
   text: string
@@ -36,6 +39,14 @@ const URL_PATTERN = /https?:\/\/[^\s<>[\]{}|\\^`"']+/g
  * Matches: :::collapse Title\ncontent\n:::
  */
 const COLLAPSE_PATTERN = /:::collapse\s+(.+?)\n([\s\S]*?):::/g
+
+/**
+ * Regex patterns for inline styles
+ * Bold: **text** (non-greedy)
+ * Italic: *text* (single asterisks, after bold is processed)
+ */
+const BOLD_PATTERN = /\*\*(.+?)\*\*/g
+const ITALIC_PATTERN = /\*([^*]+)\*/g
 
 /**
  * Parse and highlight metric values and URLs
@@ -98,7 +109,7 @@ function formatMetricsAndUrls(text: string): React.ReactNode[] {
 }
 
 /**
- * Parse and highlight metric values
+ * Parse and highlight metric values, then add term tooltips to remaining text
  */
 function formatMetrics(text: string, startKey: number = 0): React.ReactNode[] {
   const parts: React.ReactNode[] = []
@@ -115,28 +126,151 @@ function formatMetrics(text: string, startKey: number = 0): React.ReactNode[] {
     const unit = match[2]
 
     // Add text before match (including any leading char that was part of the pattern)
+    // Process this text for term tooltips
     const textBeforeMatch = text.slice(lastIndex, match.index) + leadingChar
     if (textBeforeMatch) {
-      parts.push(textBeforeMatch)
+      const termParts = formatTerms(textBeforeMatch, keyIndex)
+      parts.push(...termParts)
+      keyIndex += termParts.length
     }
 
     // Add highlighted metric with badge-like styling
+    // The unit gets a tooltip if it's a known term
+    const termDef = CYCLING_TERMS[unit]
     parts.push(
       <span
         key={`metric-${keyIndex++}`}
         className="inline-flex items-baseline px-1 py-0.5 mx-0.5 rounded bg-primary/10 text-primary"
       >
         <span className="font-semibold">{value}</span>
-        <span className="text-primary/70 text-[0.85em] ml-0.5">{unit}</span>
+        {termDef ? (
+          <TermTooltip term={unit}>
+            <span className="text-primary/70 text-[0.85em] ml-0.5 cursor-help border-b border-dotted border-primary/30">{unit}</span>
+          </TermTooltip>
+        ) : (
+          <span className="text-primary/70 text-[0.85em] ml-0.5">{unit}</span>
+        )}
       </span>
     )
 
     lastIndex = match.index + match[0].length
   }
 
-  // Add remaining text
+  // Add remaining text with term tooltips
   if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex))
+    const termParts = formatTerms(text.slice(lastIndex), keyIndex)
+    parts.push(...termParts)
+  }
+
+  return parts.length > 0 ? parts : [text]
+}
+
+/**
+ * Parse bold and italic markdown
+ * Processes **bold** first, then *italic* on remaining text
+ */
+function formatInlineStyles(text: string, startKey: number = 0): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  let keyIndex = startKey
+
+  // Process bold first (**text**)
+  const boldRegex = new RegExp(BOLD_PATTERN.source, 'g')
+  let lastBoldIndex = 0
+  let boldMatch: RegExpExecArray | null
+  const boldSegments: { type: 'text' | 'bold'; content: string }[] = []
+
+  while ((boldMatch = boldRegex.exec(text)) !== null) {
+    if (boldMatch.index > lastBoldIndex) {
+      boldSegments.push({ type: 'text', content: text.slice(lastBoldIndex, boldMatch.index) })
+    }
+    boldSegments.push({ type: 'bold', content: boldMatch[1] })
+    lastBoldIndex = boldMatch.index + boldMatch[0].length
+  }
+
+  if (lastBoldIndex < text.length) {
+    boldSegments.push({ type: 'text', content: text.slice(lastBoldIndex) })
+  }
+
+  if (boldSegments.length === 0) {
+    boldSegments.push({ type: 'text', content: text })
+  }
+
+  // Process each segment for italic
+  for (const segment of boldSegments) {
+    if (segment.type === 'bold') {
+      parts.push(
+        <strong key={`bold-${keyIndex++}`} className="font-semibold">
+          {segment.content}
+        </strong>
+      )
+    } else {
+      // Process italic in text segments
+      const italicRegex = new RegExp(ITALIC_PATTERN.source, 'g')
+      let lastItalicIndex = 0
+      let italicMatch: RegExpExecArray | null
+      let hasItalic = false
+
+      while ((italicMatch = italicRegex.exec(segment.content)) !== null) {
+        hasItalic = true
+        if (italicMatch.index > lastItalicIndex) {
+          parts.push(segment.content.slice(lastItalicIndex, italicMatch.index))
+        }
+        parts.push(
+          <em key={`italic-${keyIndex++}`} className="italic">
+            {italicMatch[1]}
+          </em>
+        )
+        lastItalicIndex = italicMatch.index + italicMatch[0].length
+      }
+
+      if (hasItalic && lastItalicIndex < segment.content.length) {
+        parts.push(segment.content.slice(lastItalicIndex))
+      } else if (!hasItalic) {
+        parts.push(segment.content)
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts : [text]
+}
+
+/**
+ * Parse and add tooltips to standalone cycling terms
+ * Also processes bold/italic on non-term text
+ */
+function formatTerms(text: string, startKey: number = 0): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let keyIndex = startKey
+
+  const regex = new RegExp(TERM_PATTERN.source, 'g')
+  while ((match = regex.exec(text)) !== null) {
+    const term = match[1]
+
+    // Add text before match (with inline styles)
+    if (match.index > lastIndex) {
+      const textBefore = text.slice(lastIndex, match.index)
+      const styledParts = formatInlineStyles(textBefore, keyIndex)
+      parts.push(...styledParts)
+      keyIndex += styledParts.length
+    }
+
+    // Add term with tooltip
+    parts.push(
+      <TermTooltip key={`term-${keyIndex++}`} term={term}>
+        {term}
+      </TermTooltip>
+    )
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // Add remaining text (with inline styles)
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex)
+    const styledParts = formatInlineStyles(remaining, keyIndex)
+    parts.push(...styledParts)
   }
 
   return parts.length > 0 ? parts : [text]
