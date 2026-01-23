@@ -3,10 +3,17 @@
 /**
  * AI Coach Canvas
  *
- * Displays widgets selected by the AI. Each widget type maps to
- * an existing dashboard component. When AI provides context via
- * the showOnCanvas tool, widgets are wrapped in InsightCard for
- * insight-first display.
+ * Adaptive grid layout showing all active widgets simultaneously.
+ * Widgets flow in a responsive grid that adapts to count.
+ *
+ * Key features:
+ * - Grid display: All widgets visible at once (no tab switching)
+ * - Status bar: Badge indicators for each widget with dismiss capability
+ * - Pinned widgets: Persist across conversations via localStorage
+ * - History: Dismissed widgets can be restored
+ *
+ * When AI provides context via the showOnCanvas tool, widgets are
+ * wrapped in InsightCard for insight-first display.
  */
 
 import { useState, useMemo } from 'react'
@@ -20,13 +27,16 @@ import { PowerCurveChart } from '@/components/power/power-curve-chart'
 import { ChartWidget } from '@/components/coach/chart-widget'
 import { InsightCard } from '@/components/coach/insight-card'
 import { WorkoutCardWidget } from '@/components/coach/workout-card-widget'
+import { CanvasGrid, CanvasGridItem } from '@/components/coach/canvas-grid'
+import { CanvasStatusBar } from '@/components/coach/canvas-status-bar'
 import type { WorkoutTemplate } from '@/lib/workouts/library'
 import { WidgetFullscreenDialog } from '@/components/coach/widget-fullscreen-dialog'
 import { WidgetHistorySheet } from '@/components/coach/widget-history-sheet'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { usePowerCurve } from '@/hooks/use-power-curve'
+import { cn } from '@/lib/utils'
 import type { WidgetConfig, CanvasState, ChartConfig } from '@/lib/widgets/types'
-import { Sparkles, LayoutGrid, History } from 'lucide-react'
+import { Sparkles, History } from 'lucide-react'
 
 interface CanvasProps {
   state: CanvasState
@@ -43,6 +53,8 @@ interface CanvasProps {
   onClearHistory?: () => void
   /** Callback when user clicks analyze on a widget */
   onAnalyzeWidget?: (widget: WidgetConfig) => void
+  /** Callback when user selects a tab (null = All, widgetId = single widget) */
+  onSelectTab?: (widgetId: string | null) => void
 }
 
 export function Canvas({
@@ -54,6 +66,7 @@ export function Canvas({
   onRestoreWidget,
   onClearHistory,
   onAnalyzeWidget,
+  onSelectTab,
 }: CanvasProps) {
   const [expandedWidget, setExpandedWidget] = useState<WidgetConfig | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -73,6 +86,25 @@ export function Canvas({
   } = usePowerCurve()
 
   const hasHistory = state.dismissedWidgets.length > 0
+  const hasWidgets = state.widgets.length > 0
+
+  // Determine which widgets to display based on selected tab
+  const isSingleWidgetView = state.selectedTabId !== null
+  const selectedWidget = state.selectedTabId
+    ? state.widgets.find(w => w.id === state.selectedTabId)
+    : null
+
+  // Order widgets according to widgetOrder
+  const orderedWidgets = useMemo(() => {
+    if (state.widgetOrder.length === 0) return state.widgets
+
+    const orderMap = new Map(state.widgetOrder.map((id, idx) => [id, idx]))
+    return [...state.widgets].sort((a, b) => {
+      const aOrder = orderMap.get(a.id) ?? 999
+      const bOrder = orderMap.get(b.id) ?? 999
+      return aOrder - bOrder
+    })
+  }, [state.widgets, state.widgetOrder])
 
   // Generate contextual suggestions based on fitness data
   const contextualSuggestions = useMemo(() => {
@@ -109,48 +141,6 @@ export function Canvas({
     return suggestions.slice(0, 3) // Max 3 suggestions
   }, [currentFitness])
 
-  if (state.widgets.length === 0) {
-    return (
-      <div className={className}>
-        {hasHistory && (
-          <div className="flex justify-end mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History className="h-4 w-4" />
-              History ({state.dismissedWidgets.length})
-            </Button>
-          </div>
-        )}
-        <Card className="h-full flex flex-col items-center justify-center text-center p-8">
-          <Sparkles className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <h3 className="font-medium text-lg mb-2">Ask the AI Coach</h3>
-          <p className="text-muted-foreground text-sm max-w-md">
-            Ask me to show your fitness data, power curve, recent sessions, or any other metrics.
-            I&apos;ll display them here for you.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2 justify-center">
-            {contextualSuggestions.map((suggestion, idx) => (
-              <SuggestedQuery key={idx} text={suggestion.text} urgent={suggestion.urgent} />
-            ))}
-          </div>
-        </Card>
-
-        {/* History Sheet */}
-        <WidgetHistorySheet
-          open={historyOpen}
-          onOpenChange={setHistoryOpen}
-          dismissedWidgets={state.dismissedWidgets}
-          onRestore={onRestoreWidget || (() => {})}
-          onClearHistory={onClearHistory || (() => {})}
-        />
-      </div>
-    )
-  }
-
   const data = {
     fitness: currentFitness,
     sessions,
@@ -163,16 +153,20 @@ export function Canvas({
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <LayoutGrid className="h-4 w-4" />
-          <span>Showing {state.widgets.length} widget{state.widgets.length !== 1 ? 's' : ''}</span>
-        </div>
+      {/* Status bar + History button */}
+      <div className="flex items-center justify-between gap-2 mb-4 min-h-[32px]">
+        <CanvasStatusBar
+          widgets={orderedWidgets}
+          pinnedWidgetIds={state.pinnedWidgetIds}
+          selectedTabId={state.selectedTabId}
+          onSelectTab={onSelectTab ?? (() => {})}
+          className="flex-1 min-w-0"
+        />
         {hasHistory && (
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2 h-8"
+            className="gap-2 h-8 shrink-0"
             onClick={() => setHistoryOpen(true)}
           >
             <History className="h-4 w-4" />
@@ -184,24 +178,78 @@ export function Canvas({
         )}
       </div>
 
-      <div className={
-        state.layout === 'grid'
-          ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
-          : 'space-y-4'
-      }>
-        {state.widgets.map((widget) => (
-          <WidgetRenderer
-            key={widget.id}
-            widget={widget}
-            data={data}
-            isPinned={state.pinnedWidgetIds.has(widget.id)}
-            onDismiss={onDismissWidget ? () => onDismissWidget(widget.id) : undefined}
-            onPin={onPinWidget ? () => onPinWidget(widget.id) : undefined}
-            onUnpin={onUnpinWidget ? () => onUnpinWidget(widget.id) : undefined}
-            onExpand={() => setExpandedWidget(widget)}
-            onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(widget) : undefined}
-          />
-        ))}
+      {/* Widget content area */}
+      <div className="h-full">
+        {hasWidgets ? (
+          isSingleWidgetView && selectedWidget ? (
+            // Single widget view - full width
+            <div className="h-full">
+              <WidgetRenderer
+                widget={selectedWidget}
+                data={data}
+                isPinned={state.pinnedWidgetIds.has(selectedWidget.id)}
+                onDismiss={onDismissWidget ? () => onDismissWidget(selectedWidget.id) : undefined}
+                onPin={onPinWidget ? () => onPinWidget(selectedWidget.id) : undefined}
+                onUnpin={onUnpinWidget ? () => onUnpinWidget(selectedWidget.id) : undefined}
+                onExpand={() => setExpandedWidget(selectedWidget)}
+                onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(selectedWidget) : undefined}
+              />
+            </div>
+          ) : (
+            // Grid view - show all widgets
+            <CanvasGrid
+              widgetCount={orderedWidgets.length}
+              highlightedWidgetId={state.highlightedWidgetId}
+            >
+              {orderedWidgets.map((widget) => (
+                <CanvasGridItem
+                  key={widget.id}
+                  widgetId={widget.id}
+                  isHighlighted={state.highlightedWidgetId === widget.id}
+                >
+                  <WidgetRenderer
+                    widget={widget}
+                    data={data}
+                    isPinned={state.pinnedWidgetIds.has(widget.id)}
+                    onDismiss={onDismissWidget ? () => onDismissWidget(widget.id) : undefined}
+                    onPin={onPinWidget ? () => onPinWidget(widget.id) : undefined}
+                    onUnpin={onUnpinWidget ? () => onUnpinWidget(widget.id) : undefined}
+                    onExpand={() => setExpandedWidget(widget)}
+                    onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(widget) : undefined}
+                  />
+                </CanvasGridItem>
+              ))}
+            </CanvasGrid>
+          )
+        ) : (
+          /* Empty state - clean, minimal design */
+          <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center">
+            <div className="space-y-6 max-w-md px-4">
+              {/* Icon with subtle animation */}
+              <div className="relative mx-auto w-16 h-16">
+                <div className="absolute inset-0 bg-primary/5 rounded-full animate-pulse" />
+                <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-primary/40" />
+              </div>
+
+              {/* Main message */}
+              <div className="space-y-2">
+                <h3 className="font-medium text-lg text-foreground/90">
+                  Ask me about your training
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  I&apos;ll display your data here as we talk
+                </p>
+              </div>
+
+              {/* Suggestion chips */}
+              <div className="flex flex-wrap gap-2 justify-center pt-2">
+                {contextualSuggestions.map((suggestion, idx) => (
+                  <SuggestedQuery key={idx} text={suggestion.text} urgent={suggestion.urgent} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Fullscreen Dialog */}
@@ -388,11 +436,15 @@ function WidgetRenderer({
 
 function SuggestedQuery({ text, urgent }: { text: string; urgent?: boolean }) {
   return (
-    <span className={`px-3 py-1.5 rounded-full text-xs ${
-      urgent
-        ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
-        : 'bg-muted text-muted-foreground'
-    }`}>
+    <span
+      className={cn(
+        'px-3 py-1.5 rounded-full text-xs font-medium',
+        'transition-colors cursor-default',
+        urgent
+          ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300 ring-1 ring-orange-200 dark:ring-orange-800/50'
+          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+      )}
+    >
       &ldquo;{text}&rdquo;
     </span>
   )

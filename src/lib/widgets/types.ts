@@ -94,13 +94,24 @@ export function isChartWidget(widget: WidgetConfig): widget is WidgetConfig & { 
 
 export type CanvasAction = 'show' | 'add' | 'compare' | 'clear'
 
+/**
+ * Widget icon type for status badges
+ */
+export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout'
+
 export interface CanvasState {
   widgets: WidgetConfig[]
   layout: 'single' | 'grid' | 'stacked' | 'compare'
-  /** IDs of pinned widgets that persist across AI messages */
+  /** IDs of pinned widgets that persist across AI messages and conversations */
   pinnedWidgetIds: Set<string>
   /** History of dismissed widgets for restoration */
   dismissedWidgets: WidgetConfig[]
+  /** Order of widget IDs for display (newest last) */
+  widgetOrder: string[]
+  /** Currently highlighted widget ID (for chapter navigation) */
+  highlightedWidgetId: string | null
+  /** Selected tab ID: null = "All" (show grid), string = single widget */
+  selectedTabId: string | null
 }
 
 /**
@@ -112,12 +123,27 @@ export interface CanvasActionPayload {
   reason?: string
 }
 
+/** Map widget type to icon */
+export function getWidgetIcon(type: WidgetType): WidgetIcon {
+  const iconMap: Record<WidgetType, WidgetIcon> = {
+    'fitness': 'fitness',
+    'pmc-chart': 'chart',
+    'sessions': 'sessions',
+    'sleep': 'sleep',
+    'power-curve': 'power',
+    'workout-card': 'workout',
+    'chart': 'chart',
+  }
+  return iconMap[type] || 'chart'
+}
+
 // Initial canvas state
 export const DEFAULT_CANVAS_STATE: CanvasState = {
-  widgets: [
-    { id: 'fitness-default', type: 'fitness', title: 'Current Fitness', description: 'CTL, ATL, TSB metrics' }
-  ],
+  widgets: [],
   layout: 'single',
   pinnedWidgetIds: new Set<string>(),
-  dismissedWidgets: []
+  dismissedWidgets: [],
+  widgetOrder: [],
+  highlightedWidgetId: null,
+  selectedTabId: null,
 }

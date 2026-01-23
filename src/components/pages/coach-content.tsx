@@ -14,7 +14,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useChat, type UIMessage } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
@@ -22,15 +21,20 @@ import { ResizeHandle } from '@/components/ui/resize-handle'
 import { cn } from '@/lib/utils'
 import { Canvas } from '@/components/coach/canvas'
 import { FormattedMessage } from '@/components/coach/formatted-message'
+import { ChatInputArea } from '@/components/coach/chat-input-area'
+import { ChapterMenuPanel } from '@/components/coach/chapter-menu-panel'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useConversations } from '@/hooks/use-conversations'
 import { useCanvasState } from '@/hooks/use-canvas-state'
+import { usePinnedWidgets } from '@/hooks/use-pinned-widgets'
 import { useSmartSuggestions } from '@/hooks/use-smart-suggestions'
+import { useCustomSuggestions } from '@/hooks/use-custom-suggestions'
+import { useChapterTracking } from '@/hooks/use-chapter-tracking'
 import type { WidgetConfig, CanvasActionPayload } from '@/lib/widgets/types'
+import type { Chapter } from '@/lib/chat/chapters'
 import {
   Bot,
   User,
-  Send,
   Plus,
   Trash2,
   MessageSquare,
@@ -102,6 +106,47 @@ function getWidgetTitle(type: string): string {
   return titles[type] || type
 }
 
+/**
+ * Format a timestamp for display on chat messages
+ * Shows time for today, date + time for older messages
+ */
+function formatMessageTime(date: Date): string {
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+
+  const time = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  if (isToday) {
+    return time
+  }
+
+  const dateStr = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+
+  return `${dateStr}, ${time}`
+}
+
+/**
+ * Safely extract createdAt from a message object
+ */
+function getMessageTimestamp(message: unknown): Date | null {
+  if (
+    message &&
+    typeof message === 'object' &&
+    'createdAt' in message &&
+    message.createdAt instanceof Date
+  ) {
+    return message.createdAt
+  }
+  return null
+}
+
 export function CoachContent() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -109,6 +154,14 @@ export function CoachContent() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(30) // percentage (chat 30%, canvas 70%)
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [activeView, setActiveView] = useState<'chat' | 'history'>('chat')
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const [chapterMenuOpen, setChapterMenuOpen] = useState(false)
+  const [currentVisibleMessageIndex, setCurrentVisibleMessageIndex] = useState(0)
+  const [currentChapterIndex, setCurrentChapterIndex] = useState(0)
+  const chapterHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+  const lastNavigatedMessageIndex = useRef<number | null>(null)
 
   // Canvas state management with tool support
   const {
@@ -116,16 +169,52 @@ export function CoachContent() {
     processCanvasAction,
     showWidgets,
     dismissWidget,
-    pinWidget,
-    unpinWidget,
+    pinWidget: pinWidgetState,
+    unpinWidget: unpinWidgetState,
     restoreWidget,
     clearHistory,
+    highlightWidget,
+    loadPinnedWidgets,
+    selectTab,
   } = useCanvasState()
+
+  // Pinned widget persistence via localStorage
+  const {
+    savePinnedWidget,
+    removePinnedWidget,
+  } = usePinnedWidgets({
+    onLoad: (persistedWidgets) => {
+      // Load pinned widgets from localStorage on mount
+      loadPinnedWidgets(persistedWidgets)
+    },
+  })
+
+  // Wrap pin/unpin to persist to localStorage
+  const pinWidget = (widgetId: string) => {
+    pinWidgetState(widgetId)
+    const widget = canvasState.widgets.find(w => w.id === widgetId)
+    if (widget) {
+      savePinnedWidget(widget)
+    }
+  }
+
+  const unpinWidget = (widgetId: string) => {
+    unpinWidgetState(widgetId)
+    removePinnedWidget(widgetId)
+  }
 
   const { athlete, currentFitness, sessions } = useIntervalsData()
 
   // Smart suggestions based on context
   const smartSuggestions = useSmartSuggestions({ currentFitness, sessions })
+
+  // Custom user-defined suggestions
+  const {
+    suggestions: customSuggestions,
+    addSuggestion: addCustomSuggestion,
+    removeSuggestion: removeCustomSuggestion,
+    canAddMore: canAddMoreSuggestions,
+  } = useCustomSuggestions()
 
   // Conversation persistence
   const {
@@ -138,6 +227,7 @@ export function CoachContent() {
     deleteConversation,
     saveMessage: saveMessageToDb,
   } = useConversations()
+
 
   const lastSavedMessageCount = useRef(0)
   const lastProcessedCanvasMessageId = useRef<string | null>(null)
@@ -217,10 +307,61 @@ export function CoachContent() {
 
   // Auto-scroll on new messages
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const scrollArea = scrollRef.current
+    if (!scrollArea) return
+
+    const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight
     }
   }, [messages])
+
+  // Track scroll position for compact mode and current visible message
+  useEffect(() => {
+    if (activeView !== 'chat') return  // Only track in chat view
+
+    const scrollArea = scrollRef.current
+    if (!scrollArea) return
+
+    const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement
+    if (!viewport) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = viewport
+      const scrolledFromBottom = scrollHeight - scrollTop - clientHeight
+      setIsScrolled(scrolledFromBottom > 50)
+      // Calculate scroll progress (0 to 1)
+      const maxScroll = scrollHeight - clientHeight
+      setScrollProgress(maxScroll > 0 ? scrollTop / maxScroll : 0)
+
+      // Find currently visible message (for chapter highlighting)
+      const viewportTop = scrollTop
+      const viewportCenter = viewportTop + clientHeight / 2
+
+      let closestIndex = 0
+      let closestDistance = Infinity
+
+      messageRefs.current.forEach((element, index) => {
+        const rect = element.getBoundingClientRect()
+        const elementTop = rect.top - viewport.getBoundingClientRect().top + scrollTop
+        const elementCenter = elementTop + rect.height / 2
+        const distance = Math.abs(elementCenter - viewportCenter)
+
+        if (distance < closestDistance) {
+          closestDistance = distance
+          closestIndex = index
+        }
+      })
+
+      setCurrentVisibleMessageIndex(closestIndex)
+    }
+
+    // Run once immediately to set initial state
+    handleScroll()
+
+    viewport.addEventListener('scroll', handleScroll)
+    return () => viewport.removeEventListener('scroll', handleScroll)
+  }, [activeView])  // Re-run when view changes
 
   // Process canvas actions from AI tool calls or text commands (fallback)
   useEffect(() => {
@@ -300,17 +441,12 @@ export function CoachContent() {
     }
   }, [deleteConversation])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = useCallback(() => {
     if (input.trim() && !isLoading) {
       sendMessage({ text: input })
       setInput('')
     }
-  }
-
-  const handleQuickAction = useCallback((text: string) => {
-    setInput(text)
-  }, [])
+  }, [input, isLoading, sendMessage])
 
   // Handle analyze widget - sends contextual prompt to chat
   const handleAnalyzeWidget = useCallback((widget: WidgetConfig) => {
@@ -342,6 +478,7 @@ export function CoachContent() {
       id: msg.id,
       role: msg.role as 'user' | 'assistant',
       parts: [{ type: 'text' as const, text: msg.content }],
+      createdAt: new Date(msg.created_at),
     })),
     [savedMessages]
   )
@@ -368,6 +505,94 @@ export function CoachContent() {
       }]
     }]
   }, [messages, savedDisplayMessages])
+
+  // Chapter tracking for navigation (must come after displayMessages)
+  const { chapters } = useChapterTracking({
+    messages: displayMessages as UIMessage[],
+  })
+
+  // Update current chapter index when scroll position changes
+  useEffect(() => {
+    if (chapters.length === 0) {
+      setCurrentChapterIndex(0)
+      return
+    }
+
+    // Find which chapter corresponds to the current visible message
+    const chapterIdx = chapters.findIndex((c, i, arr) => {
+      const next = arr[i + 1]
+      if (!next) return true // Last chapter covers everything after
+      return currentVisibleMessageIndex >= c.messageIndex &&
+             currentVisibleMessageIndex < next.messageIndex
+    })
+    setCurrentChapterIndex(Math.max(0, chapterIdx))
+  }, [currentVisibleMessageIndex, chapters])
+
+  // Handle chapter menu trigger zone (right edge)
+  const handleChapterHoverEnter = useCallback(() => {
+    // Clear any existing timeout
+    if (chapterHoverTimeoutRef.current) {
+      clearTimeout(chapterHoverTimeoutRef.current)
+    }
+    // Show menu after 1.5s delay
+    chapterHoverTimeoutRef.current = setTimeout(() => {
+      setChapterMenuOpen(true)
+    }, 500)
+  }, [])
+
+  const handleChapterHoverLeave = useCallback(() => {
+    // Clear the timeout
+    if (chapterHoverTimeoutRef.current) {
+      clearTimeout(chapterHoverTimeoutRef.current)
+      chapterHoverTimeoutRef.current = null
+    }
+    // Hide menu
+    setChapterMenuOpen(false)
+
+    // Re-scroll to navigated message after panel closes (300ms transition)
+    if (lastNavigatedMessageIndex.current !== null) {
+      const targetIndex = lastNavigatedMessageIndex.current
+      setTimeout(() => {
+        const messageElement = messageRefs.current.get(targetIndex)
+        if (messageElement) {
+          messageElement.scrollIntoView({ behavior: 'instant', block: 'center' })
+        }
+      }, 320) // Slightly after 300ms transition
+      lastNavigatedMessageIndex.current = null
+    }
+  }, [])
+
+  // Handle chapter click - scroll to message and highlight widget in grid
+  const handleChapterClick = useCallback((chapter: Chapter) => {
+    // Store the navigated message index for re-scroll after panel closes
+    lastNavigatedMessageIndex.current = chapter.messageIndex
+
+    // Scroll to the message
+    const messageElement = messageRefs.current.get(chapter.messageIndex)
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+
+    // If it's a widget chapter, highlight the widget in the grid
+    if (chapter.widgetId) {
+      highlightWidget(chapter.widgetId)
+    }
+    // Menu stays open - closes on mouse leave
+  }, [highlightWidget])
+
+  // Handle carousel center change - auto-scroll messages to match
+  const handleChapterCenterChange = useCallback((chapter: Chapter) => {
+    lastNavigatedMessageIndex.current = chapter.messageIndex
+
+    const messageElement = messageRefs.current.get(chapter.messageIndex)
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+
+    if (chapter.widgetId) {
+      highlightWidget(chapter.widgetId)
+    }
+  }, [highlightWidget])
 
   return (
     <main className="h-full bg-muted/40 pt-24 pb-4 lg:pb-6 pl-2 pr-4 lg:pr-6">
@@ -472,8 +697,40 @@ export function CoachContent() {
               ) : (
                 <>
               {/* Messages */}
-              <ScrollArea className="flex-1 min-h-0 -mx-6 px-6" ref={scrollRef}>
-                <div className="space-y-4 pb-4">
+              <div
+                className="relative flex-1 min-h-0 overflow-hidden"
+              >
+                {/* Chat content - hidden when menu opens */}
+                <div
+                  className={cn(
+                    "h-full transition-all duration-300 ease-out relative",
+                    chapterMenuOpen && "opacity-0 pointer-events-none"
+                  )}
+                >
+                  {/* Timeline scrollbar indicator - pill is the hover trigger */}
+                  {!chapterMenuOpen && (
+                    <div className="absolute right-0 top-0 bottom-0 w-4 z-10">
+                      <div className="w-full h-full relative flex items-center justify-center pointer-events-none">
+                        {/* Track background */}
+                        <div className="absolute inset-y-2 w-1 rounded-full bg-muted-foreground/10" />
+                        {/* Thumb - pill shape, this is the hover trigger */}
+                        <div
+                          className="absolute w-2 min-h-[32px] rounded-full bg-muted-foreground/40 border border-muted-foreground/20 transition-colors duration-150 pointer-events-auto cursor-pointer hover:bg-muted-foreground/60 hover:scale-110"
+                          style={{
+                            height: '15%',
+                            top: `calc(${scrollProgress * 85}% + 8px)`,
+                          }}
+                          onMouseEnter={handleChapterHoverEnter}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <ScrollArea
+                    className="h-full -mx-6 px-6 pr-10"
+                    ref={scrollRef}
+                  >
+                <div className="space-y-6 pb-4">
                   {displayMessages.map((message, index) => {
                     const text = getMessageText(message)
                     const isUser = message.role === 'user'
@@ -481,10 +738,16 @@ export function CoachContent() {
                     return (
                       <div
                         key={`${message.id}-${index}`}
+                        ref={(el) => {
+                          if (el) {
+                            messageRefs.current.set(index, el)
+                          }
+                        }}
                         className={cn(
-                          'flex gap-3',
+                          'flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300',
                           isUser ? 'flex-row-reverse' : 'flex-row'
                         )}
+                        style={{ animationDelay: `${Math.min(index * 50, 200)}ms` }}
                       >
                         <Avatar className="h-8 w-8 shrink-0">
                           <AvatarFallback className={cn(
@@ -509,6 +772,15 @@ export function CoachContent() {
                               <FormattedMessage text={text} />
                             )}
                           </div>
+                          {/* Timestamp */}
+                          {(() => {
+                            const timestamp = getMessageTimestamp(message)
+                            return timestamp ? (
+                              <span className="text-[10px] text-muted-foreground/60 px-1">
+                                {formatMessageTime(timestamp)}
+                              </span>
+                            ) : null
+                          })()}
                         </div>
                       </div>
                     )
@@ -539,36 +811,34 @@ export function CoachContent() {
                     </div>
                   )}
                 </div>
-              </ScrollArea>
+                  </ScrollArea>
+                </div>
+
+                {/* Chapter Menu Panel */}
+                <ChapterMenuPanel
+                  open={chapterMenuOpen}
+                  chapters={chapters}
+                  currentChapterIndex={currentChapterIndex}
+                  onChapterClick={handleChapterClick}
+                  onCenterChange={handleChapterCenterChange}
+                  onMouseLeave={handleChapterHoverLeave}
+                />
+              </div>
 
               {/* Input */}
               <div className="border-t pt-4 mt-4 shrink-0">
-                <form onSubmit={handleSubmit} className="flex gap-2">
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask about your training..."
-                    disabled={isLoading}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    size="icon"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </form>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {smartSuggestions.map((suggestion, idx) => (
-                    <QuickAction
-                      key={idx}
-                      label={suggestion.label}
-                      onClick={() => handleQuickAction(suggestion.prompt)}
-                    />
-                  ))}
-                </div>
+                <ChatInputArea
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSubmit}
+                  smartSuggestions={smartSuggestions}
+                  customSuggestions={customSuggestions}
+                  onAddCustomSuggestion={addCustomSuggestion}
+                  onRemoveCustomSuggestion={removeCustomSuggestion}
+                  canAddMoreSuggestions={canAddMoreSuggestions}
+                  isScrolled={isScrolled}
+                  disabled={isLoading}
+                />
               </div>
                 </>
               )}
@@ -596,6 +866,7 @@ export function CoachContent() {
                   onRestoreWidget={restoreWidget}
                   onClearHistory={clearHistory}
                   onAnalyzeWidget={handleAnalyzeWidget}
+                  onSelectTab={selectTab}
                 />
               </div>
             </Card>
@@ -603,17 +874,5 @@ export function CoachContent() {
         </div>
       </div>
     </main>
-  )
-}
-
-function QuickAction({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      {label}
-    </button>
   )
 }
