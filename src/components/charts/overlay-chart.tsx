@@ -7,6 +7,7 @@
  * with dual Y-axes for different scales.
  */
 
+import { useMemo } from 'react'
 import {
   ComposedChart,
   Line,
@@ -26,6 +27,21 @@ import {
 } from '@/components/ui/chart'
 import type { ChartMetric, ChartAnnotation } from '@/lib/widgets/types'
 
+/**
+ * Smooth an array of values using a rolling average window.
+ * Used to reduce noise in power data for display while keeping raw values for stats.
+ */
+function smoothArray(arr: (number | undefined)[], windowSize: number = 5): (number | undefined)[] {
+  return arr.map((_, i) => {
+    const halfWindow = Math.floor(windowSize / 2)
+    const start = Math.max(0, i - halfWindow)
+    const end = Math.min(arr.length, i + halfWindow + 1)
+    const values = arr.slice(start, end).filter((v): v is number => v != null)
+    if (values.length === 0) return undefined
+    return values.reduce((a, b) => a + b, 0) / values.length
+  })
+}
+
 export interface OverlayDataPoint {
   time: number
   power?: number
@@ -33,6 +49,7 @@ export interface OverlayDataPoint {
   cadence?: number
   speed?: number
   altitude?: number
+  smoothedPower?: number
 }
 
 interface MetricConfig {
@@ -75,7 +92,7 @@ const METRIC_CONFIGS: Record<ChartMetric, Omit<MetricConfig, 'key'>> = {
   },
   altitude: {
     name: 'Altitude',
-    color: 'hsl(280, 65%, 60%)', // Purple
+    color: 'hsl(215, 16%, 47%)', // Slate gray (subtle background)
     unit: 'm',
     yAxisId: 'right',
     type: 'area',
@@ -99,10 +116,6 @@ function formatTime(seconds: number): string {
   return `${minutes}m`
 }
 
-function getDataKey(metric: ChartMetric): keyof OverlayDataPoint {
-  return metric as keyof OverlayDataPoint
-}
-
 export function OverlayChart({
   data,
   metrics,
@@ -119,6 +132,18 @@ export function OverlayChart({
     }
     return acc
   }, {} as ChartConfig)
+
+  // Create smoothed power data for display (keeps raw values for stats)
+  const smoothedData = useMemo(() => {
+    if (!data || data.length === 0) return data
+
+    const smoothedPower = smoothArray(data.map(d => d.power), 5)
+
+    return data.map((point, i) => ({
+      ...point,
+      smoothedPower: smoothedPower[i],
+    }))
+  }, [data])
 
   // Determine which Y-axes are needed
   const leftAxisMetrics = metrics.filter(m => METRIC_CONFIGS[m].yAxisId === 'left')
@@ -163,9 +188,17 @@ export function OverlayChart({
 
       <ChartContainer config={chartConfig} className="h-[300px] w-full">
         <ComposedChart
-          data={data}
+          data={smoothedData}
           margin={{ left: 0, right: hasRightAxis ? 0 : 20, top: 10, bottom: 0 }}
         >
+          {/* Gradient definitions */}
+          <defs>
+            <linearGradient id="altitudeGradient" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="hsl(215, 16%, 47%)" stopOpacity={0.2} />
+              <stop offset="100%" stopColor="hsl(215, 16%, 47%)" stopOpacity={0.05} />
+            </linearGradient>
+          </defs>
+
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
 
           {/* X-axis: Time */}
@@ -234,43 +267,76 @@ export function OverlayChart({
             />
           ))}
 
-          {/* Render metrics as lines or areas */}
-          {metrics.map(metric => {
-            const config = METRIC_CONFIGS[metric]
-            const dataKey = getDataKey(metric)
+          {/* 1. Altitude background (rendered first so it's behind everything) */}
+          {metrics.includes('altitude') && (
+            <Area
+              yAxisId={METRIC_CONFIGS.altitude.yAxisId}
+              type="monotone"
+              dataKey="altitude"
+              stroke="none"
+              fill="url(#altitudeGradient)"
+              fillOpacity={1}
+              dot={false}
+              isAnimationActive={false}
+              name={METRIC_CONFIGS.altitude.name}
+            />
+          )}
 
-            if (config.type === 'area') {
-              return (
-                <Area
-                  key={metric}
-                  yAxisId={config.yAxisId}
-                  type="monotone"
-                  dataKey={dataKey}
-                  stroke={config.color}
-                  fill={config.color}
-                  fillOpacity={0.15}
-                  strokeWidth={1.5}
-                  dot={false}
-                  isAnimationActive={false}
-                  name={config.name}
-                />
-              )
-            }
+          {/* 2. Power area (with smoothed data for cleaner display) */}
+          {metrics.includes('power') && (
+            <Area
+              yAxisId={METRIC_CONFIGS.power.yAxisId}
+              type="monotone"
+              dataKey="smoothedPower"
+              stroke={METRIC_CONFIGS.power.color}
+              fill={METRIC_CONFIGS.power.color}
+              fillOpacity={0.15}
+              strokeWidth={1.5}
+              dot={false}
+              isAnimationActive={false}
+              name={METRIC_CONFIGS.power.name}
+            />
+          )}
 
-            return (
-              <Line
-                key={metric}
-                yAxisId={config.yAxisId}
-                type="monotone"
-                dataKey={dataKey}
-                stroke={config.color}
-                strokeWidth={1.5}
-                dot={false}
-                isAnimationActive={false}
-                name={config.name}
-              />
-            )
-          })}
+          {/* 3. Line metrics on top */}
+          {metrics.includes('heartRate') && (
+            <Line
+              yAxisId={METRIC_CONFIGS.heartRate.yAxisId}
+              type="monotone"
+              dataKey="heartRate"
+              stroke={METRIC_CONFIGS.heartRate.color}
+              strokeWidth={1.5}
+              dot={false}
+              isAnimationActive={false}
+              name={METRIC_CONFIGS.heartRate.name}
+            />
+          )}
+
+          {metrics.includes('cadence') && (
+            <Line
+              yAxisId={METRIC_CONFIGS.cadence.yAxisId}
+              type="monotone"
+              dataKey="cadence"
+              stroke={METRIC_CONFIGS.cadence.color}
+              strokeWidth={1.5}
+              dot={false}
+              isAnimationActive={false}
+              name={METRIC_CONFIGS.cadence.name}
+            />
+          )}
+
+          {metrics.includes('speed') && (
+            <Line
+              yAxisId={METRIC_CONFIGS.speed.yAxisId}
+              type="monotone"
+              dataKey="speed"
+              stroke={METRIC_CONFIGS.speed.color}
+              strokeWidth={1.5}
+              dot={false}
+              isAnimationActive={false}
+              name={METRIC_CONFIGS.speed.name}
+            />
+          )}
 
           <ChartTooltip
             content={
