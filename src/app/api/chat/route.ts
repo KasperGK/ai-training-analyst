@@ -8,6 +8,7 @@ import { getInsights } from '@/lib/insights/insight-generator'
 import { ensureWikiSeeded } from '@/lib/rag/auto-seed'
 import { features } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
+import { hasZwiftPowerData } from '@/lib/db/race-results'
 import { buildTools, type ToolContext } from './tools'
 import { parseAthleteContext } from './tools/types'
 
@@ -223,12 +224,18 @@ DO NOT just describe data in text when asked to "show" something. The user wants
     })
   }
 
+  // Check if athlete has ZwiftPower data
+  const zwiftPowerConnected = effectiveAthleteId
+    ? await hasZwiftPowerData(effectiveAthleteId)
+    : false
+
   // Build tool context
   const toolContext: ToolContext = {
     athleteId: effectiveAthleteId,
     athleteContext: effectiveAthleteContext,
     intervalsConnected,
     intervalsClient,
+    zwiftPowerConnected,
     flags: {
       useLocalData: features.localData,
       enableRag: features.rag,
