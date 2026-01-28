@@ -42,7 +42,7 @@ export function MainCarousel({ className }: MainCarouselProps) {
     return page * (containerWidth - EDGE_PEEK_WIDTH)
   }, [])
 
-  // Scroll to correct page when URL changes (e.g., navbar click)
+  // Scroll to correct page when URL changes (e.g., navbar click) or on initial mount
   useEffect(() => {
     if (!mounted || !scrollContainerRef.current) return
 
@@ -50,8 +50,8 @@ export function MainCarousel({ className }: MainCarouselProps) {
     const targetScroll = getScrollPositionForPage(targetPage)
     const currentScroll = container.scrollLeft
 
-    // Only scroll if we're not already at the target and page actually changed
-    if (Math.abs(currentScroll - targetScroll) > 10 && currentPageRef.current !== targetPage) {
+    // Scroll if we're not already at the target position
+    if (Math.abs(currentScroll - targetScroll) > 10) {
       isScrollingProgrammatically.current = true
       currentPageRef.current = targetPage
       container.scrollTo({

@@ -3,10 +3,10 @@
 /**
  * Chapter Menu Panel
  *
- * Full-width overlay with infinite vertical carousel navigation.
+ * Full-width overlay with vertical carousel navigation.
  * The center item (determined by scroll position) is the active chapter.
  * Scrolling the carousel auto-scrolls the message stream to match.
- * Chapters loop infinitely with no beginning or end.
+ * Uses scroll-snap for smooth navigation.
  */
 
 import { useRef, useEffect, useState, useCallback } from 'react'
@@ -22,9 +22,6 @@ interface ChapterMenuPanelProps {
   onMouseLeave?: () => void
 }
 
-// How many times to repeat chapters for infinite scroll illusion
-const REPEAT_COUNT = 5
-
 export function ChapterMenuPanel({
   open,
   chapters,
@@ -35,23 +32,9 @@ export function ChapterMenuPanel({
 }: ChapterMenuPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
-  const [centerVirtualIndex, setCenterVirtualIndex] = useState(0)
-  const lastCenterRealIndex = useRef<number>(-1)
+  const [centerIndex, setCenterIndex] = useState(0)
+  const lastCenterIndex = useRef<number>(-1)
   const isInitialized = useRef(false)
-
-  // Create virtual list by repeating chapters
-  const virtualChapters = chapters.length > 0
-    ? Array.from({ length: REPEAT_COUNT }, () => chapters).flat()
-    : []
-
-  // Middle set starts at this index
-  const middleSetStart = Math.floor(REPEAT_COUNT / 2) * chapters.length
-
-  // Convert virtual index to real chapter index
-  const getRealIndex = (virtualIndex: number) => {
-    if (chapters.length === 0) return 0
-    return ((virtualIndex % chapters.length) + chapters.length) % chapters.length
-  }
 
   // Calculate which item is in the center based on scroll position
   const updateCenterIndex = useCallback(() => {
@@ -75,48 +58,25 @@ export function ChapterMenuPanel({
       }
     })
 
-    setCenterVirtualIndex(closestIndex)
+    setCenterIndex(closestIndex)
 
-    // Notify parent of center change (debounced by checking if real index changed)
-    const realIndex = getRealIndex(closestIndex)
-    if (realIndex !== lastCenterRealIndex.current && onCenterChange && isInitialized.current) {
-      lastCenterRealIndex.current = realIndex
-      onCenterChange(chapters[realIndex])
+    // Notify parent of center change
+    if (closestIndex !== lastCenterIndex.current && onCenterChange && isInitialized.current) {
+      lastCenterIndex.current = closestIndex
+      onCenterChange(chapters[closestIndex])
     }
   }, [chapters, onCenterChange])
 
-  // Handle infinite scroll - jump to middle when near edges
+  // Handle scroll events
   const handleScroll = useCallback(() => {
     if (!containerRef.current || chapters.length === 0) return
-
-    const container = containerRef.current
-    const scrollTop = container.scrollTop
-    const scrollHeight = container.scrollHeight
-    const clientHeight = container.clientHeight
-
-    // Calculate boundaries for jump
-    const itemHeight = scrollHeight / virtualChapters.length
-    const jumpThreshold = chapters.length * itemHeight
-
-    // If scrolled too far up, jump down to middle
-    if (scrollTop < jumpThreshold) {
-      const newScrollTop = scrollTop + (chapters.length * 2 * itemHeight)
-      container.scrollTop = newScrollTop
-    }
-    // If scrolled too far down, jump up to middle
-    else if (scrollTop > scrollHeight - clientHeight - jumpThreshold) {
-      const newScrollTop = scrollTop - (chapters.length * 2 * itemHeight)
-      container.scrollTop = newScrollTop
-    }
-
     updateCenterIndex()
-  }, [chapters.length, virtualChapters.length, updateCenterIndex])
+  }, [chapters.length, updateCenterIndex])
 
-  // Initialize scroll position to middle set, centered on current chapter
+  // Initialize scroll position to center on current chapter
   useEffect(() => {
     if (open && containerRef.current && chapters.length > 0) {
-      const targetVirtualIndex = middleSetStart + currentChapterIndex
-      const targetItem = itemRefs.current.get(targetVirtualIndex)
+      const targetItem = itemRefs.current.get(currentChapterIndex)
 
       if (targetItem) {
         const container = containerRef.current
@@ -126,8 +86,8 @@ export function ChapterMenuPanel({
 
         const scrollTo = itemTop - (containerHeight / 2) + (itemHeight / 2)
         container.scrollTo({ top: scrollTo, behavior: 'instant' })
-        setCenterVirtualIndex(targetVirtualIndex)
-        lastCenterRealIndex.current = currentChapterIndex
+        setCenterIndex(currentChapterIndex)
+        lastCenterIndex.current = currentChapterIndex
 
         // Mark as initialized after a short delay to prevent immediate onCenterChange
         setTimeout(() => {
@@ -139,7 +99,7 @@ export function ChapterMenuPanel({
     if (!open) {
       isInitialized.current = false
     }
-  }, [open, currentChapterIndex, chapters.length, middleSetStart])
+  }, [open, currentChapterIndex, chapters.length])
 
   // Listen to scroll events
   useEffect(() => {
@@ -177,33 +137,33 @@ export function ChapterMenuPanel({
       )}
       onMouseLeave={onMouseLeave}
     >
-      {/* Vertical carousel container */}
+      {/* Vertical carousel container with scroll-snap */}
       <div
         ref={containerRef}
-        className="h-full overflow-y-auto scrollbar-none"
+        className="h-full overflow-y-auto scrollbar-none snap-y snap-mandatory scroll-smooth"
       >
         {/* Top spacer - allows first item to reach center */}
         <div className="h-[50%]" />
 
-        {virtualChapters.map((chapter, virtualIndex) => {
-          const distance = Math.abs(virtualIndex - centerVirtualIndex)
-          const isCenter = virtualIndex === centerVirtualIndex
-          const realIndex = getRealIndex(virtualIndex)
+        {chapters.map((chapter, index) => {
+          const distance = Math.abs(index - centerIndex)
+          const isCenter = index === centerIndex
 
           // Scale and opacity based on distance from center
-          const scale = isCenter ? 1 : Math.max(0.65, 1 - distance * 0.15)
-          const opacity = isCenter ? 1 : Math.max(0.25, 1 - distance * 0.3)
+          // More gentle falloff for better readability
+          const scale = isCenter ? 1 : Math.max(0.8, 1 - distance * 0.08)
+          const opacity = isCenter ? 1 : Math.max(0.4, 1 - distance * 0.2)
 
           return (
             <button
-              key={`${chapter.id}-${virtualIndex}`}
+              key={chapter.id}
               ref={(el) => {
-                if (el) itemRefs.current.set(virtualIndex, el)
+                if (el) itemRefs.current.set(index, el)
               }}
               onClick={() => onChapterClick(chapter)}
               className={cn(
-                'w-full py-3 px-8',
-                'transition-all duration-150 ease-out',
+                'w-full py-3 px-4 snap-center',
+                'transition-all duration-200 ease-out',
                 'hover:opacity-100'
               )}
               style={{
@@ -212,12 +172,12 @@ export function ChapterMenuPanel({
               }}
             >
               <span className={cn(
-                'block text-center leading-snug transition-all duration-150',
+                'block text-left leading-snug line-clamp-3',
                 isCenter
                   ? 'text-foreground font-medium text-lg'
-                  : 'text-muted-foreground text-sm'
+                  : 'text-muted-foreground text-base'
               )}>
-                {realIndex + 1}. {chapter.title}
+                {chapter.title}
               </span>
             </button>
           )
