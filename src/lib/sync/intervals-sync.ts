@@ -17,6 +17,7 @@ import { getCurrentFitness } from '@/lib/db/fitness'
 import { createFitnessDiscrepancyInsight } from '@/lib/insights/insight-generator'
 import { embedNewSessions } from '@/lib/rag/session-embeddings'
 import { features } from '@/lib/features'
+import { syncZwiftPowerRaces, shouldSyncZwiftPower } from '@/lib/sync/zwiftpower-sync'
 
 const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
@@ -152,7 +153,7 @@ function transformActivity(activity: IntervalsActivity, athleteId: string): Sess
 
   return {
     athlete_id: athleteId,
-    date: activity.start_date_local.split('T')[0],
+    date: activity.start_date_local,
     duration_seconds: activity.moving_time || 0,
     distance_meters: roundOrNull(activity.distance),
     sport: mapActivityType(activity.type),
@@ -732,6 +733,44 @@ export async function syncAll(
     } catch (error) {
       console.error('[Sync] Session embedding error (non-critical):', error)
       // Don't add to errors - this is non-critical
+    }
+  }
+
+  // Sync ZwiftPower race results (if connected and we have new activities)
+  if (activitiesResult.synced > 0) {
+    try {
+      const shouldSync = await shouldSyncZwiftPower(athleteId)
+      if (shouldSync) {
+        console.log('[Sync] Triggering ZwiftPower race sync...')
+        const zpResult = await syncZwiftPowerRaces(athleteId, { since: options.since })
+        if (zpResult.racesSynced > 0) {
+          console.log(`[Sync] Synced ${zpResult.racesSynced} races from ZwiftPower`)
+        }
+        if (zpResult.errors.length > 0) {
+          // Log but don't add to main errors - ZwiftPower sync is supplementary
+          console.warn('[Sync] ZwiftPower sync warnings:', zpResult.errors)
+        }
+      }
+    } catch (error) {
+      console.error('[Sync] ZwiftPower sync error (non-critical):', error)
+      // Don't add to errors - ZwiftPower sync is supplementary
+    }
+  }
+
+  // Check goal progress after sync
+  if (activitiesResult.synced > 0 || wellnessResult.synced > 0) {
+    try {
+      const { checkGoalProgress } = await import('@/lib/goals/progress-detector')
+      const progressResults = await checkGoalProgress(athleteId)
+      if (progressResults.goalsUpdated > 0) {
+        console.log(`[Sync] Updated ${progressResults.goalsUpdated} goals`)
+      }
+      if (progressResults.goalsAchieved > 0) {
+        console.log(`[Sync] ${progressResults.goalsAchieved} goals achieved!`)
+      }
+    } catch (error) {
+      console.error('[Sync] Goal progress detection error (non-critical):', error)
+      // Don't add to errors - goal progress check is non-critical
     }
   }
 

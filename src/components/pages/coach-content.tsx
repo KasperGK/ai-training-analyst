@@ -11,6 +11,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useChat, type UIMessage } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { Button } from '@/components/ui/button'
@@ -78,7 +79,7 @@ function parseCanvasCommands(text: string): WidgetConfig[] | null {
   const widgets: WidgetConfig[] = []
   for (const match of canvasMatch) {
     const type = match.replace('[CANVAS:', '').replace(']', '').trim().toLowerCase()
-    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart']
+    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis']
 
     if (validTypes.includes(type)) {
       widgets.push({
@@ -148,6 +149,7 @@ function getMessageTimestamp(message: unknown): Date | null {
 }
 
 export function CoachContent() {
+  const searchParams = useSearchParams()
   const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
@@ -222,6 +224,7 @@ export function CoachContent() {
     loading: conversationsLoading,
     currentConversationId,
     currentMessages: savedMessages,
+    loadConversations,
     loadConversation,
     startNewConversation,
     deleteConversation,
@@ -241,6 +244,16 @@ export function CoachContent() {
     window.addEventListener('resize', checkScreenSize)
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
+
+  // Handle pre-filled message from query param (e.g., from insights "Ask Coach")
+  useEffect(() => {
+    const message = searchParams.get('message')
+    if (message) {
+      setInput(message)
+      // Clear the URL param without triggering navigation
+      window.history.replaceState({}, '', '/coach')
+    }
+  }, [searchParams])
 
   // Handle resize
   const handleResize = useCallback((delta: number) => {
@@ -396,26 +409,68 @@ export function CoachContent() {
 
   // Save messages to database
   useEffect(() => {
-    if (!athlete?.id || !currentConversationId) return
+    // Skip if no athlete or conversation context
+    if (!athlete?.id) {
+      return
+    }
+    if (!currentConversationId) {
+      return
+    }
+    // Skip if no new messages to save
     if (messages.length <= lastSavedMessageCount.current) return
-    if (isLoading) return // Wait for streaming to complete
+    // Wait for streaming to complete before saving
+    if (isLoading) return
 
     // Find new messages to save
     const newMessages = messages.slice(lastSavedMessageCount.current)
+    const messagesToSave = newMessages
+      .map((msg) => {
+        const text = msg.parts
+          .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+          .map((p) => p.text)
+          .join('')
 
-    for (const msg of newMessages) {
-      const text = msg.parts
-        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-        .map((p) => p.text)
-        .join('')
+        // Extract tool calls from message parts for persistence
+        const toolCalls = msg.parts
+          .filter((p) => p.type.startsWith('tool-'))
+          .map((p) => {
+            const toolPart = p as { type: string; toolName?: string; state?: string; output?: unknown }
+            return {
+              type: toolPart.type,
+              toolName: toolPart.toolName || toolPart.type.replace('tool-', ''),
+              state: toolPart.state,
+              result: toolPart.output,
+            }
+          })
 
-      if (text) {
-        saveMessageToDb(msg.role as 'user' | 'assistant', text)
-      }
+        return {
+          role: msg.role as 'user' | 'assistant',
+          text,
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined
+        }
+      })
+      .filter((msg) => msg.text.trim().length > 0)
+
+    if (messagesToSave.length === 0) {
+      lastSavedMessageCount.current = messages.length
+      return
     }
+
+    // Save all messages with tool calls (fire-and-forget, but log errors)
+    Promise.all(
+      messagesToSave.map((msg) => saveMessageToDb(msg.role, msg.text, msg.toolCalls))
+    ).catch((error) => {
+      console.error('[CoachContent] Failed to save messages:', error)
+    })
 
     lastSavedMessageCount.current = messages.length
   }, [messages, isLoading, athlete?.id, currentConversationId, saveMessageToDb])
+
+  // Handle switching to history view - refresh the list
+  const handleShowHistory = useCallback(() => {
+    setActiveView('history')
+    loadConversations() // Refresh to show any newly saved conversations
+  }, [loadConversations])
 
   // Handle new conversation
   const handleNewConversation = useCallback(() => {
@@ -443,10 +498,14 @@ export function CoachContent() {
 
   const handleSubmit = useCallback(() => {
     if (input.trim() && !isLoading) {
+      // Ensure we have a conversation ID before sending (for history persistence)
+      if (!currentConversationId) {
+        startNewConversation()
+      }
       sendMessage({ text: input })
       setInput('')
     }
-  }, [input, isLoading, sendMessage])
+  }, [input, isLoading, sendMessage, currentConversationId, startNewConversation])
 
   // Handle analyze widget - sends contextual prompt to chat
   const handleAnalyzeWidget = useCallback((widget: WidgetConfig) => {
@@ -458,6 +517,8 @@ export function CoachContent() {
       'power-curve': `Analyze my power curve. What does it tell me about my strengths and weaknesses as a cyclist? What power durations should I focus on improving?`,
       'workout-card': `Analyze this workout in detail. How did I perform? What could be improved?`,
       'chart': `Analyze this chart data in detail. What patterns or insights do you see?`,
+      'race-history': `Analyze my race history. How are my results trending? What form (TSB) correlates with my best performances? Which race types am I strongest in?`,
+      'competitor-analysis': `Analyze my competitor data. Who are my toughest rivals? What power gaps do I need to close? How do I compare to others in my category?`,
     }
 
     const prompt = analyzePrompts[widget.type] || `Analyze the ${widget.title} widget in detail.`
@@ -482,6 +543,32 @@ export function CoachContent() {
     })),
     [savedMessages]
   )
+
+  // Restore canvas state from saved messages when loading a conversation
+  useEffect(() => {
+    if (savedMessages.length === 0) return
+
+    // Process each assistant message to find canvas actions
+    for (const msg of savedMessages) {
+      if (msg.role !== 'assistant') continue
+
+      // Check tool_calls for showOnCanvas results
+      if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+        for (const toolCall of msg.tool_calls) {
+          const tc = toolCall as { toolName?: string; result?: { canvasAction?: CanvasActionPayload } }
+          if (tc.toolName === 'showOnCanvas' && tc.result?.canvasAction) {
+            processCanvasAction(tc.result.canvasAction)
+          }
+        }
+      }
+
+      // Fallback: parse legacy [CANVAS:X] text commands
+      const widgets = parseCanvasCommands(msg.content)
+      if (widgets) {
+        showWidgets(widgets)
+      }
+    }
+  }, [savedMessages, processCanvasAction, showWidgets])
 
   // Display messages: live session messages, saved messages, or welcome
   const displayMessages = useMemo(() => {
@@ -623,7 +710,7 @@ export function CoachContent() {
                   </button>
                   <span className="text-muted-foreground/30">|</span>
                   <button
-                    onClick={() => setActiveView('history')}
+                    onClick={handleShowHistory}
                     className={cn(
                       'px-2 py-0.5 rounded transition-colors',
                       activeView === 'history'

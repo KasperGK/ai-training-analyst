@@ -40,6 +40,8 @@ function getWidgetTypeLabel(type: WidgetConfig['type']): string {
     'power-curve': 'Power Curve',
     'workout-card': 'Workout',
     chart: 'Chart',
+    'race-history': 'Race History',
+    'competitor-analysis': 'Competitors',
   }
   return labels[type] || type
 }

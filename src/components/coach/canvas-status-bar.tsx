@@ -133,9 +133,7 @@ function TabBadge({
           ? 'bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20'
           : isSelected
             ? 'bg-primary text-primary-foreground'
-            : isPinned
-              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-              : 'bg-muted text-muted-foreground border border-transparent hover:bg-muted/80 hover:border-border'
+            : 'bg-muted text-muted-foreground border border-transparent hover:bg-muted/80 hover:border-border'
       )}
       title={widget.title}
     >

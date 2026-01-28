@@ -33,6 +33,8 @@ interface SessionStreams {
   watts: number[]
   heartrate: number[]
   cadence: number[]
+  altitude?: number[]
+  velocity_smooth?: number[]
 }
 
 interface SessionResponse {
@@ -55,7 +57,7 @@ interface UseSessionChartResult {
  * Transform raw streams into OverlayDataPoint format
  */
 function transformStreams(streams: SessionStreams): OverlayDataPoint[] {
-  const { time, watts, heartrate, cadence } = streams
+  const { time, watts, heartrate, cadence, altitude, velocity_smooth } = streams
 
   if (!time || time.length === 0) {
     return []
@@ -66,6 +68,8 @@ function transformStreams(streams: SessionStreams): OverlayDataPoint[] {
     power: watts?.[i] ?? undefined,
     heartRate: heartrate?.[i] ?? undefined,
     cadence: cadence?.[i] ?? undefined,
+    altitude: altitude?.[i] ?? undefined,
+    speed: velocity_smooth?.[i] ?? undefined,
   }))
 }
 

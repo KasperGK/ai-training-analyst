@@ -6,9 +6,11 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { getActiveGoals, type Goal } from '@/lib/db/goals'
+import { calculateGoalProgress, calculateGoalRiskLevel } from '@/lib/goals/progress-detector'
 
 export interface DetectedPattern {
-  type: 'trend' | 'warning' | 'achievement' | 'suggestion' | 'pattern' | 'event_prep'
+  type: 'trend' | 'warning' | 'achievement' | 'suggestion' | 'pattern' | 'event_prep' | 'goal_progress'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   title: string
   description: string
@@ -93,6 +95,14 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
   patterns.push(...detectEventPrep(events, fitness))
   patterns.push(...detectFormSuggestions(fitness))
   patterns.push(...detectTrainingStatus(fitness, sessions))
+
+  // Detect goal-related patterns
+  try {
+    const goals = await getActiveGoals(athleteId)
+    patterns.push(...detectGoalPatterns(goals))
+  } catch (error) {
+    console.error('[PatternDetector] Error detecting goal patterns:', error)
+  }
 
   console.log(`[PatternDetector] Detected ${patterns.length} patterns: ${patterns.map(p => p.type).join(', ')}`)
 
@@ -407,4 +417,148 @@ function detectFormSuggestions(fitness: FitnessData[]): DetectedPattern[] {
   }
 
   return patterns
+}
+
+/**
+ * Detect goal-related patterns
+ */
+function detectGoalPatterns(goals: Goal[]): DetectedPattern[] {
+  const patterns: DetectedPattern[] = []
+
+  if (goals.length === 0) return patterns
+
+  for (const goal of goals) {
+    const progress = calculateGoalProgress(goal)
+    const riskLevel = calculateGoalRiskLevel(goal)
+
+    // Skip goals without meaningful progress tracking
+    if (progress === null) continue
+
+    // Achievement celebration (100% or more)
+    if (progress >= 100 && goal.status === 'active') {
+      patterns.push({
+        type: 'achievement',
+        priority: 'high',
+        title: `Goal Achieved: ${goal.title}`,
+        description: `Congratulations! You've reached your goal of ${goal.target_value} ${getGoalUnit(goal)}. Time to set a new target!`,
+        data: {
+          goalId: goal.id,
+          goalTitle: goal.title,
+          targetValue: goal.target_value,
+          currentValue: goal.current_value,
+          progress,
+        },
+      })
+      continue
+    }
+
+    // Progress milestones (75%, 90%)
+    if (progress >= 90 && progress < 100) {
+      patterns.push({
+        type: 'goal_progress',
+        priority: 'medium',
+        title: `Almost There: ${goal.title}`,
+        description: `You're ${progress}% of the way to your goal (${goal.current_value}/${goal.target_value} ${getGoalUnit(goal)}). Just a little more push!`,
+        data: {
+          goalId: goal.id,
+          goalTitle: goal.title,
+          progress,
+          milestone: 90,
+        },
+      })
+    } else if (progress >= 75 && progress < 90) {
+      patterns.push({
+        type: 'goal_progress',
+        priority: 'low',
+        title: `Great Progress: ${goal.title}`,
+        description: `You're ${progress}% of the way to your goal. Keep up the momentum!`,
+        data: {
+          goalId: goal.id,
+          goalTitle: goal.title,
+          progress,
+          milestone: 75,
+        },
+      })
+    }
+
+    // At-risk warnings
+    if (riskLevel === 'at_risk' && goal.deadline) {
+      const deadline = new Date(goal.deadline)
+      const daysRemaining = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+
+      if (daysRemaining <= 0) {
+        patterns.push({
+          type: 'warning',
+          priority: 'high',
+          title: `Goal Deadline Passed: ${goal.title}`,
+          description: `The deadline for "${goal.title}" has passed. You reached ${progress}% of your target. Consider adjusting the goal or setting a new deadline.`,
+          data: {
+            goalId: goal.id,
+            goalTitle: goal.title,
+            progress,
+            deadline: goal.deadline,
+          },
+        })
+      } else if (daysRemaining <= 7) {
+        patterns.push({
+          type: 'warning',
+          priority: 'high',
+          title: `Goal At Risk: ${goal.title}`,
+          description: `Only ${daysRemaining} days left to reach your goal, but you're only at ${progress}%. You may need to intensify efforts or adjust expectations.`,
+          data: {
+            goalId: goal.id,
+            goalTitle: goal.title,
+            progress,
+            daysRemaining,
+            deadline: goal.deadline,
+          },
+        })
+      } else if (daysRemaining <= 14) {
+        patterns.push({
+          type: 'warning',
+          priority: 'medium',
+          title: `Goal Behind Schedule: ${goal.title}`,
+          description: `${daysRemaining} days remaining and you're at ${progress}%. Consider whether you're on track or need to adjust your approach.`,
+          data: {
+            goalId: goal.id,
+            goalTitle: goal.title,
+            progress,
+            daysRemaining,
+            deadline: goal.deadline,
+          },
+        })
+      }
+    }
+  }
+
+  return patterns
+}
+
+/**
+ * Get the unit for a goal type
+ */
+function getGoalUnit(goal: Goal): string {
+  switch (goal.target_type) {
+    case 'ftp':
+      return 'W'
+    case 'ctl':
+      return 'CTL'
+    case 'weight':
+      return 'kg'
+    case 'weekly_hours':
+      return 'hours'
+    case 'metric':
+      switch (goal.metric_type) {
+        case 'hr_at_power':
+          return 'bpm'
+        case 'power_duration':
+          return 'W'
+        case 'relative_power':
+          return 'W/kg'
+        default:
+          return ''
+      }
+    default:
+      return ''
+  }
 }

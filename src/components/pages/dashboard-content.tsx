@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { FitnessCard, FatigueCard, FormCard } from '@/components/dashboard/fitness-metrics'
 import { SessionsTable } from '@/components/dashboard/sessions-table'
-import { PMCChart } from '@/components/dashboard/pmc-chart'
+import { PMCChart, TIME_RANGES, type TimeRangeKey } from '@/components/dashboard/pmc-chart'
 import { FileUpload } from '@/components/dashboard/file-upload'
 import { SleepCard } from '@/components/dashboard/sleep-card'
 import { DashboardGrid } from '@/components/dashboard/dashboard-grid'
@@ -38,6 +38,27 @@ export function DashboardContent() {
   const { layouts, onLayoutChange } = useDashboardLayout()
 
   const [uploadedSessions, setUploadedSessions] = useState<Session[]>([])
+  const [pmcTimeRange, setPmcTimeRange] = useState<TimeRangeKey>('6w')
+  const [pmcDataState, setPmcDataState] = useState<typeof pmcData>(pmcData)
+  const [pmcCtlTrendState, setPmcCtlTrendState] = useState<typeof ctlTrend>(ctlTrend)
+
+  // Sync initial data from hook
+  useEffect(() => {
+    setPmcDataState(pmcData)
+    setPmcCtlTrendState(ctlTrend)
+  }, [pmcData, ctlTrend])
+
+  // Fetch PMC data when time range changes
+  useEffect(() => {
+    const days = TIME_RANGES[pmcTimeRange].days
+    fetch(`/api/fitness?days=${days}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.pmcData) setPmcDataState(data.pmcData)
+        if (data.ctlTrend !== undefined) setPmcCtlTrendState(data.ctlTrend)
+      })
+      .catch(err => console.error('Failed to fetch PMC data:', err))
+  }, [pmcTimeRange])
 
   const handleSessionUploaded = useCallback((session: Session) => {
     setUploadedSessions(prev => [session, ...prev])
@@ -51,8 +72,8 @@ export function DashboardContent() {
 
   const displayFitness = currentFitness
   const displaySessions = allSessions
-  const displayPmcData = pmcData
-  const displayCtlTrend = ctlTrend
+  const displayPmcData = pmcDataState
+  const displayCtlTrend = pmcCtlTrendState
   const athleteFtp = athlete?.ftp || 250
 
   return (
@@ -68,7 +89,7 @@ export function DashboardContent() {
         {/* Dashboard Grid */}
         <DashboardGrid layouts={layouts} onLayoutChange={onLayoutChange}>
           {/* Fitness Card */}
-          <div key="fitness" className="h-full">
+          <div key="fitness" data-widget-id="fitness" className="h-full">
             {loading ? (
               <MetricCardSkeleton />
             ) : (
@@ -77,7 +98,7 @@ export function DashboardContent() {
           </div>
 
           {/* Fatigue Card */}
-          <div key="fatigue" className="h-full">
+          <div key="fatigue" data-widget-id="fatigue" className="h-full">
             {loading ? (
               <MetricCardSkeleton />
             ) : (
@@ -86,7 +107,7 @@ export function DashboardContent() {
           </div>
 
           {/* Form Card */}
-          <div key="form" className="h-full">
+          <div key="form" data-widget-id="form" className="h-full">
             {loading ? (
               <MetricCardSkeleton />
             ) : (
@@ -95,7 +116,7 @@ export function DashboardContent() {
           </div>
 
           {/* Sleep Card - uses recovery data (separate from training load) */}
-          <div key="sleep" className="h-full">
+          <div key="sleep" data-widget-id="sleep" className="h-full">
             {loading ? (
               <MetricCardSkeleton />
             ) : (
@@ -107,7 +128,7 @@ export function DashboardContent() {
           </div>
 
           {/* Upload Card */}
-          <div key="upload" className="h-full">
+          <div key="upload" data-widget-id="upload" className="h-full">
             {loading ? (
               <FileUploadSkeletonCompact />
             ) : (
@@ -116,21 +137,26 @@ export function DashboardContent() {
           </div>
 
           {/* Insights */}
-          <div key="insights" className="h-full">
+          <div key="insights" data-widget-id="insights" className="h-full">
             <InsightFeed maxItems={5} className="h-full" />
           </div>
 
           {/* PMC Chart */}
-          <div key="chart" className="h-full">
+          <div key="chart" data-widget-id="chart" className="h-full">
             {loading ? (
               <PMCChartSkeleton />
             ) : (
-              <PMCChart data={displayPmcData} ctlTrend={displayCtlTrend} />
+              <PMCChart
+                data={displayPmcData}
+                ctlTrend={displayCtlTrend}
+                timeRange={pmcTimeRange}
+                onTimeRangeChange={setPmcTimeRange}
+              />
             )}
           </div>
 
           {/* Sessions Table */}
-          <div key="sessions" className="h-full">
+          <div key="sessions" data-widget-id="sessions" className="h-full">
             {loading ? (
               <SessionsTableSkeleton />
             ) : (

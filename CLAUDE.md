@@ -25,6 +25,9 @@ npm run dev    # Start dev server (localhost:3000)
 npm run build  # Build for production
 ```
 
+## Database Maintenance
+The `SUPABASE_SERVICE_ROLE_KEY` is stored in `.env.local` for running migrations and maintenance tasks directly against the remote Supabase database.
+
 ## Current Focus: Masterplan 52 → 85+
 
 ### Phase 0: Knowledge Governance ✅ Complete
@@ -116,10 +119,10 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - [x] Power + HR overlay visualization
 - [x] Session data fetching for charts (`useSessionChart` hook)
 
-### Phase 12: Goal Tracking System
-- [ ] Enhanced goal schema (metric goals, event goals)
-- [ ] Auto-detect goal progress from activities
-- [ ] Goal-aware insight generation
+### Phase 12: Goal Tracking System ✅ Complete
+- [x] Enhanced goal schema (metric goals: hr_at_power, power_duration, relative_power)
+- [x] Auto-detect goal progress from activities (progress-detector.ts)
+- [x] Goal-aware insight generation (detectGoalPatterns in pattern-detector.ts)
 
 ### Phase 13: Training Plan Proposals
 - [ ] Plan proposal canvas (calendar + rationale + projection views)
@@ -197,6 +200,6 @@ All database operations go through `src/lib/db/`:
 - `integrations.ts` - OAuth integrations
 
 ## Migrations
-Latest: `010_training_plans.sql` (training_plans, plan_days, power_bests)
+Latest: `016_enhanced_goals.sql` (goal_progress table, metric goal columns)
 
 Run pending: `npx supabase migration up`

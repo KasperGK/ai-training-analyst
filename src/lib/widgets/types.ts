@@ -12,6 +12,8 @@ export type WidgetType =
   | 'power-curve'
   | 'workout-card'
   | 'chart'
+  | 'race-history'
+  | 'competitor-analysis'
 
 /**
  * Chart-specific types for overlay visualizations
@@ -97,7 +99,7 @@ export type CanvasAction = 'show' | 'add' | 'compare' | 'clear'
 /**
  * Widget icon type for status badges
  */
-export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout'
+export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout' | 'race' | 'competitors'
 
 export interface CanvasState {
   widgets: WidgetConfig[]
@@ -133,6 +135,8 @@ export function getWidgetIcon(type: WidgetType): WidgetIcon {
     'power-curve': 'power',
     'workout-card': 'workout',
     'chart': 'chart',
+    'race-history': 'race',
+    'competitor-analysis': 'competitors',
   }
   return iconMap[type] || 'chart'
 }

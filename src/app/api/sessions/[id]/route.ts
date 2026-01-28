@@ -62,9 +62,11 @@ export async function GET(
     const activity = await intervalsClient.getActivity(intervalsActivityId)
 
     // Try to fetch streams (may fail for some activities)
-    let streams: { time?: number[]; watts?: number[]; heartrate?: number[]; cadence?: number[] } = {}
+    let streams: { time?: number[]; watts?: number[]; heartrate?: number[]; cadence?: number[]; altitude?: number[]; velocity_smooth?: number[] } = {}
     try {
-      streams = await intervalsClient.getActivityStreams(intervalsActivityId, ['time', 'watts', 'heartrate', 'cadence'])
+      streams = await intervalsClient.getActivityStreams(intervalsActivityId, [
+        'time', 'watts', 'heartrate', 'cadence', 'altitude', 'velocity_smooth'
+      ])
     } catch (streamError) {
       console.warn('Could not fetch streams for activity:', intervalsActivityId, streamError)
       // Continue without streams - they're optional
@@ -87,6 +89,8 @@ export async function GET(
       watts: (streams.watts || []).filter((_, i) => i % downsampleInterval === 0),
       heartrate: (streams.heartrate || []).filter((_, i) => i % downsampleInterval === 0),
       cadence: (streams.cadence || []).filter((_, i) => i % downsampleInterval === 0),
+      altitude: (streams.altitude || []).filter((_, i) => i % downsampleInterval === 0),
+      velocity_smooth: (streams.velocity_smooth || []).filter((_, i) => i % downsampleInterval === 0),
     }
 
     // Transform zone times for easier chart consumption

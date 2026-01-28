@@ -11,6 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { DragHandle } from '@/components/ui/drag-handle'
 import {
   ChartContainer,
@@ -18,6 +25,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+
+export const TIME_RANGES = {
+  '1w': { label: '1 Week', days: 7 },
+  '6w': { label: '6 Weeks', days: 42 },
+  '3m': { label: '3 Months', days: 90 },
+  '6m': { label: '6 Months', days: 180 },
+  '1y': { label: '1 Year', days: 365 },
+} as const
+
+export type TimeRangeKey = keyof typeof TIME_RANGES
 
 interface PMCDataPoint {
   date: string
@@ -29,6 +46,8 @@ interface PMCDataPoint {
 interface PMCChartProps {
   data: PMCDataPoint[]
   ctlTrend?: number // Change in CTL over period
+  timeRange?: TimeRangeKey
+  onTimeRangeChange?: (range: TimeRangeKey) => void
 }
 
 const chartConfig = {
@@ -46,19 +65,35 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
+export function PMCChart({ data, ctlTrend = 0, timeRange = '6w', onTimeRangeChange }: PMCChartProps) {
   const trendUp = ctlTrend > 0
+
+  const TimeRangeDropdown = (
+    <Select value={timeRange} onValueChange={onTimeRangeChange}>
+      <SelectTrigger className="w-[100px] h-8 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {Object.entries(TIME_RANGES).map(([key, { label }]) => (
+          <SelectItem key={key} value={key}>{label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
 
   // Handle empty state
   if (!data || data.length === 0) {
     return (
       <Card className="group h-full flex flex-col relative">
         <DragHandle />
-        <CardHeader>
-          <CardTitle>Performance Management</CardTitle>
-          <CardDescription>
-            Fitness, fatigue, and form over the last 6 weeks
-          </CardDescription>
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1">
+              <CardTitle>Performance Management</CardTitle>
+              <CardDescription>Fitness, fatigue, and form</CardDescription>
+            </div>
+            {TimeRangeDropdown}
+          </div>
         </CardHeader>
         <CardContent className="flex-1">
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -72,11 +107,14 @@ export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
   return (
     <Card className="group h-full flex flex-col relative">
       <DragHandle />
-      <CardHeader>
-        <CardTitle>Performance Management</CardTitle>
-        <CardDescription>
-          Fitness, fatigue, and form over the last 6 weeks
-        </CardDescription>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1">
+            <CardTitle>Performance Management</CardTitle>
+            <CardDescription>Fitness, fatigue, and form</CardDescription>
+          </div>
+          {TimeRangeDropdown}
+        </div>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[250px] w-full">

@@ -16,6 +16,8 @@ export interface ToolContext {
   intervalsConnected: boolean
   /** Intervals.icu API client (only use if intervalsConnected is true) */
   intervalsClient: IntervalsClient
+  /** Whether ZwiftPower is connected */
+  zwiftPowerConnected?: boolean
   /** Feature flags */
   flags: {
     useLocalData: boolean

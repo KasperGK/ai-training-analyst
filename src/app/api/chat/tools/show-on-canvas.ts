@@ -29,7 +29,9 @@ const widgetSchema = z.object({
     'sleep',
     'power-curve',
     'workout-card',
-    'chart'
+    'chart',
+    'race-history',
+    'competitor-analysis'
   ]).describe('Type of widget to display'),
   insight: z.string().describe('Explain what the user should notice or why you are showing this data'),
   sourceReference: z.string().optional().describe('Wiki article slug to cite as sports science reference'),
@@ -68,6 +70,8 @@ function getWidgetTitle(type: WidgetType): string {
     'power-curve': 'Power Curve',
     'workout-card': 'Workout',
     'chart': 'Chart',
+    'race-history': 'Race History',
+    'competitor-analysis': 'Competitor Analysis',
   }
   return titles[type] || type
 }

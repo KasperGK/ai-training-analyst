@@ -41,20 +41,36 @@ function formatDuration(seconds: number): string {
   return `${minutes}m`
 }
 
-function formatDateTime(dateStr: string): { date: string; time: string } {
-  const date = new Date(dateStr)
-  return {
-    date: date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    }),
-    time: date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }),
+function formatDateTime(dateStr: string): { date: string; time: string | null } {
+  // Check if we have time info (ISO format with T)
+  const hasTime = dateStr.includes('T') && !dateStr.endsWith('T00:00:00')
+
+  // Parse date part as local to avoid timezone shift
+  const [year, month, day] = dateStr.split('T')[0].split('-').map(Number)
+  const dateOnly = new Date(year, month - 1, day)
+
+  const formattedDate = dateOnly.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+
+  if (hasTime) {
+    // Parse time from the ISO string (already local time from intervals.icu)
+    const timePart = dateStr.split('T')[1]?.substring(0, 5) // "HH:MM"
+    if (timePart) {
+      const [hours, minutes] = timePart.split(':').map(Number)
+      const timeDate = new Date(2000, 0, 1, hours, minutes)
+      const formattedTime = timeDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      return { date: formattedDate, time: formattedTime }
+    }
   }
+
+  return { date: formattedDate, time: null }
 }
 
 function getWorkoutTypeBadge(type?: string) {
@@ -179,7 +195,7 @@ export function SessionsTable({ sessions }: SessionsTableProps) {
                 >
                   <TableCell className="font-medium py-2">
                     <div className="text-sm">{date}</div>
-                    <div className="text-xs text-muted-foreground">{time}</div>
+                    {time && <div className="text-xs text-muted-foreground">{time}</div>}
                   </TableCell>
                   <TableCell className="py-2">{getWorkoutTypeBadge(session.workout_type)}</TableCell>
                   <TableCell className="text-right tabular-nums text-sm py-2">

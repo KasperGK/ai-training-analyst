@@ -45,6 +45,8 @@ interface InsightCardProps {
   onExpand?: () => void
   /** Whether the widget is pinned */
   isPinned?: boolean
+  /** When true, widget already has its own Card - use simpler wrapper without Card */
+  selfWrapped?: boolean
 }
 
 /**
@@ -132,9 +134,38 @@ export function InsightCard({
   onUnpin,
   onExpand,
   isPinned,
+  selfWrapped,
 }: InsightCardProps) {
   const [isExpanded, setIsExpanded] = useState(!widget.context?.expandable)
   const hasContext = !!widget.context?.insightSummary
+
+  // Self-wrapped widgets (PMCChart, SessionsTable, etc.) already have their own Card
+  // Render with just an overlay for controls, no additional Card wrapper
+  if (selfWrapped) {
+    return (
+      <div className={cn('relative group', className)}>
+        {/* Floating controls in top-right corner */}
+        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md p-0.5">
+          <WidgetControls
+            isPinned={isPinned}
+            onPin={onPin}
+            onUnpin={onUnpin}
+            onExpand={onExpand}
+            onDismiss={onDismiss}
+          />
+        </div>
+        {/* AI insight badge if present */}
+        {hasContext && (
+          <div className="absolute top-2 left-2 z-10">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background/80 backdrop-blur-sm">
+              AI insight
+            </Badge>
+          </div>
+        )}
+        {children}
+      </div>
+    )
+  }
 
   // If no context is provided, render the widget directly without collapsible behavior
   if (!hasContext) {

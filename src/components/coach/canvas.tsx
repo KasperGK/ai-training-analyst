@@ -16,17 +16,19 @@
  * wrapped in InsightCard for insight-first display.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FitnessCard, FatigueCard, FormCard } from '@/components/dashboard/fitness-metrics'
-import { PMCChart } from '@/components/dashboard/pmc-chart'
+import { PMCChart, TIME_RANGES, type TimeRangeKey } from '@/components/dashboard/pmc-chart'
 import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { SleepCard } from '@/components/dashboard/sleep-card'
 import { PowerCurveChart } from '@/components/power/power-curve-chart'
 import { ChartWidget } from '@/components/coach/chart-widget'
 import { InsightCard } from '@/components/coach/insight-card'
 import { WorkoutCardWidget } from '@/components/coach/workout-card-widget'
+import { RaceHistoryWidget, type RaceHistoryData } from '@/components/coach/race-history-widget'
+import { CompetitorWidget, type CompetitorData } from '@/components/coach/competitor-widget'
 import { CanvasGrid, CanvasGridItem } from '@/components/coach/canvas-grid'
 import { CanvasStatusBar } from '@/components/coach/canvas-status-bar'
 import type { WorkoutTemplate } from '@/lib/workouts/library'
@@ -34,9 +36,8 @@ import { WidgetFullscreenDialog } from '@/components/coach/widget-fullscreen-dia
 import { WidgetHistorySheet } from '@/components/coach/widget-history-sheet'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { usePowerCurve } from '@/hooks/use-power-curve'
-import { cn } from '@/lib/utils'
 import type { WidgetConfig, CanvasState, ChartConfig } from '@/lib/widgets/types'
-import { Sparkles, History } from 'lucide-react'
+import { History } from 'lucide-react'
 
 interface CanvasProps {
   state: CanvasState
@@ -106,41 +107,6 @@ export function Canvas({
     })
   }, [state.widgets, state.widgetOrder])
 
-  // Generate contextual suggestions based on fitness data
-  const contextualSuggestions = useMemo(() => {
-    const suggestions: { text: string; urgent?: boolean }[] = []
-
-    if (currentFitness) {
-      const tsb = currentFitness.tsb ?? 0
-      const ctl = currentFitness.ctl ?? 0
-
-      // TSB-based suggestions (urgent if extreme)
-      if (tsb < -20) {
-        suggestions.push({ text: `TSB at ${Math.round(tsb)} - check recovery?`, urgent: true })
-      } else if (tsb < -10) {
-        suggestions.push({ text: `Fatigue building (TSB: ${Math.round(tsb)})` })
-      } else if (tsb > 15) {
-        suggestions.push({ text: `Fresh legs (TSB: ${Math.round(tsb)}) - ready for intensity?` })
-      }
-
-      // CTL-based suggestions
-      if (ctl > 50) {
-        suggestions.push({ text: `CTL is ${Math.round(ctl)} - show trends?` })
-      }
-    }
-
-    // Default suggestions if no contextual ones
-    if (suggestions.length === 0) {
-      suggestions.push({ text: 'Show my fitness' })
-      suggestions.push({ text: 'Show power curve' })
-    }
-
-    // Always include a default
-    suggestions.push({ text: 'Show recent workouts' })
-
-    return suggestions.slice(0, 3) // Max 3 suggestions
-  }, [currentFitness])
-
   const data = {
     fitness: currentFitness,
     sessions,
@@ -182,7 +148,7 @@ export function Canvas({
       <div className="h-full">
         {hasWidgets ? (
           isSingleWidgetView && selectedWidget ? (
-            // Single widget view - full width
+            // Single widget view - full width, no card wrapper (clean display)
             <div className="h-full">
               <WidgetRenderer
                 widget={selectedWidget}
@@ -193,6 +159,7 @@ export function Canvas({
                 onUnpin={onUnpinWidget ? () => onUnpinWidget(selectedWidget.id) : undefined}
                 onExpand={() => setExpandedWidget(selectedWidget)}
                 onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(selectedWidget) : undefined}
+                bare={true}
               />
             </div>
           ) : (
@@ -222,32 +189,9 @@ export function Canvas({
             </CanvasGrid>
           )
         ) : (
-          /* Empty state - clean, minimal design */
-          <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center">
-            <div className="space-y-6 max-w-md px-4">
-              {/* Icon with subtle animation */}
-              <div className="relative mx-auto w-16 h-16">
-                <div className="absolute inset-0 bg-primary/5 rounded-full animate-pulse" />
-                <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-primary/40" />
-              </div>
-
-              {/* Main message */}
-              <div className="space-y-2">
-                <h3 className="font-medium text-lg text-foreground/90">
-                  Ask me about your training
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  I&apos;ll display your data here as we talk
-                </p>
-              </div>
-
-              {/* Suggestion chips */}
-              <div className="flex flex-wrap gap-2 justify-center pt-2">
-                {contextualSuggestions.map((suggestion, idx) => (
-                  <SuggestedQuery key={idx} text={suggestion.text} urgent={suggestion.urgent} />
-                ))}
-              </div>
-            </div>
+          /* Empty state - minimal */
+          <div className="h-full min-h-[200px] flex items-center justify-center">
+            <p className="text-muted-foreground text-sm">No widgets</p>
           </div>
         )}
       </div>
@@ -278,6 +222,44 @@ export function Canvas({
   )
 }
 
+/**
+ * Stateful PMC Chart wrapper for canvas - manages its own time range state
+ * Fetches fresh data from API when time range changes (like the dashboard does)
+ */
+function PMCChartWithState({
+  pmcData: initialPmcData,
+  ctlTrend: initialCtlTrend,
+}: {
+  pmcData: { date: string; ctl: number; atl: number; tsb: number }[]
+  ctlTrend: number
+}) {
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('6w')
+  const [pmcData, setPmcData] = useState(initialPmcData)
+  const [ctlTrend, setCtlTrend] = useState(initialCtlTrend)
+
+  // Fetch fresh data when time range changes
+  const handleTimeRangeChange = useCallback((range: TimeRangeKey) => {
+    setTimeRange(range)
+    const days = TIME_RANGES[range].days
+    fetch(`/api/fitness?days=${days}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.pmcData) setPmcData(data.pmcData)
+        if (data.ctlTrend !== undefined) setCtlTrend(data.ctlTrend)
+      })
+      .catch(err => console.error('Failed to fetch PMC data:', err))
+  }, [])
+
+  return (
+    <PMCChart
+      data={pmcData}
+      ctlTrend={ctlTrend}
+      timeRange={timeRange}
+      onTimeRangeChange={handleTimeRangeChange}
+    />
+  )
+}
+
 interface WidgetRendererProps {
   widget: WidgetConfig
   data: {
@@ -295,6 +277,8 @@ interface WidgetRendererProps {
   onUnpin?: () => void
   onExpand?: () => void
   onAnalyze?: () => void
+  /** When true, render widget content directly without card wrapper (for focused single-widget view) */
+  bare?: boolean
 }
 
 /**
@@ -312,8 +296,8 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
       )
 
     case 'pmc-chart':
-      // PMCChart has its own card, return inner content
-      return <PMCChart data={data.pmcData} ctlTrend={data.ctlTrend} />
+      // PMCChart with stateful time range selection
+      return <PMCChartWithState pmcData={data.pmcData} ctlTrend={data.ctlTrend} />
 
     case 'sessions':
       // SessionsTable has its own card
@@ -355,6 +339,20 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
       }
       return <ChartWidget config={chartConfig} />
 
+    case 'race-history':
+      const raceHistoryData = widget.params?.raceHistory as RaceHistoryData | undefined
+      if (!raceHistoryData) {
+        return <p className="text-muted-foreground text-sm">No race history data</p>
+      }
+      return <RaceHistoryWidget data={raceHistoryData} />
+
+    case 'competitor-analysis':
+      const competitorData = widget.params?.competitors as CompetitorData | undefined
+      if (!competitorData) {
+        return <p className="text-muted-foreground text-sm">No competitor data</p>
+      }
+      return <CompetitorWidget data={competitorData} />
+
     default:
       return (
         <p className="text-muted-foreground">Unknown widget type: {widget.type}</p>
@@ -371,6 +369,7 @@ function WidgetRenderer({
   onUnpin,
   onExpand,
   onAnalyze,
+  bare,
 }: WidgetRendererProps) {
   if (data.loading) {
     return (
@@ -385,8 +384,15 @@ function WidgetRenderer({
     )
   }
 
-  // Widgets that have their own card wrapper (don't wrap again)
+  // Bare mode: render widget content directly without card wrapper
+  // Used for focused single-widget view where we want full canvas space
+  if (bare) {
+    return <WidgetContent widget={widget} data={data} />
+  }
+
+  // Widgets that have their own card wrapper (don't double-wrap with Card)
   const selfWrappedWidgets = ['pmc-chart', 'sessions', 'sleep', 'power-curve']
+  const isSelfWrapped = selfWrappedWidgets.includes(widget.type)
 
   // Common props for InsightCard
   const insightCardProps = {
@@ -397,55 +403,13 @@ function WidgetRenderer({
     onUnpin,
     onExpand,
     onAnalyze,
+    selfWrapped: isSelfWrapped,
   }
 
-  // If widget has AI context, use InsightCard wrapper
-  if (widget.context?.insightSummary) {
-    // For self-wrapped widgets, InsightCard wraps the whole thing
-    if (selfWrappedWidgets.includes(widget.type)) {
-      return (
-        <InsightCard {...insightCardProps}>
-          <WidgetContent widget={widget} data={data} />
-        </InsightCard>
-      )
-    }
-
-    // For other widgets, InsightCard provides the card
-    return (
-      <InsightCard {...insightCardProps}>
-        <WidgetContent widget={widget} data={data} />
-      </InsightCard>
-    )
-  }
-
-  // No AI context - render with basic card wrapper but still include InsightCard for controls
-  if (selfWrappedWidgets.includes(widget.type)) {
-    return (
-      <InsightCard {...insightCardProps}>
-        <WidgetContent widget={widget} data={data} />
-      </InsightCard>
-    )
-  }
-
+  // Wrap with InsightCard for grid view (provides card, controls, collapsible behavior)
   return (
     <InsightCard {...insightCardProps}>
       <WidgetContent widget={widget} data={data} />
     </InsightCard>
-  )
-}
-
-function SuggestedQuery({ text, urgent }: { text: string; urgent?: boolean }) {
-  return (
-    <span
-      className={cn(
-        'px-3 py-1.5 rounded-full text-xs font-medium',
-        'transition-colors cursor-default',
-        urgent
-          ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300 ring-1 ring-orange-200 dark:ring-orange-800/50'
-          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-      )}
-    >
-      &ldquo;{text}&rdquo;
-    </span>
   )
 }

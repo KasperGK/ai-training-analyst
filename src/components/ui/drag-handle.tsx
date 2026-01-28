@@ -27,21 +27,28 @@ interface DragHandleProps {
   className?: string
 }
 
+// Constants for drag detection
+const DRAG_THRESHOLD = 5 // pixels moved to count as drag
+const DRAG_TIMEOUT = 200 // ms after mouseup to block clicks
+
 // Global drag state - prevents click events on cards after dragging
 let isDragging = false
+let dragStartPos: { x: number; y: number } | null = null
 let dragTimeout: NodeJS.Timeout | null = null
 
 export function setDragging(value: boolean) {
-  isDragging = value
   if (value) {
+    isDragging = true
     // Clear any existing timeout
     if (dragTimeout) clearTimeout(dragTimeout)
   } else {
-    // Keep the flag true for a short time after drag ends
-    // to catch the click event that fires after mouseup
+    // DON'T set isDragging = false here immediately
+    // Keep it true during the timeout window to block click events
+    // that fire after mouseup
+    if (dragTimeout) clearTimeout(dragTimeout)
     dragTimeout = setTimeout(() => {
       isDragging = false
-    }, 100)
+    }, DRAG_TIMEOUT)
   }
 }
 
@@ -57,19 +64,37 @@ export function wasDragging(): boolean {
  * Hidden by default, visible on parent hover (requires parent to have "group" class).
  */
 export function DragHandle({ className }: DragHandleProps) {
-  const handleMouseDown = () => {
-    setDragging(true)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Record starting position - don't set dragging yet, wait for movement
+    dragStartPos = { x: e.clientX, y: e.clientY }
   }
 
-  // Also listen for global mouseup to clear drag state
+  // Listen for mouse movement and mouseup globally
   useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      // Only check if we have a start position and haven't started dragging yet
+      if (dragStartPos && !isDragging) {
+        const dx = Math.abs(e.clientX - dragStartPos.x)
+        const dy = Math.abs(e.clientY - dragStartPos.y)
+        if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+          setDragging(true)
+        }
+      }
+    }
+
     const handleGlobalMouseUp = () => {
+      dragStartPos = null
       if (isDragging) {
         setDragging(false)
       }
     }
+
+    window.addEventListener('mousemove', handleGlobalMouseMove)
     window.addEventListener('mouseup', handleGlobalMouseUp)
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove)
+      window.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
   }, [])
 
   return (

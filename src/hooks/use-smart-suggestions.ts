@@ -46,8 +46,12 @@ export function useSmartSuggestions({ currentFitness, sessions }: UseSmartSugges
     const yesterdaySession = sessions.find(s => s.date === yesterdayStr)
     if (yesterdaySession) {
       const sessionType = yesterdaySession.workout_type || yesterdaySession.sport || 'ride'
+      // Truncate for display label but use full type in prompt
+      const shortType = sessionType.length > 15
+        ? sessionType.slice(0, 15) + '...'
+        : sessionType
       suggestions.push({
-        label: `Analyze yesterday's ${sessionType.toLowerCase()}`,
+        label: `Analyze yesterday's ${shortType.toLowerCase()}`,
         prompt: `Analyze my ${sessionType.toLowerCase()} from yesterday (${yesterdayStr}). How did it go? What insights can you share?`,
         priority: 90,
       })

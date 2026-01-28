@@ -13,6 +13,8 @@ import { logWorkoutOutcome } from './log-workout-outcome'
 import { analyzePowerCurve, analyzeEfficiency, analyzeTrainingLoad } from './analysis-tools'
 import { generateTrainingPlan, analyzePatterns, getTrainingPlan, updatePlanDay } from './plan-tools'
 import { showOnCanvas } from './show-on-canvas'
+import { analyzeRacePerformance, analyzeCompetitors } from './race-analysis-tools'
+import { exploreTrainingData } from './explore-training-data'
 
 export type { ToolContext } from './types'
 
@@ -45,6 +47,13 @@ export function buildTools(ctx: ToolContext) {
     analyzePatterns: analyzePatterns(ctx),
     getTrainingPlan: getTrainingPlan(ctx),
     updatePlanDay: updatePlanDay(ctx),
+
+    // Race analysis tools (always available)
+    analyzeRacePerformance: analyzeRacePerformance(ctx),
+    analyzeCompetitors: analyzeCompetitors(ctx),
+
+    // Exploratory analysis (AI-driven pattern discovery)
+    exploreTrainingData: exploreTrainingData(ctx),
 
     // Conditional tools based on feature flags
     ...(ctx.flags.enableRag ? {
@@ -84,4 +93,7 @@ export {
   getTrainingPlan,
   updatePlanDay,
   showOnCanvas,
+  analyzeRacePerformance,
+  analyzeCompetitors,
+  exploreTrainingData,
 }

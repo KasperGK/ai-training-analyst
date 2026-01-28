@@ -49,15 +49,21 @@ function canvasReducer(
 ): CanvasState {
   switch (action.type) {
     case 'show': {
-      // Preserve pinned widgets when showing new widgets
-      const pinnedWidgets = state.widgets.filter(w => state.pinnedWidgetIds.has(w.id))
+      // "Show" now adds widgets to existing ones (accumulate) rather than replacing
+      // This ensures the tab system works - each new widget gets its own tab
+      // Pinned widgets are always preserved
       const newWidgetIds = new Set(action.widgets.map(w => w.id))
-      // Filter out pinned widgets that are also in the new set (avoid duplicates)
-      const pinnedToKeep = pinnedWidgets.filter(w => !newWidgetIds.has(w.id))
-      const allWidgets = [...pinnedToKeep, ...action.widgets]
 
-      // Update widget order: pinned first, then new widgets
-      const widgetOrder = allWidgets.map(w => w.id)
+      // Keep all existing widgets that aren't duplicates of new ones
+      const existingToKeep = state.widgets.filter(w => !newWidgetIds.has(w.id))
+      const allWidgets = [...existingToKeep, ...action.widgets]
+
+      // Update widget order: existing first, then new widgets
+      const existingOrder = state.widgetOrder.filter(id => !newWidgetIds.has(id))
+      const widgetOrder = [...existingOrder, ...action.widgets.map(w => w.id)]
+
+      // Auto-select the first new widget's tab
+      const newSelectedTab = action.widgets.length > 0 ? action.widgets[0].id : state.selectedTabId
 
       return {
         ...state,
@@ -65,6 +71,7 @@ function canvasReducer(
         layout: determineLayout('show', allWidgets.length),
         widgetOrder,
         highlightedWidgetId: null,
+        selectedTabId: newSelectedTab,
       }
     }
 

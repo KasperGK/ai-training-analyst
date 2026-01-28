@@ -109,7 +109,12 @@ export function useConversations(): UseConversationsReturn {
     toolCalls?: unknown
   ) => {
     if (!currentConversationId) {
-      console.warn('No conversation ID set')
+      console.warn('[useConversations] Cannot save message: no conversation ID set')
+      return
+    }
+
+    if (!content || content.trim().length === 0) {
+      console.warn('[useConversations] Cannot save message: empty content')
       return
     }
 
@@ -131,11 +136,14 @@ export function useConversations(): UseConversationsReturn {
         setCurrentMessages((prev) => [...prev, data.message])
         // Note: Don't call loadConversations() here - it causes excessive API calls
         // The list will refresh when user switches views
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('[useConversations] Failed to save message:', res.status, errorData)
       }
     } catch (error) {
-      console.error('Failed to save message:', error)
+      console.error('[useConversations] Failed to save message:', error)
     }
-  }, [currentConversationId, loadConversations])
+  }, [currentConversationId])
 
   // Initial load
   useEffect(() => {

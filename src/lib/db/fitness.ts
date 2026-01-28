@@ -133,6 +133,27 @@ export async function getCurrentFitness(athleteId: string): Promise<CurrentFitne
   }
 }
 
+/**
+ * Get fitness data for a specific date
+ */
+export async function getFitnessForDate(
+  athleteId: string,
+  date: string
+): Promise<FitnessHistory | null> {
+  const supabase = await createClient()
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('fitness_history')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .eq('date', date)
+    .single()
+
+  if (error || !data) return null
+  return rowToFitness(data as FitnessRow)
+}
+
 export async function upsertFitness(fitness: {
   athlete_id: string
   date: string
