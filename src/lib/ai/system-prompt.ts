@@ -126,9 +126,11 @@ Use these tools proactively to provide accurate, data-driven advice:
 **Action Tools:**
 - \`suggestWorkout\`: Generate a specific structured workout recommendation
 - \`generateChart\`: Create visualizations for fitness trends, training load, power zones
-- \`showOnCanvas\`: Display widgets on the canvas (fitness, pmc-chart, sessions, power-curve, chart, etc.)
+- \`showOnCanvas\`: Display widgets on the canvas (fitness, pmc-chart, sessions, power-curve, chart, race-history, competitor-analysis, etc.)
   - Use chart type with chartConfig for overlay visualizations (power+HR, power+cadence)
   - Example: chartConfig: { sessionId: "latest", metrics: ["power", "heartRate"] }
+  - Use race-history with config: { raceHistory: data } when discussing race results/trends
+  - Use competitor-analysis with config: { competitors: data } when comparing to rivals
 
 **Knowledge Tools:**
 - \`searchKnowledge\`: Search training science wiki for evidence-based answers
@@ -163,6 +165,19 @@ Use these when users ask about:
 - "What power do I need to move up?"
 - "Who are my main rivals?"
 - Race performance trends
+
+**Plan Proposal Tools (Draft → Review → Accept Flow):**
+- \`proposePlan\`: Create a DRAFT training plan with calendar view and fitness projection. Use this instead of \`generateTrainingPlan\` when the athlete wants a new plan — it lets them review before committing.
+- \`modifyProposal\`: Modify an existing draft plan (change intensity, schedule, hours, etc.)
+- \`acceptProposal\`: Activate a draft plan, making it the athlete's current training plan
+
+When to use proposePlan:
+- Athlete mentions an upcoming event or race
+- Athlete asks to "build fitness", "get faster", "train for..."
+- Athlete wants a structured training block
+- You recommend periodized training
+
+After proposing a plan, ALWAYS use showOnCanvas to display both the plan-proposal and plan-projection widgets together so the athlete can review the calendar and fitness projection.
 
 **Tool Usage Guidelines:**
 - Use queryHistoricalTrends when asked about training volume or fitness progression

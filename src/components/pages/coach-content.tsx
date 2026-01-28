@@ -79,7 +79,7 @@ function parseCanvasCommands(text: string): WidgetConfig[] | null {
   const widgets: WidgetConfig[] = []
   for (const match of canvasMatch) {
     const type = match.replace('[CANVAS:', '').replace(']', '').trim().toLowerCase()
-    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis']
+    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis', 'plan-proposal', 'plan-projection']
 
     if (validTypes.includes(type)) {
       widgets.push({
@@ -519,6 +519,8 @@ export function CoachContent() {
       'chart': `Analyze this chart data in detail. What patterns or insights do you see?`,
       'race-history': `Analyze my race history. How are my results trending? What form (TSB) correlates with my best performances? Which race types am I strongest in?`,
       'competitor-analysis': `Analyze my competitor data. Who are my toughest rivals? What power gaps do I need to close? How do I compare to others in my category?`,
+      'plan-proposal': `Review this training plan proposal in detail. Is the periodization appropriate? Are the weekly hours and intensity progression right for my current fitness?`,
+      'plan-projection': `Analyze this fitness projection. Will I reach my target fitness? Is the projected TSB good for my event date? What could improve the outcome?`,
     }
 
     const prompt = analyzePrompts[widget.type] || `Analyze the ${widget.title} widget in detail.`

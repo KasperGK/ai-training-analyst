@@ -29,6 +29,8 @@ import { InsightCard } from '@/components/coach/insight-card'
 import { WorkoutCardWidget } from '@/components/coach/workout-card-widget'
 import { RaceHistoryWidget, type RaceHistoryData } from '@/components/coach/race-history-widget'
 import { CompetitorWidget, type CompetitorData } from '@/components/coach/competitor-widget'
+import { PlanProposalWidget, type PlanProposalData } from '@/components/coach/plan-proposal-widget'
+import { PlanProjectionWidget, type PlanProjectionData } from '@/components/coach/plan-projection-widget'
 import { CanvasGrid, CanvasGridItem } from '@/components/coach/canvas-grid'
 import { CanvasStatusBar } from '@/components/coach/canvas-status-bar'
 import type { WorkoutTemplate } from '@/lib/workouts/library'
@@ -352,6 +354,20 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
         return <p className="text-muted-foreground text-sm">No competitor data</p>
       }
       return <CompetitorWidget data={competitorData} />
+
+    case 'plan-proposal':
+      const proposalData = widget.params as PlanProposalData | undefined
+      if (!proposalData?.weekSummaries) {
+        return <p className="text-muted-foreground text-sm">No plan proposal data</p>
+      }
+      return <PlanProposalWidget data={proposalData} />
+
+    case 'plan-projection':
+      const projectionData = widget.params as PlanProjectionData | undefined
+      if (!projectionData?.projection) {
+        return <p className="text-muted-foreground text-sm">No projection data</p>
+      }
+      return <PlanProjectionWidget data={projectionData} />
 
     default:
       return (

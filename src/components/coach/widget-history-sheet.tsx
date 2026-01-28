@@ -42,6 +42,8 @@ function getWidgetTypeLabel(type: WidgetConfig['type']): string {
     chart: 'Chart',
     'race-history': 'Race History',
     'competitor-analysis': 'Competitors',
+    'plan-proposal': 'Plan Proposal',
+    'plan-projection': 'Projection',
   }
   return labels[type] || type
 }

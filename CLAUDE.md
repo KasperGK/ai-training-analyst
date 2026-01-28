@@ -124,10 +124,12 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - [x] Auto-detect goal progress from activities (progress-detector.ts)
 - [x] Goal-aware insight generation (detectGoalPatterns in pattern-detector.ts)
 
-### Phase 13: Training Plan Proposals
-- [ ] Plan proposal canvas (calendar + rationale + projection views)
-- [ ] Accept/modify flow with AI
-- [ ] Calendar integration
+### Phase 13: Training Plan Proposals ✅ Complete
+- [x] Plan proposal canvas (calendar + rationale + projection views)
+- [x] Accept/modify flow with AI (proposePlan → modifyProposal → acceptProposal)
+- [x] Fitness projection calculator (CTL/ATL/TSB forward projection)
+- [x] Plan proposal widget (color-coded calendar with phases)
+- [x] Plan projection widget (Recharts CTL/ATL/TSB chart with event marker)
 
 ---
 
@@ -163,6 +165,12 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - `updatePlanDay` - Mark workouts complete, track compliance
 - `logWorkoutOutcome` - Record workout outcomes for learning
 - `analyzePatterns` - Discover and save training patterns from outcome history
+- `analyzeRacePerformance` - ZwiftPower race history and performance trends
+- `analyzeCompetitors` - Head-to-head analysis and power gap calculations
+- `exploreTrainingData` - AI-driven raw data pattern discovery
+- `proposePlan` - Create draft training plan with fitness projection
+- `modifyProposal` - Modify draft plan (intensity, schedule, hours)
+- `acceptProposal` - Activate a draft plan
 
 ### Feature Flags
 All features are enabled by default. Set to `false` to disable:

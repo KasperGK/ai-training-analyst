@@ -15,6 +15,7 @@ import { generateTrainingPlan, analyzePatterns, getTrainingPlan, updatePlanDay }
 import { showOnCanvas } from './show-on-canvas'
 import { analyzeRacePerformance, analyzeCompetitors } from './race-analysis-tools'
 import { exploreTrainingData } from './explore-training-data'
+import { proposePlan, modifyProposal, acceptProposal } from './plan-proposal-tools'
 
 export type { ToolContext } from './types'
 
@@ -51,6 +52,11 @@ export function buildTools(ctx: ToolContext) {
     // Race analysis tools (always available)
     analyzeRacePerformance: analyzeRacePerformance(ctx),
     analyzeCompetitors: analyzeCompetitors(ctx),
+
+    // Plan proposal tools (draft → review → accept flow)
+    proposePlan: proposePlan(ctx),
+    modifyProposal: modifyProposal(ctx),
+    acceptProposal: acceptProposal(ctx),
 
     // Exploratory analysis (AI-driven pattern discovery)
     exploreTrainingData: exploreTrainingData(ctx),
@@ -96,4 +102,7 @@ export {
   analyzeRacePerformance,
   analyzeCompetitors,
   exploreTrainingData,
+  proposePlan,
+  modifyProposal,
+  acceptProposal,
 }
