@@ -85,7 +85,7 @@ function getWidgetTitle(type: WidgetType): string {
  */
 function toWidgetConfig(input: WidgetInput, index: number): WidgetConfig {
   const config: WidgetConfig = {
-    id: `${input.type}-${Date.now()}-${index}`,
+    id: `${input.type}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
     type: input.type as WidgetType,
     title: getWidgetTitle(input.type as WidgetType),
     description: '',

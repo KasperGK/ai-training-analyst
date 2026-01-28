@@ -88,14 +88,14 @@ export function CanvasTabBar({
       </button>
 
       {/* Widget tabs */}
-      {widgets.map((widget) => {
+      {widgets.map((widget, idx) => {
         const isPinned = pinnedWidgetIds.has(widget.id)
         const hasError = !!widget.error
         const isSelected = selectedTabId === widget.id
 
         return (
           <TabBadge
-            key={widget.id}
+            key={`${widget.id}-${idx}`}
             widget={widget}
             isPinned={isPinned}
             hasError={hasError}

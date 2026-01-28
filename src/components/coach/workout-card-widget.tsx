@@ -72,8 +72,12 @@ function IntervalRow({ interval, ftp, index }: { interval: WorkoutInterval; ftp:
 }
 
 export function WorkoutCardWidget({ workout, ftp }: WorkoutCardWidgetProps) {
-  const avgTss = Math.round((workout.target_tss_range[0] + workout.target_tss_range[1]) / 2)
-  const avgIf = ((workout.intensity_factor_range[0] + workout.intensity_factor_range[1]) / 2).toFixed(2)
+  const avgTss = workout.target_tss_range
+    ? Math.round((workout.target_tss_range[0] + workout.target_tss_range[1]) / 2)
+    : 0
+  const avgIf = workout.intensity_factor_range
+    ? ((workout.intensity_factor_range[0] + workout.intensity_factor_range[1]) / 2).toFixed(2)
+    : '0.00'
 
   return (
     <div className="space-y-4">
@@ -82,10 +86,12 @@ export function WorkoutCardWidget({ workout, ftp }: WorkoutCardWidgetProps) {
         <div>
           <h3 className="font-semibold text-lg">{workout.name}</h3>
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant="secondary" className={categoryColors[workout.category] || categoryColors.mixed}>
-              {workout.category}
-            </Badge>
-            {workout.energy_systems.map(system => (
+            {workout.category && (
+              <Badge variant="secondary" className={categoryColors[workout.category] || categoryColors.mixed}>
+                {workout.category}
+              </Badge>
+            )}
+            {workout.energy_systems?.map(system => (
               <Badge key={system} variant="outline" className="text-xs">
                 {system}
               </Badge>
@@ -137,25 +143,27 @@ export function WorkoutCardWidget({ workout, ftp }: WorkoutCardWidgetProps) {
       )}
 
       {/* Structure Overview */}
-      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-        <div className="bg-muted/30 rounded p-2 text-center">
-          <div className="font-medium">{workout.warmup_minutes} min</div>
-          <div>Warmup</div>
-        </div>
-        <div className="bg-primary/10 rounded p-2 text-center text-primary">
-          <div className="font-medium">
-            {workout.duration_minutes - workout.warmup_minutes - workout.cooldown_minutes} min
+      {workout.warmup_minutes != null && workout.cooldown_minutes != null && (
+        <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+          <div className="bg-muted/30 rounded p-2 text-center">
+            <div className="font-medium">{workout.warmup_minutes} min</div>
+            <div>Warmup</div>
           </div>
-          <div>Main Set</div>
+          <div className="bg-primary/10 rounded p-2 text-center text-primary">
+            <div className="font-medium">
+              {(workout.duration_minutes || 0) - (workout.warmup_minutes || 0) - (workout.cooldown_minutes || 0)} min
+            </div>
+            <div>Main Set</div>
+          </div>
+          <div className="bg-muted/30 rounded p-2 text-center">
+            <div className="font-medium">{workout.cooldown_minutes} min</div>
+            <div>Cooldown</div>
+          </div>
         </div>
-        <div className="bg-muted/30 rounded p-2 text-center">
-          <div className="font-medium">{workout.cooldown_minutes} min</div>
-          <div>Cooldown</div>
-        </div>
-      </div>
+      )}
 
       {/* Tips */}
-      {workout.execution_tips.length > 0 && (
+      {workout.execution_tips && workout.execution_tips.length > 0 && (
         <div className="text-xs space-y-1">
           <h5 className="font-medium text-muted-foreground">Tips</h5>
           <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
@@ -167,7 +175,7 @@ export function WorkoutCardWidget({ workout, ftp }: WorkoutCardWidgetProps) {
       )}
 
       {/* Common Mistakes Warning */}
-      {workout.common_mistakes.length > 0 && (
+      {workout.common_mistakes && workout.common_mistakes.length > 0 && (
         <div className="flex items-start gap-2 text-xs bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-2">
           <AlertCircle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-500 mt-0.5 shrink-0" />
           <div>
