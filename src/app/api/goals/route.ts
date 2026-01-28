@@ -53,6 +53,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json()
 
+    // Validate metric goal conditions if metric_type is provided
+    if (body.metric_type) {
+      const validMetricTypes = ['hr_at_power', 'power_duration', 'relative_power']
+      if (!validMetricTypes.includes(body.metric_type)) {
+        return NextResponse.json(
+          { error: `Invalid metric_type. Must be one of: ${validMetricTypes.join(', ')}` },
+          { status: 400 }
+        )
+      }
+
+      // Validate required conditions for each metric type
+      const conditions = body.metric_conditions || {}
+      switch (body.metric_type) {
+        case 'hr_at_power':
+          if (!conditions.target_power) {
+            return NextResponse.json(
+              { error: 'hr_at_power goals require target_power in metric_conditions' },
+              { status: 400 }
+            )
+          }
+          break
+        case 'power_duration':
+          if (!conditions.target_power || !conditions.duration_seconds) {
+            return NextResponse.json(
+              { error: 'power_duration goals require target_power and duration_seconds in metric_conditions' },
+              { status: 400 }
+            )
+          }
+          break
+        case 'relative_power':
+          if (!conditions.target_wkg) {
+            return NextResponse.json(
+              { error: 'relative_power goals require target_wkg in metric_conditions' },
+              { status: 400 }
+            )
+          }
+          break
+      }
+    }
+
     const goalData: GoalInsert = {
       athlete_id: user.id,
       event_id: body.event_id || null,
@@ -63,6 +103,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       current_value: body.current_value || null,
       deadline: body.deadline || null,
       status: body.status || 'active',
+      metric_type: body.metric_type || null,
+      metric_conditions: body.metric_conditions || null,
+      last_checked_at: null,
+      achievement_session_id: null,
     }
 
     const goal = await createGoal(goalData)
@@ -112,7 +156,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
     const allowedFields: (keyof GoalUpdate)[] = [
       'event_id', 'title', 'description', 'target_type', 'target_value',
-      'current_value', 'deadline', 'status', 'updated_at'
+      'current_value', 'deadline', 'status', 'updated_at',
+      'metric_type', 'metric_conditions', 'last_checked_at', 'achievement_session_id'
     ]
 
     const goalUpdates: GoalUpdate = {}

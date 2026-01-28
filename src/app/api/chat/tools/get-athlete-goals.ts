@@ -1,9 +1,11 @@
 import { z } from 'zod'
 import { defineTool, parseAthleteContext } from './types'
 import { getUpcomingEvents, getNextAEvent } from '@/lib/db/events'
-import { getActiveGoals } from '@/lib/db/goals'
+import { getActiveGoals, type Goal as DbGoal } from '@/lib/db/goals'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import { formatDateForApi } from '@/lib/intervals-icu'
+import { calculateGoalProgress, calculateGoalRiskLevel } from '@/lib/goals/progress-detector'
+import type { MetricGoalType, MetricConditions } from '@/types'
 
 const inputSchema = z.object({})
 
@@ -16,6 +18,10 @@ interface Goal {
   currentValue: number | null
   deadline: string | null
   progress: number | null
+  metricType: MetricGoalType | null
+  metricConditions: MetricConditions | null
+  riskLevel: 'on_track' | 'at_risk' | 'achieved' | 'no_deadline'
+  lastCheckedAt: string | null
 }
 
 interface UpcomingEvent {
@@ -48,7 +54,7 @@ export const getAthleteGoals = defineTool<Input, Output>({
   inputSchema,
   execute: async (_input, ctx) => {
     // Try to get goals/events from database if user is logged in
-    let goals: Array<{ title: string; target_type: string; target_value: number | null; current_value: number | null; deadline: string | null }> = []
+    let goals: DbGoal[] = []
     let upcomingEvents: Array<{ name: string; date: string; priority: string }> = []
     let nextAEvent: { name: string; date: string } | null = null
 
@@ -145,9 +151,11 @@ export const getAthleteGoals = defineTool<Input, Output>({
         targetValue: g.target_value,
         currentValue: g.current_value,
         deadline: g.deadline,
-        progress: g.target_value && g.current_value
-          ? Math.round((g.current_value / g.target_value) * 100)
-          : null,
+        progress: calculateGoalProgress(g),
+        metricType: g.metric_type || null,
+        metricConditions: g.metric_conditions || null,
+        riskLevel: calculateGoalRiskLevel(g),
+        lastCheckedAt: g.last_checked_at || null,
       })),
       upcomingEvents: upcomingEvents.map(e => ({
         name: e.name,

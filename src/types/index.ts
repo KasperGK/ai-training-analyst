@@ -145,6 +145,15 @@ export interface ChatMessage {
 }
 
 // Goals
+export type MetricGoalType = 'hr_at_power' | 'power_duration' | 'relative_power'
+
+export interface MetricConditions {
+  target_hr?: number
+  target_power?: number
+  duration_seconds?: number
+  target_wkg?: number
+}
+
 export interface Goal {
   id: string
   athlete_id: string
@@ -156,8 +165,22 @@ export interface Goal {
   current_value: number | null
   deadline: string | null
   status: 'active' | 'completed' | 'abandoned'
+  metric_type?: MetricGoalType | null
+  metric_conditions?: MetricConditions | null
+  last_checked_at?: string | null
+  achievement_session_id?: string | null
   created_at: string
   updated_at: string
+}
+
+export interface GoalProgress {
+  id: string
+  goal_id: string
+  recorded_at: string
+  value: number
+  session_id?: string | null
+  notes?: string | null
+  created_at: string
 }
 
 // Integration (OAuth)
