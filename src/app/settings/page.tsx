@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/hooks/use-user'
 import { useTheme } from 'next-themes'
-import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock, Scale } from 'lucide-react'
+import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock, Scale, Trophy } from 'lucide-react'
 
 interface AthleteProfile {
   name: string
@@ -51,6 +51,16 @@ export default function SettingsPage() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ activitiesSynced: number; wellnessSynced: number } | null>(null)
+
+  // ZwiftPower state
+  const [zwiftPowerConnected, setZwiftPowerConnected] = useState(false)
+  const [zwiftPowerConnecting, setZwiftPowerConnecting] = useState(false)
+  const [zwiftPowerDisconnecting, setZwiftPowerDisconnecting] = useState(false)
+  const [zwiftPowerSyncing, setZwiftPowerSyncing] = useState(false)
+  const [zwiftPowerError, setZwiftPowerError] = useState<string | null>(null)
+  const [zwiftPowerSyncResult, setZwiftPowerSyncResult] = useState<{ racesSynced: number; competitorsSynced: number } | null>(null)
+  const [zwiftUsername, setZwiftUsername] = useState('')
+  const [zwiftPassword, setZwiftPassword] = useState('')
 
   const [profile, setProfile] = useState<AthleteProfile>({
     name: '',
@@ -123,6 +133,23 @@ export default function SettingsPage() {
       }
     }
     checkWithingsConnection()
+  }, [user])
+
+  // Check ZwiftPower connection status
+  useEffect(() => {
+    const checkZwiftPowerConnection = async () => {
+      if (!user) return
+      try {
+        const res = await fetch('/api/auth/zwiftpower/connect')
+        if (res.ok) {
+          const data = await res.json()
+          setZwiftPowerConnected(data.connected)
+        }
+      } catch {
+        setZwiftPowerConnected(false)
+      }
+    }
+    checkZwiftPowerConnection()
   }, [user])
 
   // Fetch sync status
@@ -266,6 +293,78 @@ export default function SettingsPage() {
       console.error('Withings sync failed:', error)
     } finally {
       setWithingsSyncing(false)
+    }
+  }
+
+  const handleConnectZwiftPower = async () => {
+    if (!zwiftUsername || !zwiftPassword) {
+      setZwiftPowerError('Please enter your Zwift username and password')
+      return
+    }
+
+    setZwiftPowerConnecting(true)
+    setZwiftPowerError(null)
+    try {
+      const res = await fetch('/api/auth/zwiftpower/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: zwiftUsername, password: zwiftPassword }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        setZwiftPowerConnected(true)
+        setZwiftUsername('')
+        setZwiftPassword('')
+      } else {
+        setZwiftPowerError(data.error || 'Failed to connect')
+      }
+    } catch (error) {
+      console.error('ZwiftPower connect failed:', error)
+      setZwiftPowerError('Failed to connect')
+    } finally {
+      setZwiftPowerConnecting(false)
+    }
+  }
+
+  const handleDisconnectZwiftPower = async () => {
+    setZwiftPowerDisconnecting(true)
+    try {
+      const res = await fetch('/api/auth/zwiftpower/connect', { method: 'DELETE' })
+      if (res.ok) {
+        setZwiftPowerConnected(false)
+      }
+    } catch (error) {
+      console.error('ZwiftPower disconnect failed:', error)
+    } finally {
+      setZwiftPowerDisconnecting(false)
+    }
+  }
+
+  const handleZwiftPowerSync = async () => {
+    setZwiftPowerSyncing(true)
+    setZwiftPowerSyncResult(null)
+    setZwiftPowerError(null)
+    try {
+      const res = await fetch('/api/zwiftpower/sync', { method: 'POST' })
+      const data = await res.json()
+
+      if (res.ok) {
+        setZwiftPowerSyncResult({
+          racesSynced: data.racesSynced,
+          competitorsSynced: data.competitorsSynced,
+        })
+        if (data.errors?.length > 0) {
+          setZwiftPowerError(`Some races could not be synced: ${data.errors.slice(0, 2).join(', ')}`)
+        }
+      } else {
+        setZwiftPowerError(data.error || 'Sync failed')
+      }
+    } catch (error) {
+      console.error('ZwiftPower sync failed:', error)
+      setZwiftPowerError('Sync failed')
+    } finally {
+      setZwiftPowerSyncing(false)
     }
   }
 
@@ -643,6 +742,138 @@ export default function SettingsPage() {
                     <Button onClick={handleConnectWithings}>
                       <Link2 className="mr-2 h-4 w-4" />
                       Connect
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ZwiftPower Integration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  ZwiftPower
+                </CardTitle>
+                <CardDescription>
+                  Connect to ZwiftPower to sync race results, placements, and competitor analysis
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {zwiftPowerConnected ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <Link2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Connected</p>
+                          <p className="text-sm text-muted-foreground">
+                            Your race data is available for sync
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="outline" onClick={handleDisconnectZwiftPower} disabled={zwiftPowerDisconnecting}>
+                        {zwiftPowerDisconnecting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Unlink className="mr-2 h-4 w-4" />
+                        )}
+                        {zwiftPowerDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                      </Button>
+                    </div>
+
+                    {/* Sync Result Message */}
+                    {zwiftPowerSyncResult && (
+                      <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-3 text-sm text-green-700 dark:text-green-300">
+                        <Check className="inline h-4 w-4 mr-1" />
+                        Synced {zwiftPowerSyncResult.racesSynced} races and {zwiftPowerSyncResult.competitorsSynced} competitors
+                      </div>
+                    )}
+
+                    {/* Error Message */}
+                    {zwiftPowerError && (
+                      <div className="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                        {zwiftPowerError}
+                      </div>
+                    )}
+
+                    {/* Sync Button */}
+                    <Button onClick={handleZwiftPowerSync} disabled={zwiftPowerSyncing} variant="outline">
+                      {zwiftPowerSyncing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Syncing Races...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Sync Race Results
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                        <Trophy className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Not Connected</p>
+                        <p className="text-sm text-muted-foreground">
+                          Enter your Zwift credentials to connect
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Error Message */}
+                    {zwiftPowerError && (
+                      <div className="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                        {zwiftPowerError}
+                      </div>
+                    )}
+
+                    {/* Credential Inputs */}
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="zwift-username">Zwift Email</Label>
+                        <Input
+                          id="zwift-username"
+                          type="email"
+                          placeholder="your@email.com"
+                          value={zwiftUsername}
+                          onChange={(e) => setZwiftUsername(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="zwift-password">Zwift Password</Label>
+                        <Input
+                          id="zwift-password"
+                          type="password"
+                          placeholder="Your Zwift password"
+                          value={zwiftPassword}
+                          onChange={(e) => setZwiftPassword(e.target.value)}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Your credentials are encrypted and stored securely. They&apos;re used to authenticate with ZwiftPower.
+                      </p>
+                    </div>
+
+                    <Button onClick={handleConnectZwiftPower} disabled={zwiftPowerConnecting || !zwiftUsername || !zwiftPassword}>
+                      {zwiftPowerConnecting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Link2 className="mr-2 h-4 w-4" />
+                          Connect
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
