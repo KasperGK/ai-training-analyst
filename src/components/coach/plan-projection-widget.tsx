@@ -12,7 +12,6 @@
  */
 
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -25,6 +24,7 @@ import {
   ComposedChart,
   ResponsiveContainer,
 } from 'recharts'
+import { cn } from '@/lib/utils'
 
 interface ProjectionPoint {
   date: string
@@ -111,31 +111,32 @@ export function PlanProjectionWidget({ data }: { data: PlanProjectionData }) {
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-3 text-center">
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase">Start CTL</p>
+          <p className="text-xs text-muted-foreground">Start CTL</p>
           <p className="text-sm font-semibold">{startFitness.ctl}</p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase">End CTL</p>
-          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">{endFitness.ctl}</p>
+          <p className="text-xs text-muted-foreground">End CTL</p>
+          <p className="text-sm font-semibold">{endFitness.ctl}</p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase">CTL Gain</p>
-          <p className={`text-sm font-semibold ${ctlGain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <p className="text-xs text-muted-foreground">CTL Gain</p>
+          <p className="text-sm font-semibold text-muted-foreground">
             {ctlGain >= 0 ? '+' : ''}{ctlGain}
           </p>
         </div>
       </div>
 
       {eventFitness && (
-        <div className="flex items-center justify-center gap-4 text-xs bg-amber-50 dark:bg-amber-950/30 rounded-md py-1.5 px-3">
+        <div className="flex items-center justify-center gap-4 text-xs bg-muted/50 rounded-md py-1.5 px-3">
           <span className="text-muted-foreground">Event day:</span>
           <span>CTL {eventFitness.ctl}</span>
           <span>TSB {eventFitness.tsb}</span>
-          <span className={
+          <span className={cn(
+            'font-medium',
             eventFitness.tsb >= -10 && eventFitness.tsb <= 15
-              ? 'text-green-600 dark:text-green-400 font-medium'
-              : 'text-amber-600 dark:text-amber-400'
-          }>
+              ? 'text-foreground'
+              : 'text-muted-foreground'
+          )}>
             {eventFitness.tsb >= -10 && eventFitness.tsb <= 15
               ? 'Race ready'
               : eventFitness.tsb > 15
@@ -171,19 +172,19 @@ export function PlanProjectionWidget({ data }: { data: PlanProjectionData }) {
           <ReferenceArea
             y1={-10}
             y2={5}
-            fill="#22c55e"
-            fillOpacity={0.08}
-            label={{ value: 'Optimal TSB', position: 'insideTopRight', fontSize: 9, fill: '#86efac' }}
+            fill="hsl(150, 40%, 45%)"
+            fillOpacity={0.05}
+            label={{ value: 'Optimal TSB', position: 'insideTopRight', fontSize: 9, fill: 'hsl(150, 20%, 55%)' }}
           />
 
           {/* Event marker */}
           {eventPoint && (
             <ReferenceLine
               x={eventPoint.date}
-              stroke="#f59e0b"
-              strokeWidth={2}
+              stroke="hsl(0, 0%, 55%)"
+              strokeWidth={1.5}
               strokeDasharray="4 4"
-              label={{ value: 'Event', position: 'top', fontSize: 10, fill: '#f59e0b' }}
+              label={{ value: 'Event', position: 'top', fontSize: 10, fill: 'hsl(0, 0%, 55%)' }}
             />
           )}
 
@@ -192,8 +193,8 @@ export function PlanProjectionWidget({ data }: { data: PlanProjectionData }) {
             type="monotone"
             dataKey="tsb"
             stroke="none"
-            fill="#22c55e"
-            fillOpacity={0.15}
+            fill="hsl(150, 40%, 45%)"
+            fillOpacity={0.08}
             name="TSB"
           />
 
@@ -201,7 +202,7 @@ export function PlanProjectionWidget({ data }: { data: PlanProjectionData }) {
           <Line
             type="monotone"
             dataKey="tsb"
-            stroke="#22c55e"
+            stroke="hsl(150, 40%, 45%)"
             strokeWidth={1.5}
             dot={false}
             name="TSB"
@@ -211,7 +212,7 @@ export function PlanProjectionWidget({ data }: { data: PlanProjectionData }) {
           <Line
             type="monotone"
             dataKey="ctl"
-            stroke="#3b82f6"
+            stroke="hsl(220, 70%, 50%)"
             strokeWidth={2}
             dot={false}
             name="CTL (Fitness)"
@@ -221,7 +222,7 @@ export function PlanProjectionWidget({ data }: { data: PlanProjectionData }) {
           <Line
             type="monotone"
             dataKey="atl"
-            stroke="#ef4444"
+            stroke="hsl(0, 50%, 55%)"
             strokeWidth={1.5}
             dot={false}
             name="ATL (Fatigue)"
