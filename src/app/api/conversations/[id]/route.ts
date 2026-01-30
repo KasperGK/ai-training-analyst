@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   getConversationMessages,
   deleteConversation,
+  setConversationTitle,
 } from '@/lib/chat/conversation-manager'
 
 interface RouteParams {
@@ -45,6 +46,50 @@ export async function GET(request: Request, { params }: RouteParams) {
     conversationId: id,
     messages,
   })
+}
+
+/**
+ * PATCH /api/conversations/[id] - Update conversation title
+ */
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const { id } = await params
+
+  const supabase = await createClient()
+  if (!supabase) {
+    return NextResponse.json(
+      { error: 'Database not configured' },
+      { status: 500 }
+    )
+  }
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json(
+      { error: 'Not authenticated' },
+      { status: 401 }
+    )
+  }
+
+  const body = await request.json()
+  const { title } = body
+
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    return NextResponse.json(
+      { error: 'Title is required' },
+      { status: 400 }
+    )
+  }
+
+  const success = await setConversationTitle(id, user.id, title.trim())
+
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Failed to update title' },
+      { status: 500 }
+    )
+  }
+
+  return NextResponse.json({ success: true, title: title.trim() })
 }
 
 /**

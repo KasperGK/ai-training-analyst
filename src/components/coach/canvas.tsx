@@ -31,6 +31,7 @@ import { RaceHistoryWidget, type RaceHistoryData } from '@/components/coach/race
 import { CompetitorWidget, type CompetitorData } from '@/components/coach/competitor-widget'
 import { PlanProposalWidget, type PlanProposalData } from '@/components/coach/plan-proposal-widget'
 import { PlanProjectionWidget, type PlanProjectionData } from '@/components/coach/plan-projection-widget'
+import { TrainingCalendarWidget } from '@/components/coach/training-calendar-widget'
 import { CanvasGrid, CanvasGridItem } from '@/components/coach/canvas-grid'
 import { CanvasStatusBar } from '@/components/coach/canvas-status-bar'
 import type { WorkoutTemplate } from '@/lib/workouts/library'
@@ -58,6 +59,8 @@ interface CanvasProps {
   onAnalyzeWidget?: (widget: WidgetConfig) => void
   /** Callback when user selects a tab (null = All, widgetId = single widget) */
   onSelectTab?: (widgetId: string | null) => void
+  /** Callback when user approves a training plan */
+  onPlanApproved?: (planId: string) => void
 }
 
 export function Canvas({
@@ -70,9 +73,38 @@ export function Canvas({
   onClearHistory,
   onAnalyzeWidget,
   onSelectTab,
+  onPlanApproved,
 }: CanvasProps) {
   const [expandedWidget, setExpandedWidget] = useState<WidgetConfig | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [approvingPlanId, setApprovingPlanId] = useState<string | null>(null)
+  const [approvedPlanIds, setApprovedPlanIds] = useState<Set<string>>(new Set())
+
+  const handleApprovePlan = useCallback(async (planId: string) => {
+    setApprovingPlanId(planId)
+    try {
+      const res = await fetch(`/api/training-plans/${planId}/accept`, {
+        method: 'POST',
+      })
+      if (res.ok) {
+        setApprovedPlanIds(prev => new Set(prev).add(planId))
+        onPlanApproved?.(planId)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        // If the plan is already active/completed, treat as approved
+        if (data.error && (data.error.includes('already active') || data.error.includes('already completed'))) {
+          setApprovedPlanIds(prev => new Set(prev).add(planId))
+          onPlanApproved?.(planId)
+        } else {
+          console.error('Failed to approve plan:', data.error)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to approve plan:', error)
+    } finally {
+      setApprovingPlanId(null)
+    }
+  }, [onPlanApproved])
 
   const {
     currentFitness,
@@ -162,6 +194,9 @@ export function Canvas({
                 onExpand={() => setExpandedWidget(selectedWidget)}
                 onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(selectedWidget) : undefined}
                 bare={true}
+                onApprovePlan={handleApprovePlan}
+                approvingPlanId={approvingPlanId}
+                approvedPlanIds={approvedPlanIds}
               />
             </div>
           ) : (
@@ -185,6 +220,9 @@ export function Canvas({
                     onUnpin={onUnpinWidget ? () => onUnpinWidget(widget.id) : undefined}
                     onExpand={() => setExpandedWidget(widget)}
                     onAnalyze={onAnalyzeWidget ? () => onAnalyzeWidget(widget) : undefined}
+                    onApprovePlan={handleApprovePlan}
+                    approvingPlanId={approvingPlanId}
+                    approvedPlanIds={approvedPlanIds}
                   />
                 </CanvasGridItem>
               ))}
@@ -208,6 +246,9 @@ export function Canvas({
           <WidgetContent
             widget={expandedWidget}
             data={data}
+            onApprovePlan={handleApprovePlan}
+            approvingPlanId={approvingPlanId}
+            approvedPlanIds={approvedPlanIds}
           />
         )}
       </WidgetFullscreenDialog>
@@ -281,12 +322,17 @@ interface WidgetRendererProps {
   onAnalyze?: () => void
   /** When true, render widget content directly without card wrapper (for focused single-widget view) */
   bare?: boolean
+  /** Plan approval props */
+  onApprovePlan?: (planId: string) => void
+  approvingPlanId?: string | null
+  approvedPlanIds?: Set<string>
 }
 
 /**
  * Renders the inner content of a widget (without wrapper card)
  */
-function WidgetContent({ widget, data }: WidgetRendererProps) {
+function WidgetContent(props: WidgetRendererProps) {
+  const { widget, data } = props
   switch (widget.type) {
     case 'fitness':
       return (
@@ -360,7 +406,14 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
       if (!proposalData?.weekSummaries) {
         return <p className="text-muted-foreground text-sm">No plan proposal data</p>
       }
-      return <PlanProposalWidget data={proposalData} />
+      return (
+        <PlanProposalWidget
+          data={proposalData}
+          onApprove={props.onApprovePlan}
+          approving={props.approvingPlanId === proposalData.planId}
+          approved={proposalData.planId ? props.approvedPlanIds?.has(proposalData.planId) : false}
+        />
+      )
 
     case 'plan-projection':
       const projectionData = widget.params as PlanProjectionData | undefined
@@ -369,6 +422,9 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
       }
       return <PlanProjectionWidget data={projectionData} />
 
+    case 'training-calendar':
+      return <TrainingCalendarWidget />
+
     default:
       return (
         <p className="text-muted-foreground">Unknown widget type: {widget.type}</p>
@@ -376,17 +432,19 @@ function WidgetContent({ widget, data }: WidgetRendererProps) {
   }
 }
 
-function WidgetRenderer({
-  widget,
-  data,
-  isPinned,
-  onDismiss,
-  onPin,
-  onUnpin,
-  onExpand,
-  onAnalyze,
-  bare,
-}: WidgetRendererProps) {
+function WidgetRenderer(props: WidgetRendererProps) {
+  const {
+    widget,
+    data,
+    isPinned,
+    onDismiss,
+    onPin,
+    onUnpin,
+    onExpand,
+    onAnalyze,
+    bare,
+  } = props
+
   if (data.loading) {
     return (
       <Card className="h-[300px] animate-pulse">
@@ -403,7 +461,7 @@ function WidgetRenderer({
   // Bare mode: render widget content directly without card wrapper
   // Used for focused single-widget view where we want full canvas space
   if (bare) {
-    return <WidgetContent widget={widget} data={data} />
+    return <WidgetContent {...props} />
   }
 
   // Widgets that have their own card wrapper (don't double-wrap with Card)
@@ -425,7 +483,7 @@ function WidgetRenderer({
   // Wrap with InsightCard for grid view (provides card, controls, collapsible behavior)
   return (
     <InsightCard {...insightCardProps}>
-      <WidgetContent widget={widget} data={data} />
+      <WidgetContent {...props} />
     </InsightCard>
   )
 }

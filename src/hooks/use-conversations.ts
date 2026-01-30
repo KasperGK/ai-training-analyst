@@ -32,6 +32,7 @@ interface UseConversationsReturn {
   startNewConversation: () => void
   deleteConversation: (id: string) => Promise<boolean>
   saveMessage: (role: 'user' | 'assistant', content: string, toolCalls?: unknown) => Promise<void>
+  updateConversationTitle: (id: string, title: string) => Promise<boolean>
 }
 
 export function useConversations(): UseConversationsReturn {
@@ -145,6 +146,27 @@ export function useConversations(): UseConversationsReturn {
     }
   }, [currentConversationId])
 
+  // Update a conversation's title
+  const updateConversationTitle = useCallback(async (id: string, title: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+      if (res.ok) {
+        // Update local state
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, title } : c))
+        )
+        return true
+      }
+    } catch (error) {
+      console.error('Failed to update conversation title:', error)
+    }
+    return false
+  }, [])
+
   // Initial load
   useEffect(() => {
     loadConversations()
@@ -173,5 +195,6 @@ export function useConversations(): UseConversationsReturn {
     startNewConversation,
     deleteConversation,
     saveMessage,
+    updateConversationTitle,
   }
 }

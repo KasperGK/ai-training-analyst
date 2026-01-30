@@ -10,14 +10,15 @@
  * - Neutral gray aesthetic
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
 } from '@/components/ui/collapsible'
-import { ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ChevronRight, Check, Loader2 } from 'lucide-react'
 
 interface WorkoutDay {
   date: string
@@ -67,9 +68,32 @@ function formatDateRange(start: string, end: string): string {
   return `${fmt(s)} – ${fmt(e)}`
 }
 
-export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
-  const { weekSummaries, targetEventDate, planName, startDate, endDate } = data
-  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set())
+export function PlanProposalWidget({ data, onApprove, approving, approved }: {
+  data: PlanProposalData
+  onApprove?: (planId: string) => void
+  approving?: boolean
+  approved?: boolean
+}) {
+  const { weekSummaries, targetEventDate, planName, startDate, endDate, planId } = data
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(
+    () => new Set(weekSummaries.map(w => w.week))
+  )
+  const [planStatus, setPlanStatus] = useState<string | null>(null)
+
+  // Check if this plan is already active (e.g., approved in a previous session)
+  useEffect(() => {
+    if (!planId) return
+    fetch('/api/training-plans')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.plan?.id === planId && data.plan.status === 'active') {
+          setPlanStatus('active')
+        }
+      })
+      .catch(() => {})
+  }, [planId])
+
+  const isDraft = !approved && planStatus !== 'active'
 
   if (!weekSummaries || weekSummaries.length === 0) {
     return <p className="text-muted-foreground text-sm">No plan data available</p>
@@ -93,13 +117,18 @@ export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-1">
       {/* Plan header */}
-      <div className="mb-3">
+      <div className="mb-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">{planName}</h3>
-          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            draft
+          <h3 className="text-base font-semibold">{planName}</h3>
+          <span className={cn(
+            "text-[10px] px-1.5 py-0.5 rounded",
+            !isDraft
+              ? "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30"
+              : "text-muted-foreground bg-muted"
+          )}>
+            {isDraft ? 'draft' : 'active'}
           </span>
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -108,7 +137,7 @@ export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
       </div>
 
       {/* Week rows */}
-      <div className="space-y-0">
+      <div className="space-y-1">
         {weekSummaries.map(week => {
           const isOpen = expandedWeeks.has(week.week)
           const hasEvent = weekHasEvent(week)
@@ -129,7 +158,7 @@ export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
               <CollapsibleTrigger asChild>
                 <button
                   className={cn(
-                    'flex items-center gap-2 w-full px-2 py-1.5 rounded-sm text-left',
+                    'flex items-center gap-2 w-full px-2 py-2.5 rounded-sm text-left',
                     'hover:bg-muted/30 transition-colors'
                   )}
                 >
@@ -139,16 +168,16 @@ export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
                       isOpen && 'rotate-90'
                     )}
                   />
-                  <span className="text-xs font-semibold w-10 shrink-0">
+                  <span className="text-sm font-semibold w-10 shrink-0">
                     Wk {week.week}
                   </span>
-                  <span className="text-xs text-muted-foreground capitalize w-20 truncate shrink-0">
+                  <span className="text-sm text-muted-foreground capitalize w-20 truncate shrink-0">
                     {week.phase}
                   </span>
-                  <span className="text-xs text-muted-foreground truncate flex-1">
+                  <span className="text-sm text-muted-foreground truncate flex-1">
                     {week.focus}
                   </span>
-                  <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                  <span className="text-sm tabular-nums text-muted-foreground shrink-0">
                     {week.targetTSS} TSS
                   </span>
                   {hasEvent && (
@@ -162,62 +191,51 @@ export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
               {/* Expanded day rows */}
               <CollapsibleContent>
                 <div className="ml-[26px] border-l border-border/50 pl-4 py-0.5">
-                  {DISPLAY_ORDER.map(dow => {
-                    const day = daysByDow.get(dow)
-                    const workout = day?.workout
-                    const isEvent = targetEventDate && day?.date === targetEventDate
-                    const isRest = !workout
+                  {DISPLAY_ORDER.filter(dow => daysByDow.get(dow)?.workout).map(dow => {
+                    const day = daysByDow.get(dow)!
+                    const workout = day.workout!
+                    const isEvent = targetEventDate && day.date === targetEventDate
 
                     return (
                       <div
                         key={dow}
                         className={cn(
-                          'flex items-center gap-2',
-                          isRest ? 'py-1' : 'py-1.5',
+                          'flex items-center gap-2 py-2',
                           isEvent && 'bg-muted/30 -mx-2 px-2 rounded-sm'
                         )}
                       >
                         {/* Day name */}
-                        <span className="text-xs text-muted-foreground w-8 shrink-0">
+                        <span className="text-sm text-muted-foreground w-8 shrink-0">
                           {DAY_NAMES[dow]}
                         </span>
-
-                        {isRest ? (
-                          <span className="text-xs text-muted-foreground/50 italic">
-                            Rest
+                        {/* Key workout dot */}
+                        {day.isKeyWorkout && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />
+                        )}
+                        {/* Workout name */}
+                        <span
+                          className={cn(
+                            'text-sm truncate flex-1',
+                            day.isKeyWorkout
+                              ? 'font-medium'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          {workout.name}
+                        </span>
+                        {/* Duration */}
+                        <span className="text-sm tabular-nums text-muted-foreground shrink-0 w-12 text-right">
+                          {formatDuration(workout.targetDurationMinutes)}
+                        </span>
+                        {/* TSS */}
+                        <span className="text-sm tabular-nums text-muted-foreground shrink-0 w-14 text-right">
+                          {workout.targetTSS} TSS
+                        </span>
+                        {/* Event badge */}
+                        {isEvent && (
+                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                            event
                           </span>
-                        ) : (
-                          <>
-                            {/* Key workout dot */}
-                            {day?.isKeyWorkout && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-foreground/40 shrink-0" />
-                            )}
-                            {/* Workout name */}
-                            <span
-                              className={cn(
-                                'text-xs truncate flex-1',
-                                day?.isKeyWorkout
-                                  ? 'font-medium'
-                                  : 'text-muted-foreground'
-                              )}
-                            >
-                              {workout.name}
-                            </span>
-                            {/* Duration */}
-                            <span className="text-xs tabular-nums text-muted-foreground shrink-0">
-                              {formatDuration(workout.targetDurationMinutes)}
-                            </span>
-                            {/* TSS */}
-                            <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-14 text-right">
-                              {workout.targetTSS} TSS
-                            </span>
-                            {/* Event badge */}
-                            {isEvent && (
-                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-                                event
-                              </span>
-                            )}
-                          </>
                         )}
                       </div>
                     )
@@ -228,6 +246,34 @@ export function PlanProposalWidget({ data }: { data: PlanProposalData }) {
           )
         })}
       </div>
+
+      {/* Approve Plan button — only shown for draft plans */}
+      {planId && isDraft && (
+        <div className="pt-4">
+          <Button
+            className="w-full gap-2"
+            onClick={() => onApprove?.(planId)}
+            disabled={approving}
+          >
+            {approving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            {approving ? 'Approving...' : 'Approve Plan'}
+          </Button>
+        </div>
+      )}
+
+      {/* Approved confirmation */}
+      {planId && !isDraft && (
+        <div className="pt-4">
+          <div className="flex items-center gap-2 justify-center text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 rounded-lg py-2.5 px-4">
+            <Check className="h-4 w-4" />
+            Plan approved and active
+          </div>
+        </div>
+      )}
     </div>
   )
 }

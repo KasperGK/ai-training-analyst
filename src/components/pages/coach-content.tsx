@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card'
 import { ResizeHandle } from '@/components/ui/resize-handle'
 import { cn } from '@/lib/utils'
 import { Canvas } from '@/components/coach/canvas'
+import { EditableTitle } from '@/components/coach/editable-title'
 import { FormattedMessage } from '@/components/coach/formatted-message'
 import { ChatInputArea } from '@/components/coach/chat-input-area'
 import { ChapterMenuPanel } from '@/components/coach/chapter-menu-panel'
@@ -79,7 +80,7 @@ function parseCanvasCommands(text: string): WidgetConfig[] | null {
   const widgets: WidgetConfig[] = []
   for (const match of canvasMatch) {
     const type = match.replace('[CANVAS:', '').replace(']', '').trim().toLowerCase()
-    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis', 'plan-proposal', 'plan-projection']
+    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis', 'plan-proposal', 'plan-projection', 'training-calendar']
 
     if (validTypes.includes(type)) {
       widgets.push({
@@ -102,7 +103,8 @@ function getWidgetTitle(type: string): string {
     'sleep': 'Sleep Metrics',
     'power-curve': 'Power Curve',
     'workout-card': 'Workout',
-    'chart': 'Chart'
+    'chart': 'Chart',
+    'training-calendar': 'Training Calendar',
   }
   return titles[type] || type
 }
@@ -153,7 +155,7 @@ export function CoachContent() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
-  const [leftPanelWidth, setLeftPanelWidth] = useState(30) // percentage (chat 30%, canvas 70%)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(25) // percentage (chat 25%, canvas 75%)
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [activeView, setActiveView] = useState<'chat' | 'history'>('chat')
   const [isScrolled, setIsScrolled] = useState(false)
@@ -229,6 +231,7 @@ export function CoachContent() {
     startNewConversation,
     deleteConversation,
     saveMessage: saveMessageToDb,
+    updateConversationTitle,
   } = useConversations()
 
 
@@ -507,6 +510,29 @@ export function CoachContent() {
     }
   }, [input, isLoading, sendMessage, currentConversationId, startNewConversation])
 
+  // Derive current conversation title
+  const currentConversationTitle = useMemo(() => {
+    if (!currentConversationId) return 'Canvas'
+    const conv = conversations.find(c => c.id === currentConversationId)
+    return conv?.title || 'Canvas'
+  }, [currentConversationId, conversations])
+
+  // Handle title update
+  const handleUpdateTitle = useCallback((conversationId: string, title: string) => {
+    updateConversationTitle(conversationId, title)
+  }, [updateConversationTitle])
+
+  // Handle plan approved - show training calendar widget
+  const handlePlanApproved = useCallback((planId: string) => {
+    showWidgets([{
+      id: `training-calendar-${Date.now()}`,
+      type: 'training-calendar',
+      title: 'Training Calendar',
+      description: 'Your active training plan calendar',
+      params: { planId },
+    }])
+  }, [showWidgets])
+
   // Handle analyze widget - sends contextual prompt to chat
   const handleAnalyzeWidget = useCallback((widget: WidgetConfig) => {
     const analyzePrompts: Record<WidgetConfig['type'], string> = {
@@ -521,6 +547,7 @@ export function CoachContent() {
       'competitor-analysis': `Analyze my competitor data. Who are my toughest rivals? What power gaps do I need to close? How do I compare to others in my category?`,
       'plan-proposal': `Review this training plan proposal in detail. Is the periodization appropriate? Are the weekly hours and intensity progression right for my current fitness?`,
       'plan-projection': `Analyze this fitness projection. Will I reach my target fitness? Is the projected TSB good for my event date? What could improve the outcome?`,
+      'training-calendar': `Analyze my training calendar. Am I on track with my plan? What's coming up this week?`,
     }
 
     const prompt = analyzePrompts[widget.type] || `Analyze the ${widget.title} widget in detail.`
@@ -943,9 +970,11 @@ export function CoachContent() {
           {/* Canvas Card */}
           <div className="flex-1 min-h-[400px] lg:min-h-0 lg:h-full min-w-0">
             <Card className="flex flex-col h-full p-5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
-                Canvas
-              </span>
+              <EditableTitle
+                conversationId={currentConversationId}
+                defaultTitle={currentConversationTitle}
+                onSave={handleUpdateTitle}
+              />
               <div className="flex-1 min-h-0 overflow-auto mt-3 -mx-2 px-2">
                 <Canvas
                   state={canvasState}
@@ -956,6 +985,7 @@ export function CoachContent() {
                   onClearHistory={clearHistory}
                   onAnalyzeWidget={handleAnalyzeWidget}
                   onSelectTab={selectTab}
+                  onPlanApproved={handlePlanApproved}
                 />
               </div>
             </Card>

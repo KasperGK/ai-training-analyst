@@ -22,6 +22,7 @@ import {
   Dumbbell,
   Pin,
   LayoutGrid,
+  CalendarDays,
 } from 'lucide-react'
 
 interface CanvasTabBarProps {
@@ -51,6 +52,8 @@ function WidgetIcon({ type, className }: { type: WidgetType; className?: string 
       return <Dumbbell className={iconClass} />
     case 'chart':
       return <BarChart3 className={iconClass} />
+    case 'training-calendar':
+      return <CalendarDays className={iconClass} />
     default:
       return <BarChart3 className={iconClass} />
   }

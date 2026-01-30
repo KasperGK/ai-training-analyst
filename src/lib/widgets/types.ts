@@ -16,6 +16,7 @@ export type WidgetType =
   | 'competitor-analysis'
   | 'plan-proposal'
   | 'plan-projection'
+  | 'training-calendar'
 
 /**
  * Chart-specific types for overlay visualizations
@@ -101,7 +102,7 @@ export type CanvasAction = 'show' | 'add' | 'compare' | 'clear'
 /**
  * Widget icon type for status badges
  */
-export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout' | 'race' | 'competitors' | 'plan' | 'projection'
+export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout' | 'race' | 'competitors' | 'plan' | 'projection' | 'calendar'
 
 export interface CanvasState {
   widgets: WidgetConfig[]
@@ -141,6 +142,7 @@ export function getWidgetIcon(type: WidgetType): WidgetIcon {
     'competitor-analysis': 'competitors',
     'plan-proposal': 'plan',
     'plan-projection': 'projection',
+    'training-calendar': 'calendar',
   }
   return iconMap[type] || 'chart'
 }

@@ -33,7 +33,8 @@ const widgetSchema = z.object({
     'race-history',
     'competitor-analysis',
     'plan-proposal',
-    'plan-projection'
+    'plan-projection',
+    'training-calendar'
   ]).describe('Type of widget to display'),
   insight: z.string().describe('Explain what the user should notice or why you are showing this data'),
   sourceReference: z.string().optional().describe('Wiki article slug to cite as sports science reference'),
@@ -76,6 +77,7 @@ function getWidgetTitle(type: WidgetType): string {
     'competitor-analysis': 'Competitor Analysis',
     'plan-proposal': 'Training Plan Proposal',
     'plan-projection': 'Fitness Projection',
+    'training-calendar': 'Training Calendar',
   }
   return titles[type] || type
 }

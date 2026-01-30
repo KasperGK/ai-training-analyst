@@ -95,6 +95,26 @@ export async function listConversations(athleteId: string): Promise<Conversation
     })
   }
 
+  // Overlay custom titles from conversation_titles table
+  const conversationIds = conversations.map(c => c.id)
+  if (conversationIds.length > 0) {
+    const { data: titleData } = await supabase
+      .from('conversation_titles')
+      .select('conversation_id, title')
+      .eq('athlete_id', athleteId)
+      .in('conversation_id', conversationIds)
+
+    if (titleData) {
+      const titleMap = new Map(titleData.map(t => [t.conversation_id, t.title]))
+      for (const conv of conversations) {
+        const customTitle = titleMap.get(conv.id)
+        if (customTitle) {
+          conv.title = customTitle
+        }
+      }
+    }
+  }
+
   // Sort by last message date (newest first)
   return conversations.sort((a, b) =>
     new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
@@ -213,6 +233,37 @@ export async function deleteConversation(
 
   if (error) {
     console.error('Error deleting conversation:', error)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Set a custom title for a conversation
+ */
+export async function setConversationTitle(
+  conversationId: string,
+  athleteId: string,
+  title: string
+): Promise<boolean> {
+  const supabase = await createClient()
+  if (!supabase) return false
+
+  const { error } = await supabase
+    .from('conversation_titles')
+    .upsert(
+      {
+        conversation_id: conversationId,
+        athlete_id: athleteId,
+        title,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'conversation_id,athlete_id' }
+    )
+
+  if (error) {
+    console.error('Error setting conversation title:', error)
     return false
   }
 

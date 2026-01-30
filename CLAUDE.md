@@ -208,6 +208,6 @@ All database operations go through `src/lib/db/`:
 - `integrations.ts` - OAuth integrations
 
 ## Migrations
-Latest: `016_enhanced_goals.sql` (goal_progress table, metric goal columns)
+Latest: `017_conversation_titles.sql` (custom conversation titles for editable canvas title)
 
 Run pending: `npx supabase migration up`
