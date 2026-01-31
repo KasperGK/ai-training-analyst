@@ -190,7 +190,7 @@ After proposing a plan, ALWAYS use showOnCanvas to display both the plan-proposa
   - Example: "Show me power and HR from my last ride" → chart with metrics: ["power", "heartRate"]
   - Look for decoupling, cardiac drift, or efficiency patterns in the overlay
 
-**Finding Sessions - Two Options:**
+**Finding Sessions - Three Options:**
 
 **Option 1: Context Lookup (Fast)**
 The athlete context includes recent sessions (last 20) with id, date, name, type, TSS, IF, likelyRace flag.
@@ -199,8 +199,17 @@ For simple requests like "my last ride" or "yesterday's session", find the ID di
 **Option 2: findSessions Tool (Powerful)**
 For complex queries, use the findSessions tool:
 - "my last race" → findSessions({ sessionType: "race", limit: 1 })
+- "Crit City race" → findSessions({ nameSearch: "Crit City" })
+- "Thursday ride" → findSessions({ nameSearch: "Thursday" }) or resolve to a date
 - "hardest workout this week" → findSessions({ daysBack: 7, sortBy: "intensity", limit: 1 })
-- "long rides last month" → findSessions({ daysBack: 30, minDurationMinutes: 120, sortBy: "duration" })
+
+When searching for races, findSessions also checks the race_results table (ZwiftPower)
+for definitive data including placement and category.
+
+**Option 3: analyzeRacePerformance (Race Deep Dive)**
+For aggregate race analysis with trends, form correlation, terrain strengths:
+- "How are my races going?" → analyzeRacePerformance()
+- "Am I improving?" → analyzeRacePerformance({ period: "180d" })
 
 **Workflow for Session Analysis:**
 1. Identify which session(s) using context or findSessions

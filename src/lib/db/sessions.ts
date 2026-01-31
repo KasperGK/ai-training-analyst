@@ -103,6 +103,7 @@ export interface GetSessionsOptions {
   startDate?: string
   endDate?: string
   sport?: string
+  nameSearch?: string
 }
 
 export async function getSessions(
@@ -112,7 +113,7 @@ export async function getSessions(
   const supabase = await createClient()
   if (!supabase) return []
 
-  const { limit = 50, offset = 0, startDate, endDate, sport } = options
+  const { limit = 50, offset = 0, startDate, endDate, sport, nameSearch } = options
 
   let query = supabase
     .from('sessions')
@@ -129,6 +130,9 @@ export async function getSessions(
   }
   if (sport) {
     query = query.eq('sport', sport)
+  }
+  if (nameSearch) {
+    query = query.ilike('workout_type', `%${nameSearch}%`)
   }
 
   const { data, error } = await query

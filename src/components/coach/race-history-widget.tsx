@@ -133,6 +133,7 @@ function CustomTooltip({ active, payload }: any) {
 export function RaceHistoryWidget({ data }: RaceHistoryWidgetProps) {
   // Transform races for chart
   const chartData = useMemo(() => {
+    if (!data.races) return []
     return data.races
       .map(race => ({
         ...race,
@@ -146,7 +147,7 @@ export function RaceHistoryWidget({ data }: RaceHistoryWidgetProps) {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   }, [data.races])
 
-  if (data.races.length === 0) {
+  if (!data.races || data.races.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[300px] text-center">
         <Trophy className="h-12 w-12 text-muted-foreground/50 mb-4" />

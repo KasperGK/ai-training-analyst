@@ -114,6 +114,7 @@ export interface GetRaceResultsOptions {
   endDate?: string
   raceType?: 'flat' | 'hilly' | 'mixed' | 'tt'
   category?: string
+  nameSearch?: string
 }
 
 /**
@@ -126,7 +127,7 @@ export async function getRaceResults(
   const supabase = await createClient()
   if (!supabase) return []
 
-  const { limit = 50, offset = 0, startDate, endDate, raceType, category } = options
+  const { limit = 50, offset = 0, startDate, endDate, raceType, category, nameSearch } = options
 
   let query = supabase
     .from('race_results')
@@ -146,6 +147,9 @@ export async function getRaceResults(
   }
   if (category) {
     query = query.eq('category', category)
+  }
+  if (nameSearch) {
+    query = query.or(`race_name.ilike.%${nameSearch}%,route_name.ilike.%${nameSearch}%`)
   }
 
   const { data, error } = await query
