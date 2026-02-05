@@ -127,6 +127,8 @@ export interface FitnessHistoryInsert {
   hrv: number | null
   resting_hr: number | null
   readiness: number | null
+  // Ramp rate for overtraining detection
+  ramp_rate: number | null
   synced_at: string
   source: string
 }

@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getActiveGoals, type Goal } from '@/lib/db/goals'
 import { calculateGoalProgress, calculateGoalRiskLevel } from '@/lib/goals/progress-detector'
+import { getRecentWellness } from '@/lib/db/fitness'
 
 export interface DetectedPattern {
   type: 'trend' | 'warning' | 'achievement' | 'suggestion' | 'pattern' | 'event_prep' | 'goal_progress'
@@ -102,6 +103,16 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
     patterns.push(...detectGoalPatterns(goals))
   } catch (error) {
     console.error('[PatternDetector] Error detecting goal patterns:', error)
+  }
+
+  // Detect ramp rate patterns for overtraining risk
+  try {
+    const rampRatePattern = await detectRampRatePattern(athleteId)
+    if (rampRatePattern) {
+      patterns.push(rampRatePattern)
+    }
+  } catch (error) {
+    console.error('[PatternDetector] Error detecting ramp rate patterns:', error)
   }
 
   console.log(`[PatternDetector] Detected ${patterns.length} patterns: ${patterns.map(p => p.type).join(', ')}`)
@@ -417,6 +428,53 @@ function detectFormSuggestions(fitness: FitnessData[]): DetectedPattern[] {
   }
 
   return patterns
+}
+
+/**
+ * Detect ramp rate patterns for overtraining risk
+ * Ramp rate is the rate of CTL (fitness) change per week
+ * - > 7: Aggressive build - monitor for fatigue
+ * - > 10: High overtraining risk - recommend recovery
+ */
+async function detectRampRatePattern(athleteId: string): Promise<DetectedPattern | null> {
+  const recentWellness = await getRecentWellness(athleteId, 7) // last 7 days
+
+  if (recentWellness.length === 0) return null
+
+  // Get the most recent ramp rate
+  const latestRampRate = recentWellness[0]?.ramp_rate
+
+  if (latestRampRate == null) return null
+
+  if (latestRampRate > 10) {
+    return {
+      type: 'warning',
+      priority: 'urgent',
+      title: 'High Overtraining Risk',
+      description: `CTL is ramping at ${latestRampRate.toFixed(1)} points/week — this is an aggressive build rate with high overtraining risk. Consider a recovery week or reduced volume to allow adaptation.`,
+      data: {
+        rampRate: latestRampRate,
+        threshold: 10,
+        recommendation: 'Consider a recovery week or reduced volume'
+      },
+    }
+  }
+
+  if (latestRampRate > 7) {
+    return {
+      type: 'warning',
+      priority: 'high',
+      title: 'Aggressive Fitness Build',
+      description: `CTL is ramping at ${latestRampRate.toFixed(1)} points/week — this is an aggressive build. Monitor closely for signs of fatigue and ensure adequate recovery between hard sessions.`,
+      data: {
+        rampRate: latestRampRate,
+        threshold: 7,
+        recommendation: 'Monitor for fatigue signs, ensure adequate recovery'
+      },
+    }
+  }
+
+  return null
 }
 
 /**

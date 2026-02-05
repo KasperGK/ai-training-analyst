@@ -94,6 +94,8 @@ export interface FitnessHistory {
   hrv?: number | null
   resting_hr?: number | null
   readiness?: number | null
+  // Ramp rate for overtraining detection (CTL change per week)
+  ramp_rate?: number | null
 }
 
 export interface Event {

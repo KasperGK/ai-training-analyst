@@ -65,7 +65,10 @@ TSS = (sec × NP × IF) / (FTP × 3600) × 100. Your CTL is derived from..."
 CTL (Chronic Training Load / Fitness):
 - ~42-day exponentially weighted TSS average
 - Higher = more fit, but needs time to build safely
-- Ideal ramp rate: 3-7 CTL points per week
+- Ramp Rate (CTL change per week):
+  - Safe: 3-7 points/week
+  - Aggressive (>7): Monitor for fatigue, ensure recovery
+  - High Risk (>10): Overtraining warning, recommend recovery week
 
 ATL (Acute Training Load / Fatigue):
 - ~7-day exponentially weighted TSS average

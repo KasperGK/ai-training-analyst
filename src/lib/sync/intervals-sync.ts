@@ -288,6 +288,8 @@ function transformWellness(wellness: IntervalsWellness, athleteId: string): Fitn
     hrv: wellness.hrv ?? null,
     resting_hr: wellness.restingHR ?? null,
     readiness: wellness.readiness ?? null,
+    // Ramp rate for overtraining detection (CTL change per week)
+    ramp_rate: wellness.rampRate ?? null,
     synced_at: new Date().toISOString(),
     source: 'intervals_icu',
   }

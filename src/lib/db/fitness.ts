@@ -15,6 +15,8 @@ export type FitnessRow = {
   hrv: number | null
   resting_hr: number | null
   readiness: number | null
+  // Ramp rate for overtraining detection
+  ramp_rate: number | null
   created_at: string
 }
 
@@ -31,6 +33,7 @@ function rowToFitness(row: FitnessRow): FitnessHistory {
     hrv: row.hrv,
     resting_hr: row.resting_hr,
     readiness: row.readiness,
+    ramp_rate: row.ramp_rate,
   }
 }
 
@@ -175,4 +178,28 @@ export async function upsertFitness(fitness: {
 
   if (error || !data) return null
   return rowToFitness(data as FitnessRow)
+}
+
+/**
+ * Get recent wellness data including ramp rate for overtraining detection
+ */
+export async function getRecentWellness(
+  athleteId: string,
+  days: number = 7
+): Promise<FitnessHistory[]> {
+  const supabase = await createClient()
+  if (!supabase) return []
+
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() - days)
+
+  const { data, error } = await supabase
+    .from('fitness_history')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .gte('date', startDate.toISOString().split('T')[0])
+    .order('date', { ascending: false })
+
+  if (error || !data) return []
+  return data.map((row) => rowToFitness(row as FitnessRow))
 }

@@ -60,6 +60,8 @@ interface SessionResponse {
     // Enhanced metrics
     peakPowers?: PeakPowers
     pacing?: PacingAnalysis
+    // Interval descriptions for structured workouts
+    intervalSummary?: string[] | null
   }
   analysis: {
     isHighIntensity: boolean
@@ -222,6 +224,8 @@ function buildSessionResponse(session: Session): SessionResponse {
   const decoupling = raw?.decoupling as number | undefined
   const calories = raw?.calories as number | undefined
   const icuFtp = raw?.icu_ftp as number | undefined
+  // Interval summary - human-readable descriptions of structured intervals
+  const intervalSummary = raw?.interval_summary as string[] | undefined
 
   return {
     session: {
@@ -243,6 +247,7 @@ function buildSessionResponse(session: Session): SessionResponse {
       elevation_gain: elevationGain,
       decoupling,
       calories,
+      intervalSummary: intervalSummary || null,
     },
     analysis: {
       isHighIntensity: (session.intensity_factor || 0) > 0.85,
@@ -271,7 +276,8 @@ Use this after finding a session with findSessions. Includes:
 - Basic metrics (power, HR, TSS, IF)
 - Peak powers (5s, 30s, 1min, 5min, 20min)
 - Pacing analysis (splits, variability index, match burns)
-- Session type classification (race, workout, endurance, recovery)`,
+- Session type classification (race, workout, endurance, recovery)
+- Interval summary: Human-readable descriptions of structured workout intervals (e.g., "3 x 5 min @ 120% FTP with 2 min rest")`,
   inputSchema,
   execute: async ({ sessionId, includeStreams = true }, ctx) => {
     // Try local Supabase first if feature flag is enabled
@@ -414,6 +420,8 @@ Use this after finding a session with findSessions. Includes:
         calories: activity.calories,
         peakPowers,
         pacing,
+        // Interval descriptions for structured workouts
+        intervalSummary: activity.interval_summary || null,
       }
 
       // Generate pacing assessment
