@@ -40,6 +40,7 @@ import {
   Plus,
   Trash2,
   MessageSquare,
+  Loader2,
 } from 'lucide-react'
 
 /**
@@ -150,6 +151,61 @@ function getMessageTimestamp(message: unknown): Date | null {
   return null
 }
 
+/**
+ * Map tool names to friendly display labels
+ */
+const TOOL_LABELS: Record<string, string> = {
+  findSessions: 'Finding sessions',
+  getDetailedSession: 'Fetching session details',
+  queryHistoricalTrends: 'Analyzing training history',
+  getAthleteGoals: 'Checking goals',
+  suggestWorkout: 'Creating workout suggestion',
+  generateChart: 'Generating chart',
+  searchKnowledge: 'Searching knowledge base',
+  getAthleteMemory: 'Retrieving memory',
+  saveAthleteMemory: 'Saving memory',
+  getRecoveryTrends: 'Checking recovery data',
+  getActiveInsights: 'Fetching insights',
+  analyzePowerCurve: 'Analyzing power curve',
+  analyzeEfficiency: 'Analyzing efficiency',
+  analyzeTrainingLoad: 'Analyzing training load',
+  generateTrainingPlan: 'Generating training plan',
+  getTrainingPlan: 'Fetching training plan',
+  updatePlanDay: 'Updating plan',
+  showOnCanvas: 'Preparing display',
+  analyzeRacePerformance: 'Analyzing race performance',
+  analyzeCompetitors: 'Analyzing competitors',
+  proposePlan: 'Creating plan proposal',
+  modifyProposal: 'Modifying proposal',
+  acceptProposal: 'Activating plan',
+  exploreTrainingData: 'Exploring data',
+  searchConversationHistory: 'Searching past conversations',
+}
+
+/**
+ * Get the current tool being called from the last message (if any)
+ */
+function getCurrentToolCall(messages: UIMessage[]): string | null {
+  if (messages.length === 0) return null
+
+  const lastMessage = messages[messages.length - 1]
+  if (lastMessage.role !== 'assistant') return null
+
+  // Look for tool parts that are in 'call' state (not yet completed)
+  for (const part of lastMessage.parts) {
+    if (part.type.startsWith('tool-')) {
+      const toolPart = part as { type: string; state?: string; toolName?: string }
+      // Check if tool is being called (not yet returned result)
+      if (toolPart.state === 'call' || toolPart.state === 'partial-call') {
+        // Extract tool name from type (e.g., 'tool-findSessions' -> 'findSessions')
+        const toolName = toolPart.toolName || part.type.replace('tool-', '')
+        return toolName
+      }
+    }
+  }
+  return null
+}
+
 export function CoachContent() {
   const searchParams = useSearchParams()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -180,6 +236,7 @@ export function CoachContent() {
     highlightWidget,
     loadPinnedWidgets,
     selectTab,
+    clearNonPinnedWidgets,
   } = useCanvasState()
 
   // Pinned widget persistence via localStorage
@@ -480,16 +537,18 @@ export function CoachContent() {
     startNewConversation()
     setMessages([])
     lastSavedMessageCount.current = 0
+    clearNonPinnedWidgets()  // Clear canvas except pinned widgets
     setActiveView('chat')
-  }, [startNewConversation, setMessages])
+  }, [startNewConversation, setMessages, clearNonPinnedWidgets])
 
   // Handle loading a conversation
   const handleLoadConversation = useCallback(async (id: string) => {
     await loadConversation(id)
     setMessages([])
     lastSavedMessageCount.current = 0
+    clearNonPinnedWidgets()  // Clear canvas except pinned widgets
     setActiveView('chat')
-  }, [loadConversation, setMessages])
+  }, [loadConversation, setMessages, clearNonPinnedWidgets])
 
   // Handle delete conversation
   const handleDeleteConversation = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -910,10 +969,17 @@ export function CoachContent() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            {(() => {
+                              const currentTool = getCurrentToolCall(messages)
+                              if (currentTool) {
+                                return TOOL_LABELS[currentTool] || `Using ${currentTool}`
+                              }
+                              return status === 'submitted' ? 'Thinking...' : 'Responding...'
+                            })()}
+                          </span>
                         </div>
                       </div>
                     </div>

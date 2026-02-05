@@ -15,6 +15,7 @@ type CanvasReducerAction =
   | { type: 'add'; widgets: WidgetConfig[] }
   | { type: 'compare'; widgets: WidgetConfig[] }
   | { type: 'clear' }
+  | { type: 'clear_non_pinned' }
   | { type: 'reset' }
   | { type: 'set_error'; widgetId: string; error: string }
   | { type: 'dismiss'; widgetId: string }
@@ -111,6 +112,20 @@ function canvasReducer(
         layout: pinnedWidgets.length > 0 ? determineLayout('show', pinnedWidgets.length) : 'single',
         widgetOrder,
         highlightedWidgetId: null,
+      }
+    }
+
+    case 'clear_non_pinned': {
+      // Clear all widgets except pinned ones, reset tab selection to grid view
+      const pinnedOnly = state.widgets.filter(w => state.pinnedWidgetIds.has(w.id))
+      return {
+        ...state,
+        widgets: pinnedOnly,
+        selectedTabId: null,
+        widgetOrder: pinnedOnly.map(w => w.id),
+        layout: pinnedOnly.length > 0 ? determineLayout('show', pinnedOnly.length) : 'single',
+        highlightedWidgetId: null,
+        dismissedWidgets: [], // Clear history when switching conversations
       }
     }
 
@@ -274,6 +289,13 @@ export function useCanvasState(initialState?: CanvasState) {
   }, [])
 
   /**
+   * Clear non-pinned widgets (for conversation switching)
+   */
+  const clearNonPinnedWidgets = useCallback(() => {
+    dispatch({ type: 'clear_non_pinned' })
+  }, [])
+
+  /**
    * Reset canvas to default state
    */
   const resetCanvas = useCallback(() => {
@@ -368,6 +390,7 @@ export function useCanvasState(initialState?: CanvasState) {
     state,
     processCanvasAction,
     clearCanvas,
+    clearNonPinnedWidgets,
     resetCanvas,
     setWidgetError,
     showWidgets,

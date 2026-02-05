@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { hasZwiftPowerData } from '@/lib/db/race-results'
 import { buildTools, type ToolContext } from './tools'
 import { parseAthleteContext } from './tools/types'
+import { getConversationSummary } from '@/lib/chat/conversation-manager'
 
 export const maxDuration = 30
 
@@ -154,6 +155,28 @@ Note: These insights are already available - you don't need to call getActiveIns
     } catch (e) {
       // Don't fail chat if insights fetch fails
       console.error('Failed to pre-fetch insights:', e)
+    }
+  }
+
+  // Inject conversation history summary for cross-conversation context
+  if (effectiveAthleteId) {
+    try {
+      const conversationSummary = await getConversationSummary(effectiveAthleteId, 5)
+      if (conversationSummary) {
+        const historySection = `## Recent Conversation History
+
+You have access to the athlete's full conversation history via the searchConversationHistory tool.
+When the athlete references something from a past discussion, use this tool to find the context.
+
+Recent conversation topics:
+${conversationSummary}
+
+If the athlete asks about previous discussions or you need context from past conversations, use the searchConversationHistory tool to search for relevant messages.`
+
+        systemPrompt = `${systemPrompt}\n\n${historySection}`
+      }
+    } catch (e) {
+      console.error('Failed to fetch conversation summary:', e)
     }
   }
 

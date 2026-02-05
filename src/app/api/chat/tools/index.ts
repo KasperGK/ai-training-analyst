@@ -16,6 +16,7 @@ import { showOnCanvas } from './show-on-canvas'
 import { analyzeRacePerformance, analyzeCompetitors } from './race-analysis-tools'
 import { exploreTrainingData } from './explore-training-data'
 import { proposePlan, modifyProposal, acceptProposal } from './plan-proposal-tools'
+import { searchConversationHistory } from './search-conversation-history'
 
 export type { ToolContext } from './types'
 
@@ -61,6 +62,9 @@ export function buildTools(ctx: ToolContext) {
     // Exploratory analysis (AI-driven pattern discovery)
     exploreTrainingData: exploreTrainingData(ctx),
 
+    // Cross-conversation context
+    searchConversationHistory: searchConversationHistory(ctx),
+
     // Conditional tools based on feature flags
     ...(ctx.flags.enableRag ? {
       searchKnowledge: searchKnowledge(ctx),
@@ -105,4 +109,5 @@ export {
   proposePlan,
   modifyProposal,
   acceptProposal,
+  searchConversationHistory,
 }

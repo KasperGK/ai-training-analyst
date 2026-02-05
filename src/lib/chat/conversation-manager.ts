@@ -276,3 +276,69 @@ export async function setConversationTitle(
 export function generateConversationId(): string {
   return crypto.randomUUID()
 }
+
+/**
+ * Get brief summaries of recent conversations for system prompt injection
+ * Returns a formatted string summarizing what was discussed
+ */
+export async function getConversationSummary(
+  athleteId: string,
+  limit: number = 5
+): Promise<string | null> {
+  const supabase = await createClient()
+  if (!supabase) return null
+
+  // Get recent messages grouped by conversation
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('conversation_id, content, role, created_at')
+    .eq('athlete_id', athleteId)
+    .order('created_at', { ascending: false })
+    .limit(200) // Get enough messages to cover recent conversations
+
+  if (error || !data || data.length === 0) {
+    return null
+  }
+
+  // Group by conversation and get first user message as topic indicator
+  const conversationMap = new Map<string, {
+    firstUserMessage: string | null
+    date: string
+    messageCount: number
+  }>()
+
+  for (const msg of data) {
+    const existing = conversationMap.get(msg.conversation_id)
+    if (!existing) {
+      conversationMap.set(msg.conversation_id, {
+        firstUserMessage: msg.role === 'user' ? msg.content : null,
+        date: msg.created_at.split('T')[0],
+        messageCount: 1,
+      })
+    } else {
+      existing.messageCount++
+      // Keep looking for first user message (we're iterating newest first)
+      if (!existing.firstUserMessage && msg.role === 'user') {
+        existing.firstUserMessage = msg.content
+      }
+    }
+  }
+
+  // Convert to array and sort by date (most recent first)
+  const conversations = Array.from(conversationMap.entries())
+    .filter(([, data]) => data.firstUserMessage) // Only conversations with user messages
+    .slice(0, limit)
+    .map(([, data]) => {
+      // Truncate long messages and extract key topic
+      const topic = data.firstUserMessage!.length > 80
+        ? data.firstUserMessage!.slice(0, 80) + '...'
+        : data.firstUserMessage!
+      return `- ${data.date}: "${topic}"`
+    })
+
+  if (conversations.length === 0) {
+    return null
+  }
+
+  return conversations.join('\n')
+}

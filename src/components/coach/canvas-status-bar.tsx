@@ -23,6 +23,7 @@ import {
   Pin,
   LayoutGrid,
   CalendarDays,
+  X,
 } from 'lucide-react'
 
 interface CanvasTabBarProps {
@@ -30,6 +31,7 @@ interface CanvasTabBarProps {
   pinnedWidgetIds: Set<string>
   selectedTabId: string | null
   onSelectTab: (widgetId: string | null) => void
+  onDismiss?: (widgetId: string) => void
   className?: string
 }
 
@@ -64,6 +66,7 @@ export function CanvasTabBar({
   pinnedWidgetIds,
   selectedTabId,
   onSelectTab,
+  onDismiss,
   className,
 }: CanvasTabBarProps) {
   if (widgets.length === 0) {
@@ -104,6 +107,7 @@ export function CanvasTabBar({
             hasError={hasError}
             isSelected={isSelected}
             onSelect={() => onSelectTab(widget.id)}
+            onDismiss={onDismiss ? () => onDismiss(widget.id) : undefined}
           />
         )
       })}
@@ -117,6 +121,7 @@ interface TabBadgeProps {
   hasError: boolean
   isSelected: boolean
   onSelect: () => void
+  onDismiss?: () => void
 }
 
 function TabBadge({
@@ -125,12 +130,12 @@ function TabBadge({
   hasError,
   isSelected,
   onSelect,
+  onDismiss,
 }: TabBadgeProps) {
   return (
-    <button
-      onClick={onSelect}
+    <div
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium',
+        'group inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium',
         'transition-colors cursor-pointer',
         hasError
           ? 'bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20'
@@ -139,6 +144,7 @@ function TabBadge({
             : 'bg-muted text-muted-foreground border border-transparent hover:bg-muted/80 hover:border-border'
       )}
       title={widget.title}
+      onClick={onSelect}
     >
       {/* Widget type icon */}
       <WidgetIcon type={widget.type} />
@@ -153,7 +159,25 @@ function TabBadge({
           isSelected && 'text-primary-foreground'
         )} />
       )}
-    </button>
+
+      {/* Close button - appears on hover */}
+      {onDismiss && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDismiss()
+          }}
+          className={cn(
+            'ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
+            'hover:text-destructive',
+            isSelected && 'hover:text-destructive-foreground'
+          )}
+          title="Close widget"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
   )
 }
 

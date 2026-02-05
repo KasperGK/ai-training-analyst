@@ -160,6 +160,7 @@ export function Canvas({
           pinnedWidgetIds={state.pinnedWidgetIds}
           selectedTabId={state.selectedTabId}
           onSelectTab={onSelectTab ?? (() => {})}
+          onDismiss={onDismissWidget}
           className="flex-1 min-w-0"
         />
         {hasHistory && (
