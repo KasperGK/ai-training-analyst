@@ -131,6 +131,13 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - [x] Plan proposal widget (color-coded calendar with phases)
 - [x] Plan projection widget (Recharts CTL/ATL/TSB chart with event marker)
 
+### Phase 14: Deep Session Analysis ✅ Complete
+- [x] `session-analysis` widget type with 3 collapsible tiers (metrics, zones/pacing, peak powers/comparison)
+- [x] Enhanced overlay chart with `ReferenceArea` annotations for decoupling visualization
+- [x] `compareSessions` AI tool for historical context (similar sessions + personal bests)
+- [x] System prompt guides AI to two-widget pattern (session-analysis + annotated chart)
+- [x] Export `determineSessionType` from get-detailed-session.ts for reuse
+
 ---
 
 ## Architecture
@@ -165,9 +172,9 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - `updatePlanDay` - Mark workouts complete, track compliance
 - `logWorkoutOutcome` - Record workout outcomes for learning
 - `analyzePatterns` - Discover and save training patterns from outcome history
-- `analyzeRacePerformance` - ZwiftPower race history and performance trends
-- `analyzeCompetitors` - Head-to-head analysis and power gap calculations
+- `analyzeRace` - Unified race analysis: performance trends, competitors, pacing insights
 - `exploreTrainingData` - AI-driven raw data pattern discovery
+- `compareSessions` - Find similar past sessions and compare metrics + personal bests
 - `proposePlan` - Create draft training plan with fitness projection
 - `modifyProposal` - Modify draft plan (intensity, schedule, hours)
 - `acceptProposal` - Activate a draft plan
@@ -208,6 +215,6 @@ All database operations go through `src/lib/db/`:
 - `integrations.ts` - OAuth integrations
 
 ## Migrations
-Latest: `017_conversation_titles.sql` (custom conversation titles for editable canvas title)
+Latest: `019_race_analysis_functions.sql` (server-side race analysis RPC functions)
 
 Run pending: `npx supabase migration up`

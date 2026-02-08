@@ -402,3 +402,106 @@ export async function getCategoryComparison(
 
   return comparisons.sort((a, b) => b.races - a.races)
 }
+
+// ============================================================
+// RPC Wrappers (server-side aggregation)
+// ============================================================
+
+export interface FrequentOpponentRPC {
+  zwift_id: string
+  rider_name: string
+  races_together: number
+  wins_against: number
+  losses_against: number
+  avg_power_gap: number | null
+  avg_position_gap: number | null
+}
+
+/**
+ * Get frequent opponents via RPC (replaces JS-side aggregation of all competitors)
+ */
+export async function getFrequentOpponentsRPC(
+  athleteId: string,
+  minRaces: number = 2,
+  limit: number = 10
+): Promise<FrequentOpponentRPC[]> {
+  const supabase = await createClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase.rpc('get_frequent_opponents', {
+    p_athlete_id: athleteId,
+    p_min_races: minRaces,
+    p_limit: limit,
+  })
+
+  if (error) {
+    console.error('[race-competitors] RPC get_frequent_opponents error:', error)
+    return []
+  }
+
+  return (data as FrequentOpponentRPC[]) || []
+}
+
+export interface NearFinishersSummaryRPC {
+  avgPowerGapToNextPlace: number | null
+  avgTimeGapToNextPlace: number | null
+  racesAnalyzed: number
+  potentialPositionGain: number | null
+}
+
+/**
+ * Get near finishers summary via RPC
+ */
+export async function getNearFinishersSummaryRPC(
+  athleteId: string,
+  positionRange: number = 3
+): Promise<NearFinishersSummaryRPC> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { avgPowerGapToNextPlace: null, avgTimeGapToNextPlace: null, racesAnalyzed: 0, potentialPositionGain: null }
+  }
+
+  const { data, error } = await supabase.rpc('get_near_finishers_summary', {
+    p_athlete_id: athleteId,
+    p_position_range: positionRange,
+  })
+
+  if (error) {
+    console.error('[race-competitors] RPC get_near_finishers_summary error:', error)
+    return { avgPowerGapToNextPlace: null, avgTimeGapToNextPlace: null, racesAnalyzed: 0, potentialPositionGain: null }
+  }
+
+  return data as NearFinishersSummaryRPC
+}
+
+export interface CategoryComparisonRPC {
+  category: string
+  races: number
+  user_avg_power: number | null
+  category_avg_power: number | null
+  power_difference: number | null
+  user_avg_wkg: number | null
+  category_avg_wkg: number | null
+  wkg_difference: number | null
+}
+
+/**
+ * Get category comparison via RPC (replaces N+1 query pattern)
+ */
+export async function getCategoryComparisonRPC(
+  athleteId: string
+): Promise<CategoryComparisonRPC[]> {
+  const supabase = await createClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase.rpc('get_category_comparison', {
+    p_athlete_id: athleteId,
+  })
+
+  if (error) {
+    console.error('[race-competitors] RPC get_category_comparison error:', error)
+    return []
+  }
+
+  return (data as CategoryComparisonRPC[]) || []
+}

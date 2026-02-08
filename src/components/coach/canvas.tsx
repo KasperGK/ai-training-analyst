@@ -32,6 +32,7 @@ import { CompetitorWidget, type CompetitorData } from '@/components/coach/compet
 import { PlanProposalWidget, type PlanProposalData } from '@/components/coach/plan-proposal-widget'
 import { PlanProjectionWidget, type PlanProjectionData } from '@/components/coach/plan-projection-widget'
 import { TrainingCalendarWidget } from '@/components/coach/training-calendar-widget'
+import { SessionAnalysisWidget, type SessionAnalysisData } from '@/components/coach/session-analysis-widget'
 import { CanvasGrid, CanvasGridItem } from '@/components/coach/canvas-grid'
 import { CanvasStatusBar } from '@/components/coach/canvas-status-bar'
 import type { WorkoutTemplate } from '@/lib/workouts/library'
@@ -39,6 +40,7 @@ import { WidgetFullscreenDialog } from '@/components/coach/widget-fullscreen-dia
 import { WidgetHistorySheet } from '@/components/coach/widget-history-sheet'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { usePowerCurve } from '@/hooks/use-power-curve'
+import { useRaceAnalysis } from '@/hooks/use-race-analysis'
 import type { WidgetConfig, CanvasState, ChartConfig } from '@/lib/widgets/types'
 import { History } from 'lucide-react'
 
@@ -120,6 +122,16 @@ export function Canvas({
     loading: powerLoading
   } = usePowerCurve()
 
+  // Only fetch race data when a race widget is active
+  const hasRaceWidget = state.widgets.some(
+    w => w.type === 'race-history' || w.type === 'competitor-analysis'
+  )
+  const {
+    raceHistory,
+    competitors: competitorData,
+    loading: raceLoading,
+  } = useRaceAnalysis(hasRaceWidget)
+
   const hasHistory = state.dismissedWidgets.length > 0
   const hasWidgets = state.widgets.length > 0
 
@@ -148,7 +160,10 @@ export function Canvas({
     ctlTrend,
     athlete,
     powerCurve,
-    loading: dataLoading || powerLoading
+    raceHistory,
+    competitorData,
+    loading: dataLoading || powerLoading,
+    raceLoading,
   }
 
   return (
@@ -313,7 +328,10 @@ interface WidgetRendererProps {
     ctlTrend: number
     athlete: ReturnType<typeof useIntervalsData>['athlete']
     powerCurve: ReturnType<typeof usePowerCurve>['powerCurve']
+    raceHistory: RaceHistoryData | null
+    competitorData: CompetitorData | null
     loading: boolean
+    raceLoading: boolean
   }
   isPinned?: boolean
   onDismiss?: () => void
@@ -389,18 +407,26 @@ function WidgetContent(props: WidgetRendererProps) {
       return <ChartWidget config={chartConfig} />
 
     case 'race-history':
-      const raceHistoryData = widget.params?.raceHistory as RaceHistoryData | undefined
+      // Prefer self-fetched data, fall back to params passed by AI
+      const raceHistoryData = data.raceHistory || (widget.params?.raceHistory as RaceHistoryData | undefined)
+      if (data.raceLoading) {
+        return <div className="h-[300px] animate-pulse bg-muted rounded" />
+      }
       if (!raceHistoryData) {
         return <p className="text-muted-foreground text-sm">No race history data</p>
       }
       return <RaceHistoryWidget data={raceHistoryData} />
 
     case 'competitor-analysis':
-      const competitorData = widget.params?.competitors as CompetitorData | undefined
-      if (!competitorData) {
+      // Prefer self-fetched data, fall back to params passed by AI
+      const fetchedCompetitorData = data.competitorData || (widget.params?.competitors as CompetitorData | undefined)
+      if (data.raceLoading) {
+        return <div className="h-[300px] animate-pulse bg-muted rounded" />
+      }
+      if (!fetchedCompetitorData) {
         return <p className="text-muted-foreground text-sm">No competitor data</p>
       }
-      return <CompetitorWidget data={competitorData} />
+      return <CompetitorWidget data={fetchedCompetitorData} />
 
     case 'plan-proposal':
       const proposalData = widget.params as PlanProposalData | undefined
@@ -425,6 +451,13 @@ function WidgetContent(props: WidgetRendererProps) {
 
     case 'training-calendar':
       return <TrainingCalendarWidget />
+
+    case 'session-analysis':
+      const sessionAnalysisData = widget.params as SessionAnalysisData | undefined
+      if (!sessionAnalysisData?.session) {
+        return <p className="text-muted-foreground text-sm">No session analysis data</p>
+      }
+      return <SessionAnalysisWidget data={sessionAnalysisData} />
 
     default:
       return (

@@ -81,7 +81,7 @@ function parseCanvasCommands(text: string): WidgetConfig[] | null {
   const widgets: WidgetConfig[] = []
   for (const match of canvasMatch) {
     const type = match.replace('[CANVAS:', '').replace(']', '').trim().toLowerCase()
-    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis', 'plan-proposal', 'plan-projection', 'training-calendar']
+    const validTypes = ['fitness', 'pmc-chart', 'sessions', 'sleep', 'power-curve', 'workout-card', 'chart', 'race-history', 'competitor-analysis', 'plan-proposal', 'plan-projection', 'training-calendar', 'session-analysis']
 
     if (validTypes.includes(type)) {
       widgets.push({
@@ -106,6 +106,7 @@ function getWidgetTitle(type: string): string {
     'workout-card': 'Workout',
     'chart': 'Chart',
     'training-calendar': 'Training Calendar',
+    'session-analysis': 'Session Analysis',
   }
   return titles[type] || type
 }
@@ -173,13 +174,13 @@ const TOOL_LABELS: Record<string, string> = {
   getTrainingPlan: 'Fetching training plan',
   updatePlanDay: 'Updating plan',
   showOnCanvas: 'Preparing display',
-  analyzeRacePerformance: 'Analyzing race performance',
-  analyzeCompetitors: 'Analyzing competitors',
+  analyzeRace: 'Analyzing race performance',
   proposePlan: 'Creating plan proposal',
   modifyProposal: 'Modifying proposal',
   acceptProposal: 'Activating plan',
   exploreTrainingData: 'Exploring data',
   searchConversationHistory: 'Searching past conversations',
+  compareSessions: 'Comparing sessions',
 }
 
 /**
@@ -607,6 +608,7 @@ export function CoachContent() {
       'plan-proposal': `Review this training plan proposal in detail. Is the periodization appropriate? Are the weekly hours and intensity progression right for my current fitness?`,
       'plan-projection': `Analyze this fitness projection. Will I reach my target fitness? Is the projected TSB good for my event date? What could improve the outcome?`,
       'training-calendar': `Analyze my training calendar. Am I on track with my plan? What's coming up this week?`,
+      'session-analysis': `Dig deeper into this session analysis. What are the key takeaways and what should I work on next?`,
     }
 
     const prompt = analyzePrompts[widget.type] || `Analyze the ${widget.title} widget in detail.`

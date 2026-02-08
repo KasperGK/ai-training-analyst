@@ -34,7 +34,8 @@ const widgetSchema = z.object({
     'competitor-analysis',
     'plan-proposal',
     'plan-projection',
-    'training-calendar'
+    'training-calendar',
+    'session-analysis'
   ]).describe('Type of widget to display'),
   insight: z.string().describe('Explain what the user should notice or why you are showing this data'),
   sourceReference: z.string().optional().describe('Wiki article slug to cite as sports science reference'),
@@ -78,6 +79,7 @@ function getWidgetTitle(type: WidgetType): string {
     'plan-proposal': 'Training Plan Proposal',
     'plan-projection': 'Fitness Projection',
     'training-calendar': 'Training Calendar',
+    'session-analysis': 'Session Analysis',
   }
   return titles[type] || type
 }
@@ -141,6 +143,7 @@ export const showOnCanvas = defineTool<Input, Output>({
 - competitor-analysis: Head-to-head records, power gaps (pass config: { competitors: data })
 - plan-proposal: Training plan calendar with color-coded workouts and phases (pass config from proposePlan)
 - plan-projection: CTL/ATL/TSB projection chart through a training plan (pass config from proposePlan)
+- session-analysis: Deep multi-tier session analysis card (pass config with session, analysis, comparison, personalBests)
 
 **Chart widget (overlay charts):**
 Use for analyzing session data with multiple metrics. Requires chartConfig:
@@ -167,8 +170,8 @@ Example chart usage:
 - Analyzing power profile (show power-curve)
 - Analyzing a specific ride with power+HR overlay (show chart with chartConfig)
 - Comparing metrics (use 'compare' action)
-- Discussing race performance (show race-history after analyzeRacePerformance)
-- Comparing to competitors (show competitor-analysis after analyzeCompetitors)`,
+- Discussing race performance (show race-history after analyzeRace)
+- Comparing to competitors (show competitor-analysis after analyzeRace)`,
 
   inputSchema,
 

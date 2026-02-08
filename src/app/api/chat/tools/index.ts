@@ -13,10 +13,11 @@ import { logWorkoutOutcome } from './log-workout-outcome'
 import { analyzePowerCurve, analyzeEfficiency, analyzeTrainingLoad } from './analysis-tools'
 import { generateTrainingPlan, analyzePatterns, getTrainingPlan, updatePlanDay } from './plan-tools'
 import { showOnCanvas } from './show-on-canvas'
-import { analyzeRacePerformance, analyzeCompetitors } from './race-analysis-tools'
+import { analyzeRace } from './race-analysis-tools'
 import { exploreTrainingData } from './explore-training-data'
 import { proposePlan, modifyProposal, acceptProposal } from './plan-proposal-tools'
 import { searchConversationHistory } from './search-conversation-history'
+import { compareSessions } from './compare-sessions'
 
 export type { ToolContext } from './types'
 
@@ -50,9 +51,8 @@ export function buildTools(ctx: ToolContext) {
     getTrainingPlan: getTrainingPlan(ctx),
     updatePlanDay: updatePlanDay(ctx),
 
-    // Race analysis tools (always available)
-    analyzeRacePerformance: analyzeRacePerformance(ctx),
-    analyzeCompetitors: analyzeCompetitors(ctx),
+    // Race analysis tool (unified — replaces analyzeRacePerformance + analyzeCompetitors)
+    analyzeRace: analyzeRace(ctx),
 
     // Plan proposal tools (draft → review → accept flow)
     proposePlan: proposePlan(ctx),
@@ -61,6 +61,9 @@ export function buildTools(ctx: ToolContext) {
 
     // Exploratory analysis (AI-driven pattern discovery)
     exploreTrainingData: exploreTrainingData(ctx),
+
+    // Session comparison
+    compareSessions: compareSessions(ctx),
 
     // Cross-conversation context
     searchConversationHistory: searchConversationHistory(ctx),
@@ -103,11 +106,11 @@ export {
   getTrainingPlan,
   updatePlanDay,
   showOnCanvas,
-  analyzeRacePerformance,
-  analyzeCompetitors,
+  analyzeRace,
   exploreTrainingData,
   proposePlan,
   modifyProposal,
   acceptProposal,
   searchConversationHistory,
+  compareSessions,
 }

@@ -434,3 +434,56 @@ export async function getPerformanceByRaceType(athleteId: string): Promise<{
     }
   })
 }
+
+// ============================================================
+// RPC Wrappers (server-side aggregation)
+// ============================================================
+
+export interface RaceAnalysisSummary {
+  stats: {
+    totalRaces: number
+    avgPlacement: number | null
+    avgPlacementPercent: number | null
+    bestPlacement: number | null
+    categoryCounts: Record<string, number>
+    raceTypeCounts: Record<string, number>
+  }
+  formAnalysis: {
+    tsb_range: string
+    races: number
+    avg_placement: number | null
+    avg_placement_percent: number | null
+  }[]
+  terrainAnalysis: {
+    race_type: string
+    races: number
+    avg_placement: number | null
+    avg_placement_percent: number | null
+    avg_wkg: number | null
+  }[]
+}
+
+/**
+ * Get race analysis summary via RPC (replaces 3 sequential queries)
+ */
+export async function getRaceAnalysisSummaryRPC(
+  athleteId: string,
+  opts?: { startDate?: string; category?: string; raceType?: string }
+): Promise<RaceAnalysisSummary | null> {
+  const supabase = await createClient()
+  if (!supabase) return null
+
+  const { data, error } = await supabase.rpc('get_race_analysis_summary', {
+    p_athlete_id: athleteId,
+    p_start_date: opts?.startDate || null,
+    p_category: opts?.category || null,
+    p_race_type: opts?.raceType || null,
+  })
+
+  if (error) {
+    console.error('[race-results] RPC get_race_analysis_summary error:', error)
+    return null
+  }
+
+  return data as RaceAnalysisSummary
+}
