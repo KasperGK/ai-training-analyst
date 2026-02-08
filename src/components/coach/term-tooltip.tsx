@@ -34,7 +34,7 @@ export function TermTooltip({ term, children }: TermTooltipProps) {
           {children || term}
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
+      <TooltipContent className="max-w-xs bg-black text-white [&_svg]:fill-black [&_svg]:bg-black">
         <p className="font-semibold mb-1">{definition.term}</p>
         <p className="text-xs opacity-90">{definition.definition}</p>
         {definition.unit && (
