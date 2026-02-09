@@ -32,7 +32,8 @@ import { usePinnedWidgets } from '@/hooks/use-pinned-widgets'
 import { useSmartSuggestions } from '@/hooks/use-smart-suggestions'
 import { useCustomSuggestions } from '@/hooks/use-custom-suggestions'
 import { useChapterTracking } from '@/hooks/use-chapter-tracking'
-import type { WidgetConfig, CanvasActionPayload } from '@/lib/widgets/types'
+import type { WidgetConfig, CanvasAction, CanvasActionPayload } from '@/lib/widgets/types'
+import { toWidgetConfig, type WidgetInput } from '@/lib/widgets/config-factory'
 import type { Chapter } from '@/lib/chat/chapters'
 import {
   Bot,
@@ -44,28 +45,40 @@ import {
 } from 'lucide-react'
 
 /**
- * Extract canvas action from showOnCanvas tool result in message parts
+ * Extract canvas action from showOnCanvas tool in message parts.
+ * Checks both input-available (early, before execution round-trip) and
+ * output-available (after execution) states for fastest canvas updates.
  */
 function extractCanvasActionFromMessage(message: UIMessage): CanvasActionPayload | null {
   if (!message.parts) return null
 
   for (const part of message.parts) {
-    // AI SDK formats tool parts with type like "tool-{toolName}"
-    // Check for showOnCanvas tool results
-    if (part.type === 'tool-showOnCanvas') {
-      const toolPart = part as {
-        type: string
-        state?: string
-        output?: { canvasAction?: CanvasActionPayload }
-      }
+    if (part.type !== 'tool-showOnCanvas') continue
 
-      // Check for result state (could be 'result' or 'output-available')
-      if (
-        (toolPart.state === 'result' || toolPart.state === 'output-available') &&
-        toolPart.output?.canvasAction
-      ) {
-        return toolPart.output.canvasAction
+    const toolPart = part as {
+      type: string
+      state?: string
+      input?: { action?: string; widgets?: WidgetInput[]; reason?: string }
+      output?: { canvasAction?: CanvasActionPayload }
+    }
+
+    // Fast path: construct canvas action from tool input args (skips execution round-trip)
+    if (toolPart.state === 'input-available' && toolPart.input?.action && toolPart.input?.widgets) {
+      const { action, widgets, reason } = toolPart.input
+      const widgetConfigs = widgets.map((w, i) => toWidgetConfig(w, i))
+      return {
+        action: action as CanvasAction,
+        widgets: widgetConfigs,
+        reason,
       }
+    }
+
+    // Normal path: use executed output (backward compat)
+    if (
+      (toolPart.state === 'result' || toolPart.state === 'output-available') &&
+      toolPart.output?.canvasAction
+    ) {
+      return toolPart.output.canvasAction
     }
   }
   return null
@@ -530,8 +543,7 @@ export function CoachContent() {
   // Handle switching to history view - refresh the list
   const handleShowHistory = useCallback(() => {
     setActiveView('history')
-    loadConversations() // Refresh to show any newly saved conversations
-  }, [loadConversations])
+  }, [])
 
   // Handle new conversation
   const handleNewConversation = useCallback(() => {
@@ -625,12 +637,36 @@ export function CoachContent() {
 
   // Convert saved messages from DB format to display format
   const savedDisplayMessages = useMemo(() =>
-    savedMessages.map(msg => ({
-      id: msg.id,
-      role: msg.role as 'user' | 'assistant',
-      parts: [{ type: 'text' as const, text: msg.content }],
-      createdAt: new Date(msg.created_at),
-    })),
+    savedMessages.map(msg => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parts: any[] = [{ type: 'text' as const, text: msg.content }]
+
+      // Reconstruct tool parts from saved tool_calls for chapter tracking
+      if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+        for (const tc of msg.tool_calls) {
+          const toolCall = tc as { toolName?: string; state?: string; result?: unknown }
+          if (
+            toolCall.toolName === 'showOnCanvas' &&
+            toolCall.result &&
+            (toolCall.state === 'result' || toolCall.state === 'output-available')
+          ) {
+            parts.push({
+              type: 'tool-showOnCanvas',
+              toolCallId: `saved-${msg.id}`,
+              state: toolCall.state,
+              output: toolCall.result,
+            })
+          }
+        }
+      }
+
+      return {
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        parts,
+        createdAt: new Date(msg.created_at),
+      }
+    }),
     [savedMessages]
   )
 
@@ -704,6 +740,31 @@ export function CoachContent() {
     })
     setCurrentChapterIndex(Math.max(0, chapterIdx))
   }, [currentVisibleMessageIndex, chapters])
+
+  // Auto-sync canvas tab with scroll position
+  useEffect(() => {
+    if (chapters.length === 0) return
+
+    // Find the most recent widget chapter at or before the current visible message
+    let lastWidgetChapter: Chapter | null = null
+    for (const chapter of chapters) {
+      if (chapter.messageIndex > currentVisibleMessageIndex) break
+      if (chapter.type === 'widget' && chapter.widgetId) {
+        lastWidgetChapter = chapter
+      }
+    }
+
+    if (lastWidgetChapter?.widgetId) {
+      // Check the widget still exists on canvas
+      const widgetExists = canvasState.widgets.some(w => w.id === lastWidgetChapter!.widgetId)
+      if (widgetExists) {
+        selectTab(lastWidgetChapter.widgetId)
+      }
+    } else {
+      // No widget chapter before current position — show All grid
+      selectTab(null)
+    }
+  }, [currentVisibleMessageIndex, chapters, canvasState.widgets, selectTab])
 
   // Handle chapter menu trigger zone (right edge)
   const handleChapterHoverEnter = useCallback(() => {
@@ -783,9 +844,11 @@ export function CoachContent() {
           >
             <Card className="flex flex-col h-full overflow-hidden p-5">
               <div className="flex items-center justify-between shrink-0">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Chat
-                </span>
+                <EditableTitle
+                  conversationId={currentConversationId}
+                  defaultTitle={currentConversationTitle}
+                  onSave={handleUpdateTitle}
+                />
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <button
                     onClick={() => setActiveView('chat')}
@@ -1038,12 +1101,7 @@ export function CoachContent() {
           {/* Canvas Card */}
           <div className="flex-1 min-h-[400px] lg:min-h-0 lg:h-full min-w-0">
             <Card className="flex flex-col h-full p-5">
-              <EditableTitle
-                conversationId={currentConversationId}
-                defaultTitle={currentConversationTitle}
-                onSave={handleUpdateTitle}
-              />
-              <div className="flex-1 min-h-0 overflow-auto mt-3 -mx-2 px-2">
+              <div className="flex-1 min-h-0 overflow-auto -mx-2 px-2">
                 <Canvas
                   state={canvasState}
                   onDismissWidget={dismissWidget}

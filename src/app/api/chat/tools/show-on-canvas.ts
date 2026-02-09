@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool } from './types'
-import type { WidgetType, CanvasAction, CanvasActionPayload, WidgetConfig, ChartConfig, ChartMetric } from '@/lib/widgets/types'
+import type { CanvasAction, CanvasActionPayload } from '@/lib/widgets/types'
+import { toWidgetConfig } from '@/lib/widgets/config-factory'
 
 /**
  * Chart-specific configuration schema for overlay charts
@@ -44,11 +45,9 @@ const widgetSchema = z.object({
   chartConfig: chartConfigSchema.optional().describe('Required for chart widgets: specify sessionId and metrics'),
 })
 
-type WidgetInput = z.infer<typeof widgetSchema>
-
 const inputSchema = z.object({
   action: z.enum(['show', 'add', 'compare']).describe(
-    'Action to perform: show (replace canvas), add (append to existing), compare (side-by-side layout)'
+    'Action: "show" clears canvas and displays these widgets (replaces everything except pinned). "add" appends widgets alongside what is already on canvas. "compare" replaces canvas with exactly 2 widgets side-by-side. Default to "show" unless user says "also show" or "add".'
   ),
   widgets: z.array(widgetSchema).min(1).max(4).describe('Widgets to display (1-4)'),
   reason: z.string().describe('Brief explanation of why you are showing these widgets'),
@@ -62,116 +61,18 @@ interface Output {
   displayedReason: string
 }
 
-/**
- * Get a human-readable title for a widget type
- */
-function getWidgetTitle(type: WidgetType): string {
-  const titles: Record<WidgetType, string> = {
-    'fitness': 'Current Fitness',
-    'pmc-chart': 'Performance Management',
-    'sessions': 'Recent Sessions',
-    'sleep': 'Sleep Metrics',
-    'power-curve': 'Power Curve',
-    'workout-card': 'Workout',
-    'chart': 'Chart',
-    'race-history': 'Race History',
-    'competitor-analysis': 'Competitor Analysis',
-    'plan-proposal': 'Training Plan Proposal',
-    'plan-projection': 'Fitness Projection',
-    'training-calendar': 'Training Calendar',
-    'session-analysis': 'Session Analysis',
-  }
-  return titles[type] || type
-}
-
-/**
- * Convert AI tool input to WidgetConfig
- */
-function toWidgetConfig(input: WidgetInput, index: number): WidgetConfig {
-  const config: WidgetConfig = {
-    id: `${input.type}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-    type: input.type as WidgetType,
-    title: getWidgetTitle(input.type as WidgetType),
-    description: '',
-    context: {
-      insightSummary: input.insight,
-      sourceReference: input.sourceReference,
-      expandable: input.expandable ?? true,
-    },
-    params: input.config,
-  }
-
-  // Add chart-specific configuration if present
-  if (input.type === 'chart' && input.chartConfig) {
-    config.chartConfig = {
-      chartType: input.chartConfig.chartType || 'overlay',
-      sessionId: input.chartConfig.sessionId,
-      metrics: input.chartConfig.metrics as ChartMetric[],
-      timeRange: input.chartConfig.timeRange,
-    }
-    // Generate a more descriptive title for chart widgets
-    const metricNames = input.chartConfig.metrics.map(m =>
-      m === 'heartRate' ? 'HR' : m.charAt(0).toUpperCase() + m.slice(1)
-    ).join(' + ')
-    config.title = `${metricNames} Overlay`
-  }
-
-  return config
-}
-
 export const showOnCanvas = defineTool<Input, Output>({
   description: `Display widgets on the canvas to support your coaching conversation.
-
-**Actions:**
-- show: Replace canvas with these widgets
-- add: Add widgets to existing canvas
-- compare: Side-by-side comparison layout
 
 **Always provide insights:** Don't just show data - explain what matters.
 - Bad: "Showing your fitness"
 - Good: "Your CTL of 72 indicates strong aerobic base - you're ready for intensity work"
 
-**Available widget types:**
-- fitness: CTL, ATL, TSB metrics
-- pmc-chart: Performance Management Chart trends
-- sessions: Recent training sessions
-- power-curve: Power duration curve
-- sleep: Sleep metrics
-- workout-card: Structured workout details
-- chart: Overlay charts with dual Y-axis (power + HR, etc.)
-- race-history: Race results, placement trends, form correlation (pass config: { raceHistory: data })
-- competitor-analysis: Head-to-head records, power gaps (pass config: { competitors: data })
-- plan-proposal: Training plan calendar with color-coded workouts and phases (pass config from proposePlan)
-- plan-projection: CTL/ATL/TSB projection chart through a training plan (pass config from proposePlan)
-- session-analysis: Deep multi-tier session analysis card (pass config with session, analysis, comparison, personalBests)
+**Widget types:** fitness, pmc-chart, sessions, power-curve, sleep, workout-card, chart, race-history, competitor-analysis, plan-proposal, plan-projection, training-calendar, session-analysis
 
-**Chart widget (overlay charts):**
-Use for analyzing session data with multiple metrics. Requires chartConfig:
-- sessionId: Use "latest" for most recent session, or a specific session ID
-- metrics: Array of metrics to overlay - ["power", "heartRate"], ["power", "cadence"], etc.
-- Power displays on left Y-axis, other metrics on right Y-axis
+**Chart widget:** Requires chartConfig with sessionId ("latest" or ID) and metrics array (["power", "heartRate"], etc.). Power on left Y-axis, others on right.
 
-Example chart usage:
-\`\`\`json
-{
-  "type": "chart",
-  "insight": "Notice HR drift after 45min despite steady power - signs of aerobic decoupling",
-  "chartConfig": {
-    "sessionId": "latest",
-    "metrics": ["power", "heartRate"]
-  }
-}
-\`\`\`
-
-**When to use:**
-- User asks to "show", "display", or "see" data
-- Discussing fitness trends (show pmc-chart)
-- Recommending a workout (show workout-card)
-- Analyzing power profile (show power-curve)
-- Analyzing a specific ride with power+HR overlay (show chart with chartConfig)
-- Comparing metrics (use 'compare' action)
-- Discussing race performance (show race-history after analyzeRace)
-- Comparing to competitors (show competitor-analysis after analyzeRace)`,
+**Data widgets:** race-history/competitor-analysis need config from analyzeRace. plan-proposal/plan-projection need config from proposePlan. session-analysis needs config with session, analysis, comparison, personalBests.`,
 
   inputSchema,
 
