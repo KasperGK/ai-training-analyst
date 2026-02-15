@@ -134,15 +134,47 @@ export interface IntervalsPowerCurve {
   activity_date?: string
 }
 
+// Cache TTLs in milliseconds
+const CACHE_TTL_LONG = 30 * 60 * 1000   // 30 minutes (athlete profile, streams)
+const CACHE_TTL_MEDIUM = 5 * 60 * 1000  // 5 minutes (activities, wellness)
+
+interface CacheEntry {
+  data: unknown
+  expiresAt: number
+}
+
 class IntervalsICUClient {
   private apiKey: string | null = null
   private athleteId: string | null = null
+  private cache: Map<string, CacheEntry> = new Map()
 
   constructor() {}
 
   setCredentials(apiKey: string, athleteId: string) {
     this.apiKey = apiKey
     this.athleteId = athleteId
+  }
+
+  /**
+   * Clear all cached responses.
+   * Call after sync operations so stale cached data doesn't override fresh DB data.
+   */
+  clearCache(): void {
+    this.cache.clear()
+  }
+
+  private getCached<T>(key: string): T | null {
+    const entry = this.cache.get(key)
+    if (!entry) return null
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key)
+      return null
+    }
+    return entry.data as T
+  }
+
+  private setCache(key: string, data: unknown, ttl: number): void {
+    this.cache.set(key, { data, expiresAt: Date.now() + ttl })
   }
 
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -170,59 +202,87 @@ class IntervalsICUClient {
     return response.json()
   }
 
-  // Get athlete profile
+  /**
+   * Fetch with caching. Returns cached data if available and not expired,
+   * otherwise makes the API call and caches the result.
+   */
+  private async cachedFetch<T>(endpoint: string, ttl: number): Promise<T> {
+    const cached = this.getCached<T>(endpoint)
+    if (cached !== null) return cached
+
+    const data = await this.fetch<T>(endpoint)
+    this.setCache(endpoint, data, ttl)
+    return data
+  }
+
+  // Get athlete profile (long TTL - profile rarely changes)
   async getAthlete(): Promise<IntervalsAthlete> {
     if (!this.athleteId) throw new Error('No athlete ID set')
-    return this.fetch<IntervalsAthlete>(`/api/v1/athlete/${this.athleteId}`)
+    return this.cachedFetch<IntervalsAthlete>(
+      `/api/v1/athlete/${this.athleteId}`,
+      CACHE_TTL_LONG
+    )
   }
 
-  // Get activities for date range
+  // Get activities for date range (medium TTL - new activities may appear)
   async getActivities(oldest: string, newest: string): Promise<IntervalsActivity[]> {
     if (!this.athleteId) throw new Error('No athlete ID set')
-    return this.fetch<IntervalsActivity[]>(
-      `/api/v1/athlete/${this.athleteId}/activities?oldest=${oldest}&newest=${newest}`
+    return this.cachedFetch<IntervalsActivity[]>(
+      `/api/v1/athlete/${this.athleteId}/activities?oldest=${oldest}&newest=${newest}`,
+      CACHE_TTL_MEDIUM
     )
   }
 
-  // Get wellness data (CTL, ATL, TSB) for date range
+  // Get wellness data (CTL, ATL, TSB) for date range (medium TTL)
   async getWellness(oldest: string, newest: string): Promise<IntervalsWellness[]> {
     if (!this.athleteId) throw new Error('No athlete ID set')
-    return this.fetch<IntervalsWellness[]>(
-      `/api/v1/athlete/${this.athleteId}/wellness?oldest=${oldest}&newest=${newest}`
+    return this.cachedFetch<IntervalsWellness[]>(
+      `/api/v1/athlete/${this.athleteId}/wellness?oldest=${oldest}&newest=${newest}`,
+      CACHE_TTL_MEDIUM
     )
   }
 
-  // Get single wellness record
+  // Get single wellness record (medium TTL)
   async getWellnessForDate(date: string): Promise<IntervalsWellness> {
     if (!this.athleteId) throw new Error('No athlete ID set')
-    return this.fetch<IntervalsWellness>(
-      `/api/v1/athlete/${this.athleteId}/wellness/${date}`
+    return this.cachedFetch<IntervalsWellness>(
+      `/api/v1/athlete/${this.athleteId}/wellness/${date}`,
+      CACHE_TTL_MEDIUM
     )
   }
 
-  // Get activity details
+  // Get activity details (long TTL - completed activities don't change)
   async getActivity(activityId: string): Promise<IntervalsActivity> {
-    return this.fetch<IntervalsActivity>(`/api/v1/activity/${activityId}`)
+    return this.cachedFetch<IntervalsActivity>(
+      `/api/v1/activity/${activityId}`,
+      CACHE_TTL_LONG
+    )
   }
 
-  // Get activity streams (time-series data for charts)
+  // Get activity streams (long TTL - stream data doesn't change)
   async getActivityStreams(
     activityId: string,
     types: string[] = ['time', 'watts', 'heartrate', 'cadence']
   ): Promise<IntervalsStreams> {
     const typesParam = types.join(',')
-    const items = await this.fetch<IntervalsStreamItem[]>(
-      `/api/v1/activity/${activityId}/streams?types=${typesParam}`
-    )
-    return parseStreamsResponse(items)
+    const endpoint = `/api/v1/activity/${activityId}/streams?types=${typesParam}`
+
+    // Check cache for the raw stream items
+    const cached = this.getCached<IntervalsStreams>(endpoint)
+    if (cached !== null) return cached
+
+    const items = await this.fetch<IntervalsStreamItem[]>(endpoint)
+    const streams = parseStreamsResponse(items)
+    this.setCache(endpoint, streams, CACHE_TTL_LONG)
+    return streams
   }
 
-  // Get power curves for date range
-  // Returns peak power for various durations (5s, 1min, 5min, 20min, etc.)
+  // Get power curves for date range (medium TTL)
   async getPowerCurves(oldest: string, newest: string): Promise<IntervalsPowerCurve[]> {
     if (!this.athleteId) throw new Error('No athlete ID set')
-    return this.fetch<IntervalsPowerCurve[]>(
-      `/api/v1/athlete/${this.athleteId}/power-curves?oldest=${oldest}&newest=${newest}`
+    return this.cachedFetch<IntervalsPowerCurve[]>(
+      `/api/v1/athlete/${this.athleteId}/power-curves?oldest=${oldest}&newest=${newest}`,
+      CACHE_TTL_MEDIUM
     )
   }
 }
