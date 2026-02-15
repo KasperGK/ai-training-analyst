@@ -41,6 +41,18 @@ interface EventData {
   priority: string
 }
 
+interface DiscrepancyData {
+  id: string
+  date: string
+  local_ctl: number
+  remote_ctl: number
+  ctl_delta: number
+  local_atl: number
+  remote_atl: number
+  atl_delta: number
+  detected_at: string
+}
+
 /**
  * Detect all patterns for an athlete
  */
@@ -51,7 +63,7 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
   const patterns: DetectedPattern[] = []
 
   // Fetch data in parallel
-  const [fitnessResult, sessionsResult, eventsResult] = await Promise.all([
+  const [fitnessResult, sessionsResult, eventsResult, discrepancyResult] = await Promise.all([
     // Last 90 days of fitness data
     supabase
       .from('fitness_history')
@@ -76,14 +88,24 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
       .gte('date', new Date().toISOString().split('T')[0])
       .order('date', { ascending: true })
       .limit(5),
+
+    // Active fitness discrepancies
+    supabase
+      .from('fitness_discrepancies')
+      .select('id, date, local_ctl, remote_ctl, ctl_delta, local_atl, remote_atl, atl_delta, detected_at')
+      .eq('athlete_id', athleteId)
+      .eq('status', 'active')
+      .order('detected_at', { ascending: false })
+      .limit(5),
   ])
 
   const fitness = (fitnessResult.data || []) as FitnessData[]
   const sessions = (sessionsResult.data || []) as SessionData[]
   const events = (eventsResult.data || []) as EventData[]
+  const discrepancies = (discrepancyResult.data || []) as DiscrepancyData[]
 
   // Log data counts for debugging
-  console.log(`[PatternDetector] Data: ${fitness.length} fitness records, ${sessions.length} sessions, ${events.length} events`)
+  console.log(`[PatternDetector] Data: ${fitness.length} fitness records, ${sessions.length} sessions, ${events.length} events, ${discrepancies.length} discrepancies`)
 
   // Run all pattern detectors
   patterns.push(...detectFitnessTrends(fitness))
@@ -93,6 +115,7 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
   patterns.push(...detectEventPrep(events, fitness))
   patterns.push(...detectFormSuggestions(fitness))
   patterns.push(...detectTrainingStatus(fitness, sessions))
+  patterns.push(...detectFitnessDiscrepancies(discrepancies))
 
   console.log(`[PatternDetector] Detected ${patterns.length} patterns: ${patterns.map(p => p.type).join(', ')}`)
 
@@ -405,6 +428,39 @@ function detectFormSuggestions(fitness: FitnessData[]): DetectedPattern[] {
       data: { tsb: current.tsb },
     })
   }
+
+  return patterns
+}
+
+/**
+ * Detect active fitness discrepancies between local DB and intervals.icu
+ */
+function detectFitnessDiscrepancies(discrepancies: DiscrepancyData[]): DetectedPattern[] {
+  const patterns: DetectedPattern[] = []
+
+  if (discrepancies.length === 0) return patterns
+
+  // Find the largest discrepancy
+  const largest = discrepancies.reduce((max, d) =>
+    Math.abs(d.ctl_delta) > Math.abs(max.ctl_delta) ? d : max
+  )
+
+  const absDelta = Math.abs(Math.round(largest.ctl_delta))
+  const direction = largest.ctl_delta > 0 ? 'higher' : 'lower'
+
+  patterns.push({
+    type: 'warning',
+    priority: absDelta > 10 ? 'high' : 'medium',
+    title: 'Fitness Data Discrepancy Detected',
+    description: `Your fitness data was recalculated on intervals.icu. CTL is ${absDelta} points ${direction} than expected (${Math.round(largest.local_ctl)} → ${Math.round(largest.remote_ctl)}). This usually happens when activities are added, deleted, or reprocessed upstream.`,
+    data: {
+      discrepancy_count: discrepancies.length,
+      largest_date: largest.date,
+      local_ctl: largest.local_ctl,
+      remote_ctl: largest.remote_ctl,
+      ctl_delta: largest.ctl_delta,
+    },
+  })
 
   return patterns
 }

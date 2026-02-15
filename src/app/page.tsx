@@ -25,6 +25,7 @@ import { Settings, Calendar, BookOpen, Check, Link2, LayoutGrid } from 'lucide-r
 import Link from 'next/link'
 import { Logo } from '@/components/ui/logo'
 import { InsightFeed } from '@/components/insights/insight-feed'
+import { DiscrepancyAlert } from '@/components/dashboard/discrepancy-alert'
 import type { Session } from '@/types'
 
 
@@ -162,6 +163,11 @@ export default function Dashboard() {
             <div className="mb-6 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
               <strong>Connect your data:</strong> Link your intervals.icu account to see your training data, or upload .FIT files directly.
             </div>
+          )}
+
+          {/* Fitness discrepancy alert */}
+          {connected && !loading && (
+            <DiscrepancyAlert className="mb-6" />
           )}
 
           {/* Dashboard Grid */}
