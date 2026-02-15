@@ -27,13 +27,7 @@ import {
   Info,
 } from 'lucide-react'
 import Link from 'next/link'
-
-interface PMCDataPoint {
-  date: string
-  ctl: number
-  atl: number
-  tsb: number
-}
+import type { PMCDataPoint } from '@/lib/transforms'
 
 interface CurrentFitness {
   ctl: number

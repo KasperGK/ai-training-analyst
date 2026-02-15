@@ -123,13 +123,22 @@ export function transformActivities(
     .map(a => transformActivity(a, athleteId))
 }
 
+export interface PMCDataPoint {
+  date: string
+  ctl: number
+  atl: number
+  tsb: number
+  sleep_seconds: number | null
+  sleep_score: number | null
+}
+
 /**
  * Build PMC chart data from wellness records
  */
 export function buildPMCData(
   wellness: IntervalsWellness[],
   options: { sampleRate?: number } = {}
-): Array<{ date: string; ctl: number; atl: number; tsb: number }> {
+): PMCDataPoint[] {
   const { sampleRate = 3 } = options
 
   return wellness
@@ -145,6 +154,8 @@ export function buildPMCData(
         ctl: Math.round(w.ctl || 0),
         atl: Math.round(w.atl || 0),
         tsb: Math.round((w.ctl || 0) - (w.atl || 0)),
+        sleep_seconds: w.sleepSecs ?? null,
+        sleep_score: w.sleepScore ?? null,
       }
     })
 }

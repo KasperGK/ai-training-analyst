@@ -18,7 +18,7 @@ import { getAthlete } from '@/lib/db/athletes'
 import { getSessions } from '@/lib/db/sessions'
 import { getFitnessHistory, getCurrentFitness } from '@/lib/db/fitness'
 import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
-import { transformActivities, transformAthlete, buildPMCData } from '@/lib/transforms'
+import { transformActivities, transformAthlete, buildPMCData, type PMCDataPoint } from '@/lib/transforms'
 
 const STALE_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000 // 2 days
 
@@ -39,9 +39,9 @@ function isDataStale(fitnessHistory: { date: string }[]): boolean {
  * Build PMC chart data from local fitness history
  */
 function buildLocalPMCData(
-  fitnessHistory: { date: string; ctl: number; atl: number; tsb: number }[],
+  fitnessHistory: { date: string; ctl: number; atl: number; tsb: number; sleep_seconds?: number | null; sleep_score?: number | null }[],
   sampleRate: number
-): { date: string; ctl: number; atl: number; tsb: number }[] {
+): PMCDataPoint[] {
   return fitnessHistory
     .filter((_, i, arr) => i % sampleRate === 0 || i === arr.length - 1)
     .map(entry => {
@@ -53,6 +53,8 @@ function buildLocalPMCData(
         ctl: Math.round(entry.ctl),
         atl: Math.round(entry.atl),
         tsb: Math.round(entry.tsb),
+        sleep_seconds: entry.sleep_seconds ?? null,
+        sleep_score: entry.sleep_score ?? null,
       }
     })
 }
