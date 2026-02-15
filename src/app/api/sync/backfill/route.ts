@@ -113,9 +113,6 @@ export async function POST(request: Request) {
   try {
     const result = await backfillWellness(user.id, { days })
 
-    // Clear cache after backfill
-    intervalsClient.clearCache()
-
     return NextResponse.json({
       success: result.errors.length === 0,
       synced: result.synced,

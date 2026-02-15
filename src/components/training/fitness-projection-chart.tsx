@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import React, { useMemo } from 'react'
 import {
   Area,
   AreaChart,
@@ -153,7 +153,7 @@ export function FitnessProjectionChart({
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
-              tickFormatter={(value) => {
+              tickFormatter={(value: string) => {
                 const date = new Date(value)
                 return date.toLocaleDateString('en-US', {
                   month: 'short',
@@ -170,8 +170,8 @@ export function FitnessProjectionChart({
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    const date = new Date(value)
+                  labelFormatter={(value: React.ReactNode) => {
+                    const date = new Date(String(value))
                     return date.toLocaleDateString('en-US', {
                       weekday: 'short',
                       month: 'short',

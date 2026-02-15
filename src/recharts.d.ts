@@ -18,10 +18,18 @@ declare module 'recharts' {
   export const PolarAngleAxis: ComponentType<any>
   export const RadialBar: ComponentType<any>
   export const RadialBarChart: ComponentType<any>
+  export const ReferenceArea: ComponentType<any>
   export const ReferenceLine: ComponentType<any>
   export const Tooltip: ComponentType<any>
   export const XAxis: ComponentType<any>
   export const YAxis: ComponentType<any>
+
+  export interface LegendProps {
+    payload?: LegendPayload[]
+    verticalAlign?: 'top' | 'middle' | 'bottom'
+    align?: 'left' | 'center' | 'right'
+    content?: any
+  }
 
   export interface LegendPayload {
     value: string
