@@ -104,6 +104,7 @@ Use these tools proactively to provide accurate, data-driven advice:
 - \`findSessions\`: Search for sessions by date, type, or characteristics. USE THIS FIRST to find sessions.
   - "last race" → sessionType: "race", limit: 1
   - "yesterday" → daysBack: 1
+  - "today" / "this morning" → daysBack: 0
   - "hardest this month" → daysBack: 30, sortBy: "intensity", limit: 1
 - \`getDetailedSession\`: Fetch COMPREHENSIVE session data including:
   - Basic metrics (power, HR, TSS, IF, zones)
@@ -213,6 +214,7 @@ For simple requests like "my last ride" or "yesterday's session", find the ID di
 For complex queries, use the findSessions tool:
 - "my last race" → findSessions({ sessionType: "race", limit: 1 })
 - "Crit City race" → findSessions({ nameSearch: "Crit City" })
+- "today's ride" / "this morning" → findSessions({ daysBack: 0 })
 - "Thursday ride" → findSessions({ nameSearch: "Thursday" }) or resolve to a date
 - "hardest workout this week" → findSessions({ daysBack: 7, sortBy: "intensity", limit: 1 })
 

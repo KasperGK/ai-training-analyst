@@ -220,12 +220,51 @@ function getCurrentToolCall(messages: UIMessage[]): string | null {
   return null
 }
 
+// --- Panel snap/persistence helpers ---
+const SNAP_POINTS = [30, 50, 70]
+const STORAGE_KEY = 'coach-panel-snap-v1'
+
+function nearestSnap(width: number): number {
+  let best = SNAP_POINTS[0]
+  let bestDist = Math.abs(width - best)
+  for (const sp of SNAP_POINTS) {
+    const d = Math.abs(width - sp)
+    if (d < bestDist) { best = sp; bestDist = d }
+  }
+  return best
+}
+
+function loadSnapFromStorage(): number {
+  if (typeof window === 'undefined') return SNAP_POINTS[0]
+  try {
+    const v = localStorage.getItem(STORAGE_KEY)
+    if (v) {
+      const n = Number(v)
+      if (SNAP_POINTS.includes(n)) return n
+    }
+  } catch {}
+  return SNAP_POINTS[0]
+}
+
+function saveSnapToStorage(snap: number) {
+  try { localStorage.setItem(STORAGE_KEY, String(snap)) } catch {}
+}
+
 export function CoachContent() {
   const searchParams = useSearchParams()
   const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
-  const [leftPanelWidth, setLeftPanelWidth] = useState(25) // percentage (chat 25%, canvas 75%)
+
+  // Panel resize state
+  const [baseWidth, setBaseWidth] = useState(SNAP_POINTS[0])       // persisted snap
+  const [displayWidth, setDisplayWidth] = useState(SNAP_POINTS[0])  // rendered width
+  const [isDragging, setIsDragging] = useState(false)
+  const isHoverExpanded = useRef(false)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isInputFocused = useRef(false)
+  const chatPanelRef = useRef<HTMLDivElement>(null)
+
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [activeView, setActiveView] = useState<'chat' | 'history'>('chat')
   const [isScrolled, setIsScrolled] = useState(false)
@@ -319,6 +358,13 @@ export function CoachContent() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
+  // Load persisted snap on mount
+  useEffect(() => {
+    const snap = loadSnapFromStorage()
+    setBaseWidth(snap)
+    setDisplayWidth(snap)
+  }, [])
+
   // Handle pre-filled message from query param (e.g., from insights "Ask Coach")
   useEffect(() => {
     const message = searchParams.get('message')
@@ -329,17 +375,79 @@ export function CoachContent() {
     }
   }, [searchParams])
 
-  // Handle resize
+  // --- Drag handlers ---
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true)
+    // Cancel any hover expansion
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    isHoverExpanded.current = false
+  }, [])
+
   const handleResize = useCallback((delta: number) => {
     if (!containerRef.current) return
     const containerWidth = containerRef.current.offsetWidth
     const deltaPercent = (delta / containerWidth) * 100
-    setLeftPanelWidth(prev => {
-      const newWidth = prev + deltaPercent
-      // Clamp between 25% and 75%
-      return Math.min(75, Math.max(25, newWidth))
-    })
+    setDisplayWidth(prev => Math.min(75, Math.max(25, prev + deltaPercent)))
   }, [])
+
+  const handleResizeEnd = useCallback(() => {
+    setDisplayWidth(prev => {
+      const snapped = nearestSnap(prev)
+      setBaseWidth(snapped)
+      saveSnapToStorage(snapped)
+      return snapped
+    })
+    setIsDragging(false)
+  }, [])
+
+  // --- Hover expansion handlers ---
+  const handleChatMouseEnter = useCallback(() => {
+    if (isDragging) return
+    if (baseWidth >= 50) return
+    hoverTimeoutRef.current = setTimeout(() => {
+      isHoverExpanded.current = true
+      setDisplayWidth(50)
+    }, 150)
+  }, [isDragging, baseWidth])
+
+  const handleChatMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    if (!isHoverExpanded.current) return
+    // If input is focused, stay expanded
+    if (isInputFocused.current) return
+    isHoverExpanded.current = false
+    setDisplayWidth(baseWidth)
+  }, [baseWidth])
+
+  // --- Focus lock ---
+  const handleInputFocusChange = useCallback((focused: boolean) => {
+    isInputFocused.current = focused
+    if (!focused && isHoverExpanded.current) {
+      // Check if mouse is outside chat panel
+      const panel = chatPanelRef.current
+      if (panel) {
+        const onLeave = () => {
+          // Mouse already left — shrink back
+          if (isHoverExpanded.current) {
+            isHoverExpanded.current = false
+            setDisplayWidth(baseWidth)
+          }
+        }
+        // Use a microtask so we can check :hover state
+        requestAnimationFrame(() => {
+          if (!panel.matches(':hover')) {
+            onLeave()
+          }
+        })
+      }
+    }
+  }, [baseWidth])
 
   // Build athlete context for AI - include recent sessions for smart lookup
   const athleteContext = useMemo(() => {
@@ -360,7 +468,7 @@ export function CoachContent() {
         avg_power: s.avg_power,
         normalized_power: s.normalized_power,
         // Help AI identify races: high IF (>0.9), "race" in name, or high TSS relative to duration
-        likelyRace: (s.intensity_factor && s.intensity_factor > 0.9) ||
+        likelyRace: (s.intensity_factor && s.intensity_factor > 0.95) ||
           (s.workout_type?.toLowerCase().includes('race')) ||
           (s.workout_type?.toLowerCase().includes('event')) ||
           (s.workout_type?.toLowerCase().includes('competition'))
@@ -839,8 +947,14 @@ export function CoachContent() {
         <div className="flex flex-col lg:flex-row h-full gap-6 lg:gap-0 pl-2 lg:pl-4 pr-0">
           {/* Chat Card - positioned so rounded edge peeks from Dashboard */}
           <div
+            ref={chatPanelRef}
             className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full"
-            style={isLargeScreen ? { flex: `0 0 ${leftPanelWidth}%` } : undefined}
+            style={isLargeScreen ? {
+              flex: `0 0 ${displayWidth}%`,
+              transition: isDragging ? 'none' : 'flex-basis 300ms ease',
+            } : undefined}
+            onMouseEnter={isLargeScreen ? handleChatMouseEnter : undefined}
+            onMouseLeave={isLargeScreen ? handleChatMouseLeave : undefined}
           >
             <Card className="flex flex-col h-full overflow-hidden p-5">
               <div className="flex items-center justify-between shrink-0">
@@ -1085,6 +1199,7 @@ export function CoachContent() {
                   canAddMoreSuggestions={canAddMoreSuggestions}
                   isScrolled={isScrolled}
                   disabled={isLoading}
+                  onFocusChange={handleInputFocusChange}
                 />
               </div>
                 </>
@@ -1095,7 +1210,11 @@ export function CoachContent() {
 
           {/* Resize Handle - Hidden on mobile */}
           <div className="hidden lg:flex items-center px-1">
-            <ResizeHandle onResize={handleResize} />
+            <ResizeHandle
+              onResize={handleResize}
+              onDragStart={handleDragStart}
+              onResizeEnd={handleResizeEnd}
+            />
           </div>
 
           {/* Canvas Card */}
