@@ -59,7 +59,7 @@ export interface Session {
   source: 'intervals_icu' | 'fit_upload' | 'manual'
   external_id?: string
 
-  // Raw data from source (intervals.icu activity object)
+  // Raw data from source (intervals.icu activity JSON)
   raw_data?: Record<string, unknown>
 }
 
@@ -295,4 +295,21 @@ export interface PowerBest {
   recorded_date: string
   is_current_best: boolean
   created_at: string
+}
+
+// Fitness discrepancy between local DB and intervals.icu
+export interface FitnessDiscrepancy {
+  id: string
+  athlete_id: string
+  detected_at: string
+  date: string
+  local_ctl: number
+  local_atl: number
+  remote_ctl: number
+  remote_atl: number
+  ctl_delta: number
+  atl_delta: number
+  status: 'active' | 'acknowledged' | 'resolved'
+  resolved_at: string | null
+  notes: string | null
 }

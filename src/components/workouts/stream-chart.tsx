@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from 'recharts'
 import { Card } from '@/components/ui/card'
 import {
@@ -84,8 +85,8 @@ export function StreamChart({ title, data, color, unit, average, max }: StreamCh
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => formatTime(value as number)}
-                  formatter={(value) => [`${value}${unit}`, title]}
+                  labelFormatter={(value: React.ReactNode) => formatTime(value as number)}
+                  formatter={(value: unknown) => [`${value}${unit}`, title]}
                 />
               }
             />

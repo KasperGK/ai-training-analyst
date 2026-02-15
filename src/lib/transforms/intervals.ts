@@ -123,15 +123,13 @@ export function transformActivities(
     .map(a => transformActivity(a, athleteId))
 }
 
-/**
- * PMC (Performance Management Chart) data point
- * Contains only training load metrics - CTL, ATL, TSB
- */
 export interface PMCDataPoint {
   date: string
   ctl: number
   atl: number
   tsb: number
+  sleep_seconds?: number | null
+  sleep_score?: number | null
 }
 
 /**
@@ -157,6 +155,8 @@ export function buildPMCData(
         ctl: Math.round(w.ctl || 0),
         atl: Math.round(w.atl || 0),
         tsb: Math.round((w.ctl || 0) - (w.atl || 0)),
+        sleep_seconds: w.sleepSecs ?? null,
+        sleep_score: w.sleepScore ?? null,
       }
     })
 }

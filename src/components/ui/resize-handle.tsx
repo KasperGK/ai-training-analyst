@@ -4,18 +4,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { GripVertical } from 'lucide-react'
 
-interface ResizeHandleProps {
+export interface ResizeHandleProps {
   onResize: (delta: number) => void
+  onDragStart?: () => void
+  onResizeEnd?: () => void
   className?: string
 }
 
-export function ResizeHandle({ onResize, className }: ResizeHandleProps) {
+export function ResizeHandle({ onResize, onDragStart, onResizeEnd, className }: ResizeHandleProps) {
   const [isDragging, setIsDragging] = useState(false)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     setIsDragging(true)
-  }, [])
+    onDragStart?.()
+  }, [onDragStart])
 
   useEffect(() => {
     if (!isDragging) return
@@ -34,6 +37,7 @@ export function ResizeHandle({ onResize, className }: ResizeHandleProps) {
 
     const handleMouseUp = () => {
       setIsDragging(false)
+      onResizeEnd?.()
     }
 
     document.addEventListener('mousemove', handleMouseMove)

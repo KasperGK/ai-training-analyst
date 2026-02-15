@@ -34,6 +34,7 @@ interface ChatInputAreaProps {
   isScrolled: boolean
   disabled?: boolean
   className?: string
+  onFocusChange?: (focused: boolean) => void
 }
 
 export function ChatInputArea({
@@ -48,6 +49,7 @@ export function ChatInputArea({
   isScrolled,
   disabled = false,
   className,
+  onFocusChange,
 }: ChatInputAreaProps) {
   const [isFocused, setIsFocused] = useState(false)
   const [isHovered, setIsHovered] = useState(false)

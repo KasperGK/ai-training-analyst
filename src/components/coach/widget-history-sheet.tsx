@@ -45,6 +45,7 @@ function getWidgetTypeLabel(type: WidgetConfig['type']): string {
     'plan-proposal': 'Plan Proposal',
     'plan-projection': 'Projection',
     'training-calendar': 'Calendar',
+    'session-analysis': 'Session Analysis',
   }
   return labels[type] || type
 }

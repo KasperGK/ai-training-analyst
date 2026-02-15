@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FitnessCard, FatigueCard, FormCard } from '@/components/dashboard/fitness-metrics'
 import { PMCChart, TIME_RANGES, type TimeRangeKey } from '@/components/dashboard/pmc-chart'
+import type { PMCDataPoint } from '@/lib/transforms'
 import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { SleepCard } from '@/components/dashboard/sleep-card'
 import { PowerCurveChart } from '@/components/power/power-curve-chart'
@@ -289,7 +290,7 @@ function PMCChartWithState({
   pmcData: initialPmcData,
   ctlTrend: initialCtlTrend,
 }: {
-  pmcData: { date: string; ctl: number; atl: number; tsb: number }[]
+  pmcData: PMCDataPoint[]
   ctlTrend: number
 }) {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('6w')

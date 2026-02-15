@@ -697,6 +697,7 @@ export async function syncAll(
       success: false,
       activitiesSynced: 0,
       wellnessSynced: 0,
+      discrepanciesFound: 0,
       lastActivityDate: null,
       errors: ['Failed to create athlete record'],
       duration_ms: Date.now() - startTime,
@@ -787,6 +788,7 @@ export async function syncAll(
     success: allErrors.length === 0,
     activitiesSynced: activitiesResult.synced,
     wellnessSynced: wellnessResult.synced,
+    discrepanciesFound: 0,
     lastActivityDate: syncLog?.last_activity_date || null,
     errors: allErrors,
     duration_ms: Date.now() - startTime,
@@ -807,4 +809,74 @@ export async function isSyncNeeded(athleteId: string): Promise<boolean> {
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000)
 
   return lastSync < fifteenMinutesAgo
+}
+
+/**
+ * One-time backfill of historical wellness/fitness data
+ * Pulls 90+ days from intervals.icu and stores in fitness_history
+ */
+export async function backfillWellness(
+  athleteId: string,
+  options: { days?: number } = {}
+): Promise<{ synced: number; oldest_date: string; newest_date: string; errors: string[] }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { synced: 0, oldest_date: '', newest_date: '', errors: ['Supabase not configured'] }
+  }
+
+  const days = options.days || 120
+  const errors: string[] = []
+  let synced = 0
+
+  const newestDate = new Date()
+  const oldestDate = new Date()
+  oldestDate.setDate(oldestDate.getDate() - days)
+
+  const newest = formatDateForApi(newestDate)
+  const oldest = formatDateForApi(oldestDate)
+
+  try {
+    const wellnessData = await intervalsClient.getWellness(oldest, newest)
+
+    if (!wellnessData || wellnessData.length === 0) {
+      return { synced: 0, oldest_date: oldest, newest_date: newest, errors: ['No wellness data returned from intervals.icu'] }
+    }
+
+    const validWellness = wellnessData.filter((w: { id?: string; date?: string }) => w.id || w.date)
+    const fitnessRecords: FitnessHistoryInsert[] = validWellness.map((w: IntervalsWellness) =>
+      transformWellness(w, athleteId)
+    )
+
+    const BATCH_SIZE = 100
+    for (let i = 0; i < fitnessRecords.length; i += BATCH_SIZE) {
+      const batch = fitnessRecords.slice(i, i + BATCH_SIZE)
+
+      const { error } = await supabase
+        .from('fitness_history')
+        .upsert(batch, {
+          onConflict: 'athlete_id,date',
+          ignoreDuplicates: false,
+        })
+
+      if (error) {
+        errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
+      } else {
+        synced += batch.length
+      }
+    }
+
+    if (synced > 0) {
+      const syncLog = await getSyncLog(athleteId)
+      await upsertSyncLog(athleteId, {
+        oldest_activity_date: oldest,
+        wellness_synced: (syncLog?.wellness_synced || 0) + synced,
+        last_sync_at: new Date().toISOString(),
+      })
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    errors.push(message)
+  }
+
+  return { synced, oldest_date: oldest, newest_date: newest, errors }
 }

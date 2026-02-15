@@ -56,6 +56,8 @@ function buildLocalPMCData(
         ctl: Math.round(f.ctl),
         atl: Math.round(f.atl),
         tsb: Math.round(f.tsb),
+        sleep_seconds: null,
+        sleep_score: null,
       }
     })
 }

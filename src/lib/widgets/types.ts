@@ -17,6 +17,7 @@ export type WidgetType =
   | 'plan-proposal'
   | 'plan-projection'
   | 'training-calendar'
+  | 'session-analysis'
 
 /**
  * Chart-specific types for overlay visualizations
@@ -143,6 +144,7 @@ export function getWidgetIcon(type: WidgetType): WidgetIcon {
     'plan-proposal': 'plan',
     'plan-projection': 'projection',
     'training-calendar': 'calendar',
+    'session-analysis': 'fitness',
   }
   return iconMap[type] || 'chart'
 }

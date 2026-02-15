@@ -22,6 +22,7 @@ export interface SyncResult {
   success: boolean
   activitiesSynced: number
   wellnessSynced: number
+  discrepanciesFound: number
   lastActivityDate: string | null
   errors: string[]
   duration_ms: number

@@ -25,6 +25,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import type { PMCDataPoint } from '@/lib/transforms'
 
 export const TIME_RANGES = {
   '1w': { label: '1 Week', days: 7 },
@@ -35,13 +36,6 @@ export const TIME_RANGES = {
 } as const
 
 export type TimeRangeKey = keyof typeof TIME_RANGES
-
-interface PMCDataPoint {
-  date: string
-  ctl: number
-  atl: number
-  tsb: number
-}
 
 interface PMCChartProps {
   data: PMCDataPoint[]
@@ -133,7 +127,7 @@ export function PMCChart({ data, ctlTrend = 0, timeRange = '6w', onTimeRangeChan
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value}
+              tickFormatter={(value: string) => value}
             />
             <YAxis
               tickLine={false}

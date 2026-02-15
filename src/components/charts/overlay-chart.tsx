@@ -354,7 +354,7 @@ export function OverlayChart({
           <Legend
             verticalAlign="top"
             height={36}
-            formatter={(value) => <span className="text-xs">{value}</span>}
+            formatter={(value: string) => <span className="text-xs">{value}</span>}
           />
         </ComposedChart>
       </ChartContainer>

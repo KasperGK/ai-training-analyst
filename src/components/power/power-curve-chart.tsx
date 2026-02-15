@@ -144,7 +144,7 @@ export function PowerCurveChart({
               axisLine={false}
               tickMargin={8}
               width={50}
-              tickFormatter={(value) =>
+              tickFormatter={(value: number) =>
                 showWkg ? `${value.toFixed(1)}` : `${value}`
               }
               label={{
@@ -157,7 +157,7 @@ export function PowerCurveChart({
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  formatter={(value, name, props) => {
+                  formatter={(_value: unknown, _name: unknown, props: Record<string, unknown>) => {
                     const point = props.payload as PowerCurvePoint & { displayValue: number }
                     return (
                       <div className="space-y-1">
