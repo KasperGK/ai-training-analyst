@@ -27,6 +27,7 @@ import { Logo } from '@/components/ui/logo'
 import { InsightFeed } from '@/components/insights/insight-feed'
 import { DiscrepancyAlert } from '@/components/dashboard/discrepancy-alert'
 import { InsightsDropdown } from '@/components/insights/insights-dropdown'
+import { BackfillBanner } from '@/components/dashboard/backfill-banner'
 import type { Session } from '@/types'
 
 
@@ -172,6 +173,9 @@ export default function Dashboard() {
               <strong>Connect your data:</strong> Link your intervals.icu account to see your training data, or upload .FIT files directly.
             </div>
           )}
+
+          {/* Backfill banner when connected but missing historical data */}
+          {connected && !loading && <BackfillBanner />}
 
           {/* Fitness discrepancy alert */}
           {connected && !loading && (

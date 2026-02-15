@@ -780,6 +780,84 @@ export async function syncAll(
 }
 
 /**
+ * Backfill historical wellness/fitness data from intervals.icu
+ *
+ * One-time migration to pull 90+ days of historical CTL/ATL/TSB and store
+ * in the fitness_history table. Uses the `oldest_activity_date` field in
+ * sync_log to track backfill progress so it can be resumed if interrupted.
+ */
+export async function backfillWellness(
+  athleteId: string,
+  options: { days?: number } = {}
+): Promise<{ synced: number; oldest_date: string; newest_date: string; errors: string[] }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { synced: 0, oldest_date: '', newest_date: '', errors: ['Supabase not configured'] }
+  }
+
+  const days = options.days || 120 // Default to 120 days (well over 90)
+  const errors: string[] = []
+  let synced = 0
+
+  // Calculate date range
+  const newestDate = new Date()
+  const oldestDate = new Date()
+  oldestDate.setDate(oldestDate.getDate() - days)
+
+  const newest = formatDateForApi(newestDate)
+  const oldest = formatDateForApi(oldestDate)
+
+  try {
+    // Fetch wellness from intervals.icu for the full range
+    const wellnessData = await intervalsClient.getWellness(oldest, newest)
+
+    if (!wellnessData || wellnessData.length === 0) {
+      return { synced: 0, oldest_date: oldest, newest_date: newest, errors: ['No wellness data returned from intervals.icu'] }
+    }
+
+    // Filter out records without valid dates and transform
+    const validWellness = wellnessData.filter(w => w.id || w.date)
+    const fitnessRecords: FitnessHistoryInsert[] = validWellness.map(w =>
+      transformWellness(w, athleteId)
+    )
+
+    // Upsert in batches to handle large datasets
+    const BATCH_SIZE = 100
+    for (let i = 0; i < fitnessRecords.length; i += BATCH_SIZE) {
+      const batch = fitnessRecords.slice(i, i + BATCH_SIZE)
+
+      const { error } = await supabase
+        .from('fitness_history')
+        .upsert(batch, {
+          onConflict: 'athlete_id,date',
+          ignoreDuplicates: false,
+        })
+
+      if (error) {
+        errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
+      } else {
+        synced += batch.length
+      }
+    }
+
+    // Track backfill progress in sync_log
+    if (synced > 0) {
+      const syncLog = await getSyncLog(athleteId)
+      await upsertSyncLog(athleteId, {
+        oldest_activity_date: oldest,
+        wellness_synced: (syncLog?.wellness_synced || 0) + synced,
+        last_sync_at: new Date().toISOString(),
+      })
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    errors.push(message)
+  }
+
+  return { synced, oldest_date: oldest, newest_date: newest, errors }
+}
+
+/**
  * Check if sync is needed (more than 15 minutes since last sync)
  */
 export async function isSyncNeeded(athleteId: string): Promise<boolean> {
