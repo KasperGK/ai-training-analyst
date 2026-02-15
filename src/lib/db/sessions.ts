@@ -52,6 +52,7 @@ function rowToSession(row: SessionRow): Session {
     ai_summary: row.ai_summary ?? undefined,
     source: row.source as Session['source'],
     external_id: row.external_id ?? undefined,
+    raw_data: row.raw_data ?? undefined,
   }
 }
 

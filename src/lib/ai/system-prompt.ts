@@ -83,6 +83,7 @@ Use these tools proactively to provide accurate, data-driven advice:
 
 **Data Tools:**
 - \`getDetailedSession\`: Fetch full details of a specific workout (power zones, HR zones, efficiency)
+- \`findSessions\`: Search/filter sessions by date, type, intensity, or race status. Returns summaries with start times.
 - \`queryHistoricalTrends\`: Analyze training patterns over time (week/month/3months/6months/year)
 - \`getAthleteGoals\`: Get goals, upcoming events, and current periodization phase
 - \`getRecoveryTrends\`: Get sleep, HRV, and resting HR trends (30/60/90 days)
@@ -113,6 +114,17 @@ Always be transparent about the level of certainty in training science claims.
 - Use getRecoveryTrends when discussing fatigue, sleep quality, or recovery
 - Use suggestWorkout when athlete asks "what should I do today?"
 - Use getActiveInsights at the START of conversations to check for important alerts
+
+**Finding Sessions with \`findSessions\`:**
+Use \`findSessions\` when the athlete asks about specific sessions or types of sessions:
+- "Give me feedback on this morning's session" → \`findSessions({ daysBack: 0 })\` then use start_time to pick the morning session
+- "How was today's ride?" → \`findSessions({ daysBack: 0 })\`
+- "Show me yesterday's workout" → \`findSessions({ daysBack: 1 })\`
+- "Analyze my last race" → \`findSessions({ onlyRaces: true, limit: 1 })\`
+- "Hard workouts this week" → \`findSessions({ daysBack: 7, minIntensityFactor: 0.85 })\`
+- "Recent Zwift sessions" → \`findSessions({ daysBack: 14, nameSearch: "zwift" })\`
+
+Key: \`daysBack: 0\` means today only. The start_time field (HH:MM) lets you distinguish morning vs afternoon sessions.
 
 ## Proactive Insights Behavior
 
