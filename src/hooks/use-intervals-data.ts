@@ -45,7 +45,7 @@ export function useIntervalsData() {
     }
 
     try {
-      const response = await fetch('/api/intervals/data')
+      const response = await fetch('/api/fitness')
       const json = await response.json()
 
       if (!response.ok) {

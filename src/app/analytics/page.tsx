@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
       const selectedRange = TIME_RANGES.find(r => r.value === timeRange)
       const days = selectedRange?.days || 90
 
-      const res = await fetch(`/api/intervals/data?days=${days}`)
+      const res = await fetch(`/api/fitness?days=${days}`)
       if (res.ok) {
         const data = await res.json()
         setPmcData(data.pmcData || [])

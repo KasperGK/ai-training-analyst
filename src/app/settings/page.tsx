@@ -95,7 +95,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const res = await fetch('/api/intervals/data')
+        const res = await fetch('/api/fitness')
         const data = await res.json()
         setIntervalsConnected(!!data.athlete)
       } catch {
