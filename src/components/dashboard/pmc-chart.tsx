@@ -89,7 +89,7 @@ export function PMCChart({ data, ctlTrend = 0 }: PMCChartProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value}
+              tickFormatter={(value: string) => value}
             />
             <YAxis
               tickLine={false}

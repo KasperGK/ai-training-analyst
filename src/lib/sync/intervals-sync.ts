@@ -13,6 +13,7 @@ import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
 import type { IntervalsActivity, IntervalsWellness } from '@/lib/intervals-icu'
 import type { SyncLog, SyncResult, SyncOptions, SessionInsert, FitnessHistoryInsert } from './types'
 import type { DiscrepancyInsert } from '@/lib/db/fitness-discrepancies'
+import { updatePowerBestsFromSession, STANDARD_DURATIONS } from '@/lib/db/power-bests'
 
 const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
@@ -572,7 +573,151 @@ async function detectFitnessDiscrepancies(
 }
 
 /**
- * Full sync: activities + wellness
+ * Sync power bests from intervals.icu power curves
+ */
+export async function syncPowerBests(
+  athleteId: string,
+  options: SyncOptions = {}
+): Promise<{ synced: number; errors: string[] }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { synced: 0, errors: ['Supabase not configured'] }
+  }
+
+  const errors: string[] = []
+  let synced = 0
+
+  // Determine date range (default to last 90 days for power bests)
+  const newest = options.until || formatDateForApi(new Date())
+  let oldest: string
+
+  if (options.force) {
+    const oldestDate = new Date()
+    oldestDate.setDate(oldestDate.getDate() - DEFAULT_LOOKBACK_DAYS)
+    oldest = options.since || formatDateForApi(oldestDate)
+  } else {
+    // For power bests, default to last 90 days
+    const oldestDate = new Date()
+    oldestDate.setDate(oldestDate.getDate() - 90)
+    oldest = options.since || formatDateForApi(oldestDate)
+  }
+
+  // Get athlete weight for W/kg calculation
+  const { data: athlete } = await supabase
+    .from('athletes')
+    .select('weight_kg')
+    .eq('id', athleteId)
+    .single()
+
+  const weightKg = athlete?.weight_kg || undefined
+
+  // Try intervals.icu power curves endpoint first
+  try {
+    const powerCurves = await intervalsClient.getPowerCurves(oldest, newest)
+
+    if (powerCurves && powerCurves.length > 0) {
+      // Filter to standard durations and format for our function
+      const standardCurves = powerCurves
+        .filter(pc => STANDARD_DURATIONS.includes(pc.secs as typeof STANDARD_DURATIONS[number]))
+        .map(pc => ({
+          durationSeconds: pc.secs,
+          watts: pc.watts,
+        }))
+
+      if (standardCurves.length > 0) {
+        const today = formatDateForApi(new Date())
+        const newBests = await updatePowerBestsFromSession(
+          athleteId,
+          'intervals_icu_sync',
+          today,
+          standardCurves,
+          weightKg
+        )
+        synced = newBests.length
+        console.log(`[Sync] Power bests synced from intervals.icu: ${synced} new records`)
+        return { synced, errors }
+      }
+    }
+  } catch (error) {
+    // Power curves endpoint not available, fall back to local session data
+    console.log('[Sync] Power curves API not available, using local session data')
+  }
+
+  // Fallback: Extract power bests from local sessions
+  try {
+    const { data: sessions } = await supabase
+      .from('sessions')
+      .select('id, date, max_power, normalized_power, avg_power, duration_seconds')
+      .eq('athlete_id', athleteId)
+      .gte('date', oldest)
+      .lte('date', newest)
+      .order('date', { ascending: false })
+      .limit(100)
+
+    // Use sessions with any power data (max_power, normalized_power, or avg_power)
+    const sessionsWithAnyPower = sessions?.filter(s =>
+      (s.max_power && s.max_power > 0) ||
+      (s.normalized_power && s.normalized_power > 0) ||
+      (s.avg_power && s.avg_power > 0)
+    ) || []
+
+    if (sessionsWithAnyPower.length > 0) {
+      // Find best max_power (use as 5s approximation)
+      const bestMaxPower = sessionsWithAnyPower.reduce((best, s) =>
+        (s.max_power || 0) > (best.max_power || 0) ? s : best
+      )
+
+      // Find best normalized_power for longer efforts (20min approximation)
+      const bestNP = sessionsWithAnyPower.reduce((best, s) =>
+        (s.normalized_power || 0) > (best.normalized_power || 0) ? s : best
+      )
+
+      // Find best avg_power for sustained efforts (1hr approximation for long rides)
+      const longRides = sessionsWithAnyPower.filter(s => (s.duration_seconds || 0) >= 3600)
+      const bestAvgPower = longRides.length > 0
+        ? longRides.reduce((best, s) => (s.avg_power || 0) > (best.avg_power || 0) ? s : best)
+        : null
+
+      const powerData: { durationSeconds: number; watts: number }[] = []
+
+      // 5s peak (approximated from max_power)
+      if (bestMaxPower.max_power && bestMaxPower.max_power > 0) {
+        powerData.push({ durationSeconds: 5, watts: bestMaxPower.max_power })
+      }
+
+      // 20min (approximated from normalized_power)
+      if (bestNP.normalized_power && bestNP.normalized_power > 0) {
+        powerData.push({ durationSeconds: 1200, watts: bestNP.normalized_power })
+      }
+
+      // 1hr (from avg power of long rides)
+      if (bestAvgPower?.avg_power && bestAvgPower.avg_power > 0) {
+        powerData.push({ durationSeconds: 3600, watts: bestAvgPower.avg_power })
+      }
+
+      if (powerData.length > 0) {
+        const today = formatDateForApi(new Date())
+        const newBests = await updatePowerBestsFromSession(
+          athleteId,
+          'local_sessions_sync',
+          today,
+          powerData,
+          weightKg
+        )
+        synced = newBests.length
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    errors.push(`Power bests fallback: ${message}`)
+    console.error('[Sync] Power bests fallback error:', message)
+  }
+
+  return { synced, errors }
+}
+
+/**
+ * Full sync: activities + wellness + power bests
  */
 export async function syncAll(
   athleteId: string,
@@ -612,6 +757,10 @@ export async function syncAll(
   const wellnessResult = await syncWellness(athleteId, options)
   allErrors.push(...wellnessResult.errors)
 
+  // Sync power bests
+  const powerBestsResult = await syncPowerBests(athleteId, options)
+  allErrors.push(...powerBestsResult.errors)
+
   // Update final status
   const syncLog = await getSyncLog(athleteId)
   await upsertSyncLog(athleteId, {
@@ -628,6 +777,84 @@ export async function syncAll(
     errors: allErrors,
     duration_ms: Date.now() - startTime,
   }
+}
+
+/**
+ * Backfill historical wellness/fitness data from intervals.icu
+ *
+ * One-time migration to pull 90+ days of historical CTL/ATL/TSB and store
+ * in the fitness_history table. Uses the `oldest_activity_date` field in
+ * sync_log to track backfill progress so it can be resumed if interrupted.
+ */
+export async function backfillWellness(
+  athleteId: string,
+  options: { days?: number } = {}
+): Promise<{ synced: number; oldest_date: string; newest_date: string; errors: string[] }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { synced: 0, oldest_date: '', newest_date: '', errors: ['Supabase not configured'] }
+  }
+
+  const days = options.days || 120 // Default to 120 days (well over 90)
+  const errors: string[] = []
+  let synced = 0
+
+  // Calculate date range
+  const newestDate = new Date()
+  const oldestDate = new Date()
+  oldestDate.setDate(oldestDate.getDate() - days)
+
+  const newest = formatDateForApi(newestDate)
+  const oldest = formatDateForApi(oldestDate)
+
+  try {
+    // Fetch wellness from intervals.icu for the full range
+    const wellnessData = await intervalsClient.getWellness(oldest, newest)
+
+    if (!wellnessData || wellnessData.length === 0) {
+      return { synced: 0, oldest_date: oldest, newest_date: newest, errors: ['No wellness data returned from intervals.icu'] }
+    }
+
+    // Filter out records without valid dates and transform
+    const validWellness = wellnessData.filter(w => w.id || w.date)
+    const fitnessRecords: FitnessHistoryInsert[] = validWellness.map(w =>
+      transformWellness(w, athleteId)
+    )
+
+    // Upsert in batches to handle large datasets
+    const BATCH_SIZE = 100
+    for (let i = 0; i < fitnessRecords.length; i += BATCH_SIZE) {
+      const batch = fitnessRecords.slice(i, i + BATCH_SIZE)
+
+      const { error } = await supabase
+        .from('fitness_history')
+        .upsert(batch, {
+          onConflict: 'athlete_id,date',
+          ignoreDuplicates: false,
+        })
+
+      if (error) {
+        errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
+      } else {
+        synced += batch.length
+      }
+    }
+
+    // Track backfill progress in sync_log
+    if (synced > 0) {
+      const syncLog = await getSyncLog(athleteId)
+      await upsertSyncLog(athleteId, {
+        oldest_activity_date: oldest,
+        wellness_synced: (syncLog?.wellness_synced || 0) + synced,
+        last_sync_at: new Date().toISOString(),
+      })
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    errors.push(message)
+  }
+
+  return { synced, oldest_date: oldest, newest_date: newest, errors }
 }
 
 /**
