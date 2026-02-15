@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { MetricGoalType, MetricConditions, GoalProgress } from '@/types'
+import { logger } from '@/lib/logger'
 
 export interface Goal {
   id: string
@@ -193,7 +194,7 @@ export async function updateGoalProgress(
     })
 
   if (progressError) {
-    console.error('[Goals] Failed to insert progress:', progressError)
+    logger.error('[Goals] Failed to insert progress:', progressError)
     return null
   }
 

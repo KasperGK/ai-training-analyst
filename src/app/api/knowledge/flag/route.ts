@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createFlag, hasUserFlaggedArticle, type FlagType } from '@/lib/db/knowledge-flags'
 import { getArticleBySlug } from '@/lib/wiki/articles'
+import { logger } from '@/lib/logger'
 
 const VALID_FLAG_TYPES: FlagType[] = ['inaccurate', 'outdated', 'misleading', 'needs_source']
 
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
       message: 'Thank you for your feedback. We will review this content.',
     })
   } catch (error) {
-    console.error('Error in POST /api/knowledge/flag:', error)
+    logger.error('Error in POST /api/knowledge/flag:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

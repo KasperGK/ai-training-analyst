@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/fitness/compare
@@ -91,7 +92,7 @@ export async function GET() {
       },
     })
   } catch (error) {
-    console.error('Fitness compare error:', error)
+    logger.error('Fitness compare error:', error)
     return NextResponse.json(
       { error: 'Failed to compare fitness data', connected: true },
       { status: 500 }

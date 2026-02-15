@@ -3,8 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { intervalsClient } from '@/lib/intervals-icu'
 import { syncAll } from '@/lib/sync/intervals-sync'
+import { logger } from '@/lib/logger'
+
+const debugEnabled = process.env.ENABLE_DEBUG_API === 'true'
 
 export async function GET() {
+  if (!debugEnabled) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json({ error: 'No supabase' })
@@ -46,6 +53,10 @@ export async function GET() {
  * POST /api/debug - Run sync with detailed output for debugging
  */
 export async function POST() {
+  if (!debugEnabled) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   const supabase = await createClient()
   if (!supabase) {
     return NextResponse.json({ error: 'No supabase' })
@@ -80,8 +91,8 @@ export async function POST() {
     .select('*', { count: 'exact', head: true })
     .eq('athlete_id', user.id)
 
-  console.log('[debug-sync] Starting sync for athlete:', user.id)
-  console.log('[debug-sync] Sessions before:', beforeCount)
+  logger.debug('[debug-sync] Starting sync for athlete:', user.id)
+  logger.debug('[debug-sync] Sessions before:', beforeCount)
 
   // Run sync with force
   const result = await syncAll(user.id, { force: true })
@@ -92,8 +103,8 @@ export async function POST() {
     .select('*', { count: 'exact', head: true })
     .eq('athlete_id', user.id)
 
-  console.log('[debug-sync] Sessions after:', afterCount)
-  console.log('[debug-sync] Result:', JSON.stringify(result))
+  logger.debug('[debug-sync] Sessions after:', afterCount)
+  logger.debug('[debug-sync] Result:', JSON.stringify(result))
 
   return NextResponse.json({
     athleteId: user.id,

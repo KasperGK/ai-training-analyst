@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding } from './embeddings'
 import { getArticleBySlug, type ConfidenceLevel } from '@/lib/wiki/articles'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
 
 export interface WikiChunk {
   id: string
@@ -43,7 +44,7 @@ export async function storeWikiChunks(
 ): Promise<boolean> {
   const supabase = await createClient()
   if (!supabase) {
-    console.error('Supabase client not available')
+    logger.error('Supabase client not available')
     return false
   }
 
@@ -61,7 +62,7 @@ export async function storeWikiChunks(
   })
 
   if (error) {
-    console.error('Error storing wiki chunks:', error)
+    logger.error('Error storing wiki chunks:', error)
     return false
   }
 
@@ -79,7 +80,7 @@ export async function searchWiki(
 
   const supabase = await createClient()
   if (!supabase) {
-    console.error('Supabase client not available')
+    logger.error('Supabase client not available')
     return []
   }
 
@@ -94,7 +95,7 @@ export async function searchWiki(
   })
 
   if (error) {
-    console.error('Error searching wiki:', error)
+    logger.error('Error searching wiki:', error)
     return []
   }
 
@@ -130,7 +131,7 @@ export async function storeSessionEmbedding(
 ): Promise<boolean> {
   const client = supabase || await createClient()
   if (!client) {
-    console.error('Supabase client not available')
+    logger.error('Supabase client not available')
     return false
   }
 
@@ -145,7 +146,7 @@ export async function storeSessionEmbedding(
   )
 
   if (error) {
-    console.error('Error storing session embedding:', error)
+    logger.error('Error storing session embedding:', error)
     return false
   }
 
@@ -164,7 +165,7 @@ export async function searchSessions(
 
   const supabase = await createClient()
   if (!supabase) {
-    console.error('Supabase client not available')
+    logger.error('Supabase client not available')
     return []
   }
 
@@ -180,7 +181,7 @@ export async function searchSessions(
   })
 
   if (error) {
-    console.error('Error searching sessions:', error)
+    logger.error('Error searching sessions:', error)
     return []
   }
 
@@ -197,7 +198,7 @@ export async function clearWikiChunks(): Promise<boolean> {
   const { error } = await supabase.from('wiki_chunks').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
   if (error) {
-    console.error('Error clearing wiki chunks:', error)
+    logger.error('Error clearing wiki chunks:', error)
     return false
   }
 
@@ -216,7 +217,7 @@ export async function getWikiChunkCount(): Promise<number> {
     .select('*', { count: 'exact', head: true })
 
   if (error) {
-    console.error('Error counting wiki chunks:', error)
+    logger.error('Error counting wiki chunks:', error)
     return 0
   }
 

@@ -112,10 +112,7 @@ Common patterns:
   inputSchema,
 
   execute: async (input, ctx) => {
-    console.log('[findSessions] Querying with athleteId:', ctx.athleteId)
-
     if (!ctx.athleteId) {
-      console.log('[findSessions] No athleteId - returning empty')
       return {
         sessions: [],
         totalFound: 0,
@@ -133,7 +130,6 @@ Common patterns:
       const fromDate = new Date(now)
       fromDate.setDate(fromDate.getDate() - input.daysBack)
       dateFrom = fromDate.toISOString().split('T')[0]
-      console.log(`[findSessions] daysBack=${input.daysBack}, dateFrom=${dateFrom}, dateTo=${dateTo}`)
     }
 
     // Build search criteria description
@@ -154,15 +150,6 @@ Common patterns:
         endDate: dateTo,
         nameSearch: input.nameSearch,
       })
-      console.log('[findSessions] Got', allSessions.length, 'sessions from DB')
-      if (allSessions.length > 0) {
-        console.log('[findSessions] First session:', {
-          id: allSessions[0].id,
-          date: allSessions[0].date,
-          workout_type: allSessions[0].workout_type,
-        })
-      }
-
       // Apply additional filters
       let filtered = allSessions.filter(s => {
         // Type filter
@@ -195,7 +182,6 @@ Common patterns:
           endDate: dateTo,
           nameSearch: input.nameSearch,
         })
-        console.log('[findSessions] Got', raceResults.length, 'race results from ZwiftPower')
 
         // Step 2: Build sessions from ZwiftPower results, enriched with session metrics where available
         const zwiftpowerSessions: SessionSummary[] = []
@@ -325,7 +311,6 @@ Common patterns:
           endDate: dateTo,
           nameSearch: input.nameSearch,
         })
-        console.log('[findSessions] Got', raceResults.length, 'race results from ZwiftPower')
 
         if (raceResults.length > 0) {
           const sessionDates = new Set(sessions.map(s => s.date.split('T')[0]))

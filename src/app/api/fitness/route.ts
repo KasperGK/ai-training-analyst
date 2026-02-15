@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getCurrentFitness, getFitnessHistory } from '@/lib/db/fitness'
 import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
 import { buildPMCData } from '@/lib/transforms'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/fitness
@@ -118,7 +119,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       lastUpdated: newest,
     })
   } catch (error) {
-    console.error('Fitness API error:', error)
+    logger.error('Fitness API error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch fitness data', connected: true },
       { status: 500 }

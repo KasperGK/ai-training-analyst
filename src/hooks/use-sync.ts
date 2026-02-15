@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { logger } from '@/lib/logger'
 
 interface SyncStatus {
   connected: boolean
@@ -54,7 +55,7 @@ export function useSync(options: UseSyncOptions = {}) {
         return data
       }
     } catch (error) {
-      console.error('Failed to fetch sync status:', error)
+      logger.error('Failed to fetch sync status:', error)
     }
     return null
   }, [])
@@ -87,10 +88,10 @@ export function useSync(options: UseSyncOptions = {}) {
         // Auto-generate insights after successful sync with new data
         if (result.success && (result.activitiesSynced > 0 || result.wellnessSynced > 0)) {
           try {
-            console.log('[Sync] Generating insights from synced data...')
+            logger.info('[Sync] Generating insights from synced data...')
             await fetch('/api/insights/generate', { method: 'POST' })
           } catch (err) {
-            console.warn('[Sync] Failed to generate insights:', err)
+            logger.warn('[Sync] Failed to generate insights:', err)
           }
         }
 
@@ -100,11 +101,11 @@ export function useSync(options: UseSyncOptions = {}) {
         return null
       } else {
         const error = await res.json()
-        console.error('Sync failed:', error)
+        logger.error('Sync failed:', error)
         return null
       }
     } catch (error) {
-      console.error('Sync error:', error)
+      logger.error('Sync error:', error)
       return null
     } finally {
       setSyncing(false)
@@ -129,10 +130,10 @@ export function useSync(options: UseSyncOptions = {}) {
       // 3. Not currently syncing
       if (statusData?.connected && statusData?.needsSync && statusData?.syncLog?.status !== 'syncing') {
         hasAutoSynced.current = true
-        console.log('[Sync] Auto-syncing data from intervals.icu...')
+        logger.info('[Sync] Auto-syncing data from intervals.icu...')
         const result = await sync(false)
         if (result?.success) {
-          console.log(`[Sync] Synced ${result.activitiesSynced} activities, ${result.wellnessSynced} fitness records`)
+          logger.info(`[Sync] Synced ${result.activitiesSynced} activities, ${result.wellnessSynced} fitness records`)
         }
       }
     }

@@ -26,6 +26,7 @@ import {
   Bell,
   MessageSquare,
 } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 interface Insight {
   id: string
@@ -128,7 +129,7 @@ export function InsightFeed({
       })
       setInsights(prev => prev.filter(i => i.id !== insightId))
     } catch (err) {
-      console.error('Failed to mark as read:', err)
+      logger.error('Failed to mark as read:', err)
     }
   }
 
@@ -141,7 +142,7 @@ export function InsightFeed({
       })
       setInsights(prev => prev.filter(i => i.id !== insightId))
     } catch (err) {
-      console.error('Failed to dismiss:', err)
+      logger.error('Failed to dismiss:', err)
     }
   }
 

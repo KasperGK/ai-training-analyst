@@ -7,6 +7,7 @@ import {
   parseMeasurements,
   refreshWithingsToken,
 } from '@/lib/withings'
+import { logger } from '@/lib/logger'
 
 export async function POST() {
   const supabase = await createClient()
@@ -58,7 +59,7 @@ export async function POST() {
 
         accessToken = refreshResponse.body.access_token
       } catch (error) {
-        console.error('Failed to refresh Withings token:', error)
+        logger.error('Failed to refresh Withings token:', error)
         return NextResponse.json({ error: 'Token refresh failed' }, { status: 401 })
       }
     }
@@ -100,7 +101,7 @@ export async function POST() {
       updated: result.updated,
     })
   } catch (error) {
-    console.error('Withings sync error:', error)
+    logger.error('Withings sync error:', error)
     return NextResponse.json(
       { error: 'Failed to sync Withings data' },
       { status: 500 }

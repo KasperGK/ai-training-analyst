@@ -9,6 +9,7 @@ import { articles } from '@/lib/wiki/articles'
 import { chunkWikiArticle } from './chunker'
 import { generateEmbeddings, getProviderInfo } from './embeddings'
 import { storeWikiChunks, getWikiChunkCount, clearWikiChunks } from './vector-store'
+import { logger } from '@/lib/logger'
 
 // Track seeding state to avoid concurrent seeds
 let seedingPromise: Promise<boolean> | null = null
@@ -39,16 +40,16 @@ export async function ensureWikiSeeded(): Promise<boolean> {
     const expectedMinChunks = articles.length * 5
 
     if (chunkCount >= expectedMinChunks) {
-      console.log(`[Auto-seed] Wiki already seeded: ${chunkCount} chunks`)
+      logger.info(`[Auto-seed] Wiki already seeded: ${chunkCount} chunks`)
       return true
     }
 
     // Need to seed - check if partial or empty
     if (chunkCount > 0 && chunkCount < expectedMinChunks) {
-      console.log(`[Auto-seed] Partial seed detected (${chunkCount} chunks, expected ~${expectedMinChunks}). Re-seeding...`)
+      logger.info(`[Auto-seed] Partial seed detected (${chunkCount} chunks, expected ~${expectedMinChunks}). Re-seeding...`)
       seedingPromise = seedWiki(true) // Force re-seed
     } else {
-      console.log(`[Auto-seed] Wiki not seeded. Seeding ${articles.length} articles...`)
+      logger.info(`[Auto-seed] Wiki not seeded. Seeding ${articles.length} articles...`)
       seedingPromise = seedWiki(false)
     }
 
@@ -56,7 +57,7 @@ export async function ensureWikiSeeded(): Promise<boolean> {
     seedingPromise = null
     return result
   } catch (error) {
-    console.error('[Auto-seed] Error checking seed status:', error)
+    logger.error('[Auto-seed] Error checking seed status:', error)
     seedingPromise = null
     return false
   }
@@ -69,7 +70,7 @@ async function seedWiki(force: boolean): Promise<boolean> {
   try {
     // Clear existing if force
     if (force) {
-      console.log('[Auto-seed] Clearing existing wiki chunks...')
+      logger.info('[Auto-seed] Clearing existing wiki chunks...')
       await clearWikiChunks()
     }
 
@@ -97,7 +98,7 @@ async function seedWiki(force: boolean): Promise<boolean> {
       }
     }
 
-    console.log(`[Auto-seed] Generated ${allChunks.length} chunks, generating embeddings...`)
+    logger.info(`[Auto-seed] Generated ${allChunks.length} chunks, generating embeddings...`)
 
     // Generate embeddings for all chunks
     const contents = allChunks.map((c) => c.content)
@@ -113,16 +114,16 @@ async function seedWiki(force: boolean): Promise<boolean> {
     const success = await storeWikiChunks(chunksWithEmbeddings)
 
     if (!success) {
-      console.error('[Auto-seed] Failed to store wiki chunks')
+      logger.error('[Auto-seed] Failed to store wiki chunks')
       return false
     }
 
     const providerInfo = getProviderInfo()
-    console.log(`[Auto-seed] Successfully seeded ${chunksWithEmbeddings.length} wiki chunks using ${providerInfo.provider}`)
+    logger.info(`[Auto-seed] Successfully seeded ${chunksWithEmbeddings.length} wiki chunks using ${providerInfo.provider}`)
 
     return true
   } catch (error) {
-    console.error('[Auto-seed] Error seeding wiki:', error)
+    logger.error('[Auto-seed] Error seeding wiki:', error)
     return false
   }
 }

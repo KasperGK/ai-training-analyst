@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool } from './types'
 import { searchWiki, searchSessions } from '@/lib/rag/vector-store'
+import { logger } from '@/lib/logger'
 
 const inputSchema = z.object({
   query: z.string().describe('The search query - be specific about what information you need'),
@@ -62,7 +63,7 @@ export const searchKnowledge = defineTool<Input, Output>({
           sourceCount: r.sourceCount,
         }))
       } catch (error) {
-        console.error('[searchKnowledge] Wiki search error:', error)
+        logger.error('[searchKnowledge] Wiki search error:', error)
       }
     }
 
@@ -75,7 +76,7 @@ export const searchKnowledge = defineTool<Input, Output>({
           relevance: Math.round((r.similarity || 0) * 100),
         }))
       } catch (error) {
-        console.error('[searchKnowledge] Session search error:', error)
+        logger.error('[searchKnowledge] Session search error:', error)
       }
     }
 

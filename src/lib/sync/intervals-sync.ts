@@ -18,6 +18,7 @@ import { createFitnessDiscrepancyInsight } from '@/lib/insights/insight-generato
 import { embedNewSessions } from '@/lib/rag/session-embeddings'
 import { features } from '@/lib/features'
 import { syncZwiftPowerRaces, shouldSyncZwiftPower } from '@/lib/sync/zwiftpower-sync'
+import { logger } from '@/lib/logger'
 
 const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
@@ -53,11 +54,11 @@ async function ensureAthleteExists(athleteId: string): Promise<boolean> {
     })
 
   if (error) {
-    console.error('Failed to create athlete record:', error)
+    logger.error('Failed to create athlete record:', error)
     return false
   }
 
-  console.log('[Sync] Created athlete record for user:', athleteId)
+  logger.info('[Sync] Created athlete record for user:', athleteId)
   return true
 }
 
@@ -76,7 +77,7 @@ export async function getSyncLog(athleteId: string): Promise<SyncLog | null> {
     .single()
 
   if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching sync log:', error)
+    logger.error('Error fetching sync log:', error)
     return null
   }
 
@@ -245,11 +246,11 @@ export async function syncAthleteProfile(
       .eq('id', athleteId)
 
     if (error) {
-      console.error('[Sync] Failed to sync athlete profile:', error)
+      logger.error('[Sync] Failed to sync athlete profile:', error)
       return { updated: false, error: error.message }
     }
 
-    console.log('[Sync] Synced athlete profile:', {
+    logger.info('[Sync] Synced athlete profile:', {
       ftp: cycling?.ftp,
       max_hr: cycling?.max_hr,
       lthr: cycling?.lthr,
@@ -260,7 +261,7 @@ export async function syncAthleteProfile(
     return { updated: true }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error('[Sync] Failed to fetch athlete from intervals.icu:', message)
+    logger.error('[Sync] Failed to fetch athlete from intervals.icu:', message)
     return { updated: false, error: message }
   }
 }
@@ -344,8 +345,8 @@ export async function syncActivities(
       a.source !== 'STRAVA' && a.type && a.moving_time != null
     )
 
-    console.log('[sync] API returned', activities.length, 'activities')
-    console.log('[sync] After filtering:', validActivities.length, 'valid activities (excluded', activities.length - validActivities.length, 'STRAVA/invalid)')
+    logger.info('[sync] API returned', activities.length, 'activities')
+    logger.info('[sync] After filtering:', validActivities.length, 'valid activities (excluded', activities.length - validActivities.length, 'STRAVA/invalid)')
 
     // Transform activities individually to catch errors without crashing entire sync
     const sessions: SessionInsert[] = []
@@ -356,21 +357,21 @@ export async function syncActivities(
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Unknown error'
         transformErrors.push(`Activity ${activity.id}: ${msg}`)
-        console.error('[sync] Transform error for activity', activity.id, ':', msg)
+        logger.error('[sync] Transform error for activity', activity.id, ':', msg)
       }
     }
     if (transformErrors.length > 0) {
-      console.warn('[sync] Skipped', transformErrors.length, 'activities due to transform errors')
+      logger.warn('[sync] Skipped', transformErrors.length, 'activities due to transform errors')
       errors.push(...transformErrors.slice(0, 5)) // Only add first 5 to avoid huge error lists
     }
-    console.log('[sync] After transform:', sessions.length, 'sessions ready for upsert')
+    logger.info('[sync] After transform:', sessions.length, 'sessions ready for upsert')
 
     // Upsert in batches with actual count tracking
     const totalBatches = Math.ceil(sessions.length / batchSize)
     for (let i = 0; i < sessions.length; i += batchSize) {
       const batch = sessions.slice(i, i + batchSize)
       const batchNum = Math.floor(i / batchSize) + 1
-      console.log(`[sync] Batch ${batchNum}/${totalBatches} - upserting ${batch.length} sessions`)
+      logger.info(`[sync] Batch ${batchNum}/${totalBatches} - upserting ${batch.length} sessions`)
 
       // Use .select('id') to get actual count of upserted rows
       const { data, error } = await supabase
@@ -382,16 +383,16 @@ export async function syncActivities(
         .select('id')
 
       if (error) {
-        console.error('[sync] Upsert error in batch', batchNum, ':', error)
+        logger.error('[sync] Upsert error in batch', batchNum, ':', error)
         errors.push(`Batch ${batchNum}: ${error.message}`)
       } else {
         const actualCount = data?.length ?? batch.length
         synced += actualCount
-        console.log(`[sync] Batch ${batchNum} complete: ${actualCount} sessions upserted`)
+        logger.info(`[sync] Batch ${batchNum} complete: ${actualCount} sessions upserted`)
       }
     }
 
-    console.log('[sync] Sync complete:', synced, 'sessions upserted from', sessions.length, 'transformed')
+    logger.info('[sync] Sync complete:', synced, 'sessions upserted from', sessions.length, 'transformed')
 
     // Find the newest activity date for sync log
     const newestActivity = validActivities.reduce((newest, a) => {
@@ -555,13 +556,13 @@ export async function syncPowerBests(
           weightKg
         )
         synced = newBests.length
-        console.log(`[Sync] Power bests synced from intervals.icu: ${synced} new records`)
+        logger.info(`[Sync] Power bests synced from intervals.icu: ${synced} new records`)
         return { synced, errors }
       }
     }
   } catch (error) {
     // Power curves endpoint not available, fall back to local session data
-    console.log('[Sync] Power curves API not available, using local session data')
+    logger.info('[Sync] Power curves API not available, using local session data')
   }
 
   // Fallback: Extract power bests from local sessions
@@ -631,7 +632,7 @@ export async function syncPowerBests(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     errors.push(`Power bests fallback: ${message}`)
-    console.error('[Sync] Power bests fallback error:', message)
+    logger.error('[Sync] Power bests fallback error:', message)
   }
 
   return { synced, errors }
@@ -646,7 +647,7 @@ async function checkFitnessDiscrepancy(athleteId: string): Promise<void> {
     // Get local fitness from database
     const localFitness = await getCurrentFitness(athleteId)
     if (!localFitness) {
-      console.log('[Sync] No local fitness data to compare')
+      logger.info('[Sync] No local fitness data to compare')
       return
     }
 
@@ -657,7 +658,7 @@ async function checkFitnessDiscrepancy(athleteId: string): Promise<void> {
 
     const remoteFitness = wellness.find(w => w.id === today) || wellness[wellness.length - 1]
     if (!remoteFitness) {
-      console.log('[Sync] No remote fitness data to compare')
+      logger.info('[Sync] No remote fitness data to compare')
       return
     }
 
@@ -666,7 +667,7 @@ async function checkFitnessDiscrepancy(athleteId: string): Promise<void> {
     const threshold = Math.max(5, localFitness.ctl * 0.1) // 5 points or 10%, whichever is greater
 
     if (ctlDiff > threshold) {
-      console.log(`[Sync] Fitness discrepancy detected: local=${localFitness.ctl}, remote=${Math.round(remoteFitness.ctl)}, diff=${Math.round(ctlDiff)}`)
+      logger.info(`[Sync] Fitness discrepancy detected: local=${localFitness.ctl}, remote=${Math.round(remoteFitness.ctl)}, diff=${Math.round(ctlDiff)}`)
       await createFitnessDiscrepancyInsight(
         athleteId,
         localFitness.ctl,
@@ -675,7 +676,7 @@ async function checkFitnessDiscrepancy(athleteId: string): Promise<void> {
       )
     }
   } catch (error) {
-    console.error('[Sync] Error checking fitness discrepancy:', error)
+    logger.error('[Sync] Error checking fitness discrepancy:', error)
     // Don't throw - discrepancy check is non-critical
   }
 }
@@ -732,9 +733,9 @@ export async function syncAll(
   if (features.rag && activitiesResult.synced > 0) {
     try {
       const embeddedCount = await embedNewSessions(athleteId)
-      console.log(`[Sync] Generated embeddings for ${embeddedCount} sessions`)
+      logger.info(`[Sync] Generated embeddings for ${embeddedCount} sessions`)
     } catch (error) {
-      console.error('[Sync] Session embedding error (non-critical):', error)
+      logger.error('[Sync] Session embedding error (non-critical):', error)
       // Don't add to errors - this is non-critical
     }
   }
@@ -744,18 +745,18 @@ export async function syncAll(
     try {
       const shouldSync = await shouldSyncZwiftPower(athleteId)
       if (shouldSync) {
-        console.log('[Sync] Triggering ZwiftPower race sync...')
+        logger.info('[Sync] Triggering ZwiftPower race sync...')
         const zpResult = await syncZwiftPowerRaces(athleteId, { since: options.since })
         if (zpResult.racesSynced > 0) {
-          console.log(`[Sync] Synced ${zpResult.racesSynced} races from ZwiftPower`)
+          logger.info(`[Sync] Synced ${zpResult.racesSynced} races from ZwiftPower`)
         }
         if (zpResult.errors.length > 0) {
           // Log but don't add to main errors - ZwiftPower sync is supplementary
-          console.warn('[Sync] ZwiftPower sync warnings:', zpResult.errors)
+          logger.warn('[Sync] ZwiftPower sync warnings:', zpResult.errors)
         }
       }
     } catch (error) {
-      console.error('[Sync] ZwiftPower sync error (non-critical):', error)
+      logger.error('[Sync] ZwiftPower sync error (non-critical):', error)
       // Don't add to errors - ZwiftPower sync is supplementary
     }
   }
@@ -766,13 +767,13 @@ export async function syncAll(
       const { checkGoalProgress } = await import('@/lib/goals/progress-detector')
       const progressResults = await checkGoalProgress(athleteId)
       if (progressResults.goalsUpdated > 0) {
-        console.log(`[Sync] Updated ${progressResults.goalsUpdated} goals`)
+        logger.info(`[Sync] Updated ${progressResults.goalsUpdated} goals`)
       }
       if (progressResults.goalsAchieved > 0) {
-        console.log(`[Sync] ${progressResults.goalsAchieved} goals achieved!`)
+        logger.info(`[Sync] ${progressResults.goalsAchieved} goals achieved!`)
       }
     } catch (error) {
-      console.error('[Sync] Goal progress detection error (non-critical):', error)
+      logger.error('[Sync] Goal progress detection error (non-critical):', error)
       // Don't add to errors - goal progress check is non-critical
     }
   }

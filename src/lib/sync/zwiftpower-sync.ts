@@ -20,6 +20,7 @@ import {
 } from '@/lib/zwiftpower'
 import type { RaceResultInsert } from '@/lib/db/race-results'
 import type { RaceCompetitorInsert } from '@/lib/db/race-competitors'
+import { logger } from '@/lib/logger'
 
 const COMPETITOR_RANGE = 5 // Save competitors ±5 positions from user
 const DEFAULT_LOOKBACK_DAYS = 90
@@ -87,7 +88,7 @@ async function initZwiftPowerClient(athleteId: string): Promise<boolean> {
     .single()
 
   if (error || !data || !data.zwift_username || !data.zwift_password_encrypted) {
-    console.log('[ZwiftPower Sync] No ZwiftPower credentials found')
+    logger.info('[ZwiftPower Sync] No ZwiftPower credentials found')
     return false
   }
 
@@ -96,7 +97,7 @@ async function initZwiftPowerClient(athleteId: string): Promise<boolean> {
     zwiftPowerClient.setCredentials(data.zwift_username, password)
     return await zwiftPowerClient.authenticate()
   } catch (err) {
-    console.error('[ZwiftPower Sync] Authentication failed:', err)
+    logger.error('[ZwiftPower Sync] Authentication failed:', err)
     return false
   }
 }
@@ -177,7 +178,7 @@ function matchRaceToHistory(
       if (Math.abs(entry.avg_power - race.avgPower) > POWER_TOLERANCE_WATTS) continue
     }
 
-    console.log(`[ZwiftPower Sync] Matched: ${race.eventName} → event_id: ${entry.event_id}`)
+    logger.info(`[ZwiftPower Sync] Matched: ${race.eventName} → event_id: ${entry.event_id}`)
     return entry // Found match
   }
 
@@ -258,7 +259,7 @@ async function syncRace(
     )
 
     if (!historyMatch) {
-      console.log(`[ZwiftPower Sync] Could not match in history: ${race.eventName}`)
+      logger.info(`[ZwiftPower Sync] Could not match in history: ${race.eventName}`)
       return { success: false, competitorCount: 0, error: 'Event not found in ZwiftPower history' }
     }
 
@@ -279,7 +280,7 @@ async function syncRace(
     )
 
     if (!userResult) {
-      console.log(`[ZwiftPower Sync] Could not find user in results for: ${race.eventName}`)
+      logger.info(`[ZwiftPower Sync] Could not find user in results for: ${race.eventName}`)
       return { success: false, competitorCount: 0, error: 'User not found in event results' }
     }
 
@@ -370,12 +371,12 @@ async function syncRace(
     // Insert new competitors
     const savedCompetitors = await insertCompetitors(competitors)
 
-    console.log(`[ZwiftPower Sync] Synced race: ${race.eventName} - P${userPosition}/${sameCategoryRiders.length} in ${userResult.category}`)
+    logger.info(`[ZwiftPower Sync] Synced race: ${race.eventName} - P${userPosition}/${sameCategoryRiders.length} in ${userResult.category}`)
 
     return { success: true, competitorCount: savedCompetitors.length }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`[ZwiftPower Sync] Error syncing race ${race.eventName}:`, message)
+    logger.error(`[ZwiftPower Sync] Error syncing race ${race.eventName}:`, message)
     return { success: false, competitorCount: 0, error: message }
   }
 }
@@ -423,9 +424,9 @@ export async function syncZwiftPowerRaces(
   let riderHistory: ZwiftPowerRiderResult[] = []
   if (userZwiftId) {
     riderHistory = await zwiftPowerClient.getRiderHistory(userZwiftId)
-    console.log(`[ZwiftPower Sync] Fetched ${riderHistory.length} races from rider history`)
+    logger.info(`[ZwiftPower Sync] Fetched ${riderHistory.length} races from rider history`)
   } else {
-    console.log('[ZwiftPower Sync] No Zwift ID available, cannot fetch rider history')
+    logger.info('[ZwiftPower Sync] No Zwift ID available, cannot fetch rider history')
     return {
       success: false,
       racesSynced: 0,
@@ -437,7 +438,7 @@ export async function syncZwiftPowerRaces(
 
   // Find recent races from intervals.icu
   const races = await findRecentRaces(athleteId, options.since)
-  console.log(`[ZwiftPower Sync] Found ${races.length} potential races to sync`)
+  logger.info(`[ZwiftPower Sync] Found ${races.length} potential races to sync`)
 
   // Get session data for each race
   for (const race of races) {

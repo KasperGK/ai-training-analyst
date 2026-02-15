@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Database, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 interface BackfillStatus {
   hasBackfilled: boolean
@@ -63,7 +64,7 @@ export function BackfillBanner() {
         await fetchStatus()
       }
     } catch (error) {
-      console.error('Backfill failed:', error)
+      logger.error('Backfill failed:', error)
       setResult({
         success: false,
         synced: 0,

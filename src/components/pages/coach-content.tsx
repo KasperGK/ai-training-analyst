@@ -43,6 +43,7 @@ import {
   MessageSquare,
   Loader2,
 } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 /**
  * Extract canvas action from showOnCanvas tool in message parts.
@@ -642,7 +643,7 @@ export function CoachContent() {
     Promise.all(
       messagesToSave.map((msg) => saveMessageToDb(msg.role, msg.text, msg.toolCalls))
     ).catch((error) => {
-      console.error('[CoachContent] Failed to save messages:', error)
+      logger.error('[CoachContent] Failed to save messages:', error)
     })
 
     lastSavedMessageCount.current = messages.length

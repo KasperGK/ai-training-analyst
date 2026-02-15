@@ -6,6 +6,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 // Zod schema for validating DB rows
 const raceResultRowSchema = z.object({
@@ -72,7 +73,7 @@ export type RaceResultInsert = Omit<RaceResult, 'id'> & { raw_data?: Record<stri
 function parseRaceResultRow(row: unknown): RaceResultRow | null {
   const result = raceResultRowSchema.safeParse(row)
   if (!result.success) {
-    console.warn('[race-results] Invalid row:', result.error.issues)
+    logger.warn('[race-results] Invalid row:', result.error.issues)
     return null
   }
   return result.data
@@ -155,7 +156,7 @@ export async function getRaceResults(
   const { data, error } = await query
 
   if (error || !data) {
-    console.error('[race-results] Error fetching:', error)
+    logger.error('[race-results] Error fetching:', error)
     return []
   }
 
@@ -229,7 +230,7 @@ export async function upsertRaceResult(
     .single()
 
   if (error || !data) {
-    console.error('[race-results] Error upserting:', error)
+    logger.error('[race-results] Error upserting:', error)
     return null
   }
 
@@ -481,7 +482,7 @@ export async function getRaceAnalysisSummaryRPC(
   })
 
   if (error) {
-    console.error('[race-results] RPC get_race_analysis_summary error:', error)
+    logger.error('[race-results] RPC get_race_analysis_summary error:', error)
     return null
   }
 

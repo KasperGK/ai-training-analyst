@@ -12,6 +12,7 @@ import { hasZwiftPowerData } from '@/lib/db/race-results'
 import { buildTools, type ToolContext } from './tools'
 import { parseAthleteContext } from './tools/types'
 import { getConversationSummary } from '@/lib/chat/conversation-manager'
+import { logger } from '@/lib/logger'
 
 export const maxDuration = 30
 
@@ -64,14 +65,14 @@ export async function POST(req: Request): Promise<Response> {
     if (user?.id) {
       effectiveAthleteId = user.id
       if (athleteId && athleteId !== user.id) {
-        console.log('[chat] Overriding frontend athleteId with Supabase user.id:', user.id, '(frontend sent:', athleteId, ')')
+        logger.info('[chat] Overriding frontend athleteId with Supabase user.id:', user.id, '(frontend sent:', athleteId, ')')
       }
     }
   }
   // Fall back to frontend-provided athleteId only if auth unavailable
   if (!effectiveAthleteId && athleteId) {
     effectiveAthleteId = athleteId
-    console.log('[chat] Using frontend-provided athleteId (auth unavailable):', effectiveAthleteId)
+    logger.info('[chat] Using frontend-provided athleteId (auth unavailable):', effectiveAthleteId)
   }
 
   // Get intervals.icu credentials (same pattern as /api/intervals/data)
@@ -113,9 +114,9 @@ export async function POST(req: Request): Promise<Response> {
         }
       }
       effectiveAthleteContext = JSON.stringify(enrichedContext, null, 2)
-      console.log('[chat] Enriched context from intervals.icu:', enrichedContext.athlete)
+      logger.info('[chat] Enriched context from intervals.icu:', enrichedContext.athlete)
     } catch (error) {
-      console.error('[chat] Failed to fetch athlete from intervals.icu:', error)
+      logger.error('[chat] Failed to fetch athlete from intervals.icu:', error)
     }
   }
 
@@ -154,7 +155,7 @@ Note: These insights are already available - you don't need to call getActiveIns
       }
     } catch (e) {
       // Don't fail chat if insights fetch fails
-      console.error('Failed to pre-fetch insights:', e)
+      logger.error('[chat] Failed to pre-fetch insights:', e)
     }
   }
 
@@ -176,7 +177,7 @@ If the athlete asks about previous discussions or you need context from past con
         systemPrompt = `${systemPrompt}\n\n${historySection}`
       }
     } catch (e) {
-      console.error('Failed to fetch conversation summary:', e)
+      logger.error('[chat] Failed to fetch conversation summary:', e)
     }
   }
 
@@ -204,7 +205,7 @@ You have a canvas. When users ask to "show", "display", or "see" data:
   // Ensure wiki is seeded for RAG (lazy initialization, runs in background)
   if (features.rag) {
     ensureWikiSeeded().catch(err => {
-      console.error('[chat] Auto-seed error:', err)
+      logger.error('[chat] Auto-seed error:', err)
     })
   }
 

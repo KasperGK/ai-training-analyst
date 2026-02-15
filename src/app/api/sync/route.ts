@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { intervalsClient } from '@/lib/intervals-icu'
 import { syncAll, getSyncLog, isSyncNeeded } from '@/lib/sync/intervals-sync'
 import { generateInsights } from '@/lib/insights/insight-generator'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/sync - Get sync status for current user
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
         insightsGenerated = insightResult.insightsCreated
       } catch (insightError) {
         // Log but don't fail the sync
-        console.error('Failed to generate insights after sync:', insightError)
+        logger.error('Failed to generate insights after sync:', insightError)
       }
     }
     // === END PHASE 8.1 ===
@@ -149,7 +150,7 @@ export async function POST(request: Request) {
       duration_ms: result.duration_ms,
     })
   } catch (error) {
-    console.error('Sync error:', error)
+    logger.error('Sync error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Sync failed' },
       { status: 500 }

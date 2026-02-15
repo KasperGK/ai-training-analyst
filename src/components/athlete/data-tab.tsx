@@ -51,6 +51,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { logger } from '@/lib/logger'
 
 // PMC/History chart config
 const pmcChartConfig = {
@@ -226,7 +227,7 @@ function HistorySection() {
         setPmcData(data.pmcData || [])
       }
     } catch (error) {
-      console.error('Failed to load PMC data:', error)
+      logger.error('Failed to load PMC data:', error)
     } finally {
       setLoading(false)
     }
@@ -365,7 +366,7 @@ function EventsSection() {
           setGoals(data.goals || [])
         }
       } catch (error) {
-        console.error('Failed to fetch events/goals:', error)
+        logger.error('Failed to fetch events/goals:', error)
       } finally {
         setLoading(false)
       }

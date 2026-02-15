@@ -14,6 +14,7 @@ import {
   updatePlanDay as updateDay
 } from '@/lib/db/training-plans'
 import { analyzeAthletePatterns, summarizePatterns } from '@/lib/learning'
+import { logger } from '@/lib/logger'
 
 // ============================================================
 // GENERATE TRAINING PLAN
@@ -210,7 +211,7 @@ export const generateTrainingPlan = defineTool<GeneratePlanInput, unknown>({
         }
       } catch (e) {
         // Log but don't fail - plan was generated successfully
-        console.error('Failed to persist training plan:', e)
+        logger.error('Failed to persist training plan:', e)
       }
     }
 
@@ -352,7 +353,7 @@ export const analyzePatterns = defineTool<AnalyzePatternsInput, unknown>({
         tip: 'These patterns are now being used to personalize workout suggestions and training plans. Patterns update automatically as more outcomes are logged.',
       }
     } catch (error) {
-      console.error('[analyzePatterns] Error:', error)
+      logger.error('[analyzePatterns] Error:', error)
       return { error: 'Failed to analyze patterns' }
     }
   },
@@ -466,7 +467,7 @@ export const getTrainingPlan = defineTool<GetTrainingPlanInput, unknown>({
             : 'Check the weekly schedule above for your upcoming workouts.',
       }
     } catch (error) {
-      console.error('[getTrainingPlan] Error:', error)
+      logger.error('[getTrainingPlan] Error:', error)
       return { error: 'Failed to retrieve training plan' }
     }
   },
@@ -554,7 +555,7 @@ export const updatePlanDay = defineTool<UpdatePlanDayInput, unknown>({
           : 'Plan day updated successfully.',
       }
     } catch (error) {
-      console.error('[updatePlanDay] Error:', error)
+      logger.error('[updatePlanDay] Error:', error)
       return { error: 'Failed to update plan day' }
     }
   },

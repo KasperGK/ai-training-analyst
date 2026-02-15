@@ -11,6 +11,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
+import { logger } from '@/lib/logger'
 
 const STORAGE_KEY = 'custom-suggestions-v1'
 const MAX_SUGGESTIONS = 10
@@ -37,7 +38,7 @@ export function useCustomSuggestions() {
         }
       }
     } catch (e) {
-      console.warn('Failed to load custom suggestions:', e)
+      logger.warn('Failed to load custom suggestions:', e)
     }
   }, [])
 
@@ -48,7 +49,7 @@ export function useCustomSuggestions() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
     } catch (e) {
-      console.warn('Failed to save custom suggestions:', e)
+      logger.warn('Failed to save custom suggestions:', e)
     }
   }, [])
 

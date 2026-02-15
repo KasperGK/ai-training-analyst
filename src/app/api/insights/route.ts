@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getInsights, markInsightRead, dismissInsight, getInsightCounts } from '@/lib/insights/insight-generator'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: Request): Promise<NextResponse> {
   const supabase = await createClient()
@@ -45,7 +46,7 @@ export async function GET(req: Request): Promise<NextResponse> {
       count: insights.length,
     })
   } catch (error) {
-    console.error('[Insights API] Error:', error)
+    logger.error('[Insights API] Error:', error)
     return NextResponse.json({ error: 'Failed to fetch insights' }, { status: 500 })
   }
 }
@@ -85,7 +86,7 @@ export async function PATCH(req: Request): Promise<NextResponse> {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[Insights API] PATCH error:', error)
+    logger.error('[Insights API] PATCH error:', error)
     return NextResponse.json({ error: 'Failed to update insight' }, { status: 500 })
   }
 }

@@ -15,6 +15,7 @@ import {
 } from '@/lib/db/goals'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import type { Session } from '@/types'
+import { logger } from '@/lib/logger'
 
 export interface ProgressDetectionResult {
   goalId: string
@@ -87,7 +88,7 @@ export async function checkGoalProgress(
         await updateGoalLastChecked(goal.id)
       }
     } catch (error) {
-      console.error(`[GoalProgress] Error checking goal ${goal.id}:`, error)
+      logger.error(`[GoalProgress] Error checking goal ${goal.id}:`, error)
       results.push({
         goalId: goal.id,
         goalTitle: goal.title,

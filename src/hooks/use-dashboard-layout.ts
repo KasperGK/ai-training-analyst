@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { Layout, ResponsiveLayouts } from 'react-grid-layout/legacy'
 import { DEFAULT_LAYOUTS } from '@/lib/dashboard/default-layouts'
+import { logger } from '@/lib/logger'
 
 const STORAGE_KEY = 'dashboard-layout-v11'
 
@@ -32,7 +33,7 @@ export function useDashboardLayout() {
         }
       }
     } catch (e) {
-      console.warn('Failed to load dashboard layout:', e)
+      logger.warn('Failed to load dashboard layout:', e)
     }
   }, [])
 
@@ -42,7 +43,7 @@ export function useDashboardLayout() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newLayouts))
     } catch (e) {
-      console.warn('Failed to save dashboard layout:', e)
+      logger.warn('Failed to save dashboard layout:', e)
     }
   }, [])
 

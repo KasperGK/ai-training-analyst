@@ -5,6 +5,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export type FlagType = 'inaccurate' | 'outdated' | 'misleading' | 'needs_source'
 export type FlagStatus = 'pending' | 'reviewing' | 'resolved' | 'rejected'
@@ -71,7 +72,7 @@ export async function createFlag(
     .single()
 
   if (error) {
-    console.error('Error creating knowledge flag:', error)
+    logger.error('Error creating knowledge flag:', error)
     return null
   }
 
@@ -92,7 +93,7 @@ export async function getUserFlags(userId: string): Promise<KnowledgeFlag[]> {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching user flags:', error)
+    logger.error('Error fetching user flags:', error)
     return []
   }
 
@@ -117,7 +118,7 @@ export async function hasUserFlaggedArticle(
     .eq('status', 'pending')
 
   if (error) {
-    console.error('Error checking existing flag:', error)
+    logger.error('Error checking existing flag:', error)
     return false
   }
 

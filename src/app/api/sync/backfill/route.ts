@@ -13,6 +13,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { intervalsClient } from '@/lib/intervals-icu'
 import { backfillWellness, getSyncLog } from '@/lib/sync/intervals-sync'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/sync/backfill - Check if backfill has been completed
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
       duration_ms: Date.now() - startTime,
     })
   } catch (error) {
-    console.error('Backfill error:', error)
+    logger.error('Backfill error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Backfill failed' },
       { status: 500 }

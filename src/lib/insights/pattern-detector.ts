@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getActiveGoals, type Goal } from '@/lib/db/goals'
 import { calculateGoalProgress, calculateGoalRiskLevel } from '@/lib/goals/progress-detector'
 import { getRecentWellness } from '@/lib/db/fitness'
+import { logger } from '@/lib/logger'
 
 export interface DetectedPattern {
   type: 'trend' | 'warning' | 'achievement' | 'suggestion' | 'pattern' | 'event_prep' | 'goal_progress'
@@ -86,7 +87,7 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
   const events = (eventsResult.data || []) as EventData[]
 
   // Log data counts for debugging
-  console.log(`[PatternDetector] Data: ${fitness.length} fitness records, ${sessions.length} sessions, ${events.length} events`)
+  logger.info(`[PatternDetector] Data: ${fitness.length} fitness records, ${sessions.length} sessions, ${events.length} events`)
 
   // Run all pattern detectors
   patterns.push(...detectFitnessTrends(fitness))
@@ -102,7 +103,7 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
     const goals = await getActiveGoals(athleteId)
     patterns.push(...detectGoalPatterns(goals))
   } catch (error) {
-    console.error('[PatternDetector] Error detecting goal patterns:', error)
+    logger.error('[PatternDetector] Error detecting goal patterns:', error)
   }
 
   // Detect ramp rate patterns for overtraining risk
@@ -112,10 +113,10 @@ export async function detectPatterns(athleteId: string): Promise<DetectedPattern
       patterns.push(rampRatePattern)
     }
   } catch (error) {
-    console.error('[PatternDetector] Error detecting ramp rate patterns:', error)
+    logger.error('[PatternDetector] Error detecting ramp rate patterns:', error)
   }
 
-  console.log(`[PatternDetector] Detected ${patterns.length} patterns: ${patterns.map(p => p.type).join(', ')}`)
+  logger.info(`[PatternDetector] Detected ${patterns.length} patterns: ${patterns.map(p => p.type).join(', ')}`)
 
   return patterns
 }

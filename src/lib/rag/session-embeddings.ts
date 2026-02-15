@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding, generateEmbeddings } from './embeddings'
 import { storeSessionEmbedding } from './vector-store'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
 
 interface SessionForEmbedding {
   id: string
@@ -174,10 +175,10 @@ export async function embedSessions(
       if (success) stored++
     }
 
-    console.log(`[Session Embeddings] Embedded ${stored}/${sessions.length} sessions`)
+    logger.info(`[Session Embeddings] Embedded ${stored}/${sessions.length} sessions`)
     return stored
   } catch (error) {
-    console.error('[Session Embeddings] Error embedding sessions:', error)
+    logger.error('[Session Embeddings] Error embedding sessions:', error)
     return 0
   }
 }
@@ -188,7 +189,7 @@ export async function embedSessions(
 export async function embedNewSessions(athleteId: string): Promise<number> {
   const supabase = await createClient()
   if (!supabase) {
-    console.error('[Session Embeddings] Supabase not available')
+    logger.error('[Session Embeddings] Supabase not available')
     return 0
   }
 
@@ -235,12 +236,12 @@ export async function embedNewSessions(athleteId: string): Promise<number> {
       .limit(100)
 
     if (error) {
-      console.error('[Session Embeddings] Error fetching sessions:', error)
+      logger.error('[Session Embeddings] Error fetching sessions:', error)
       return 0
     }
 
     if (!sessions || sessions.length === 0) {
-      console.log('[Session Embeddings] No sessions found')
+      logger.info('[Session Embeddings] No sessions found')
       return 0
     }
 
@@ -248,16 +249,16 @@ export async function embedNewSessions(athleteId: string): Promise<number> {
     const sessionsToEmbed = sessions.filter(s => !embeddedIds.has(s.id))
 
     if (sessionsToEmbed.length === 0) {
-      console.log('[Session Embeddings] All sessions already embedded')
+      logger.info('[Session Embeddings] All sessions already embedded')
       return 0
     }
 
-    console.log(`[Session Embeddings] Found ${sessionsToEmbed.length} sessions to embed:`)
+    logger.info(`[Session Embeddings] Found ${sessionsToEmbed.length} sessions to embed:`)
     sessionsToEmbed.slice(0, 3).forEach(s => {
-      console.log(`  - ${s.date}: ${s.sport} ${s.workout_type || ''} (TSS: ${s.tss})`)
+      logger.info(`  - ${s.date}: ${s.sport} ${s.workout_type || ''} (TSS: ${s.tss})`)
     })
     if (sessionsToEmbed.length > 3) {
-      console.log(`  ... and ${sessionsToEmbed.length - 3} more`)
+      logger.info(`  ... and ${sessionsToEmbed.length - 3} more`)
     }
 
     // Embed in batches of 20 to avoid memory issues
@@ -273,7 +274,7 @@ export async function embedNewSessions(athleteId: string): Promise<number> {
 
     return totalEmbedded
   } catch (error) {
-    console.error('[Session Embeddings] Error in embedNewSessions:', error)
+    logger.error('[Session Embeddings] Error in embedNewSessions:', error)
     return 0
   }
 }
@@ -285,7 +286,7 @@ export async function embedNewSessions(athleteId: string): Promise<number> {
 export async function reembedAllSessions(athleteId: string): Promise<number> {
   const supabase = await createClient()
   if (!supabase) {
-    console.error('[Session Embeddings] Supabase not available')
+    logger.error('[Session Embeddings] Supabase not available')
     return 0
   }
 
@@ -297,11 +298,11 @@ export async function reembedAllSessions(athleteId: string): Promise<number> {
       .eq('athlete_id', athleteId)
 
     if (deleteError) {
-      console.error('[Session Embeddings] Error deleting old embeddings:', deleteError)
+      logger.error('[Session Embeddings] Error deleting old embeddings:', deleteError)
       return 0
     }
 
-    console.log('[Session Embeddings] Cleared existing embeddings, regenerating...')
+    logger.info('[Session Embeddings] Cleared existing embeddings, regenerating...')
 
     // Get all sessions from the last 90 days
     const ninetyDaysAgo = new Date()
@@ -335,16 +336,16 @@ export async function reembedAllSessions(athleteId: string): Promise<number> {
       .limit(100)
 
     if (error) {
-      console.error('[Session Embeddings] Error fetching sessions:', error)
+      logger.error('[Session Embeddings] Error fetching sessions:', error)
       return 0
     }
 
     if (!sessions || sessions.length === 0) {
-      console.log('[Session Embeddings] No sessions found to re-embed')
+      logger.info('[Session Embeddings] No sessions found to re-embed')
       return 0
     }
 
-    console.log(`[Session Embeddings] Re-embedding ${sessions.length} sessions...`)
+    logger.info(`[Session Embeddings] Re-embedding ${sessions.length} sessions...`)
 
     // Embed in batches
     const BATCH_SIZE = 20
@@ -356,10 +357,10 @@ export async function reembedAllSessions(athleteId: string): Promise<number> {
       totalEmbedded += embedded
     }
 
-    console.log(`[Session Embeddings] Re-embedded ${totalEmbedded}/${sessions.length} sessions`)
+    logger.info(`[Session Embeddings] Re-embedded ${totalEmbedded}/${sessions.length} sessions`)
     return totalEmbedded
   } catch (error) {
-    console.error('[Session Embeddings] Error in reembedAllSessions:', error)
+    logger.error('[Session Embeddings] Error in reembedAllSessions:', error)
     return 0
   }
 }

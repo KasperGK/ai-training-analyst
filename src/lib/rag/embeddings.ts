@@ -9,6 +9,8 @@
  * Default is 'local' (free, no API key needed)
  */
 
+import { logger } from '@/lib/logger'
+
 type EmbeddingProvider = 'local' | 'voyage'
 
 const PROVIDER: EmbeddingProvider =
@@ -39,11 +41,11 @@ async function getLocalPipeline() {
     pipeline = transformers.pipeline
   }
 
-  console.log('[Embeddings] Loading local model (first time may take a moment)...')
+  logger.info('[Embeddings] Loading local model (first time may take a moment)...')
   embeddingPipeline = await pipeline('feature-extraction', LOCAL_MODEL, {
     quantized: true,
   })
-  console.log('[Embeddings] Local model loaded')
+  logger.info('[Embeddings] Local model loaded')
 
   return embeddingPipeline
 }
@@ -71,7 +73,7 @@ async function generateLocalEmbeddings(texts: string[]): Promise<number[][]> {
     embeddings.push(Array.from(output.data as Float32Array))
 
     if (texts.length > 20 && (i + 1) % 10 === 0) {
-      console.log(`[Embeddings] Processed ${i + 1}/${texts.length}`)
+      logger.info(`[Embeddings] Processed ${i + 1}/${texts.length}`)
     }
   }
 
@@ -151,7 +153,7 @@ async function generateVoyageEmbeddings(texts: string[]): Promise<number[][]> {
     allEmbeddings.push(...sortedEmbeddings)
 
     if (texts.length > 50) {
-      console.log(`[Embeddings] Processed ${Math.min(i + BATCH_SIZE, texts.length)}/${texts.length}`)
+      logger.info(`[Embeddings] Processed ${Math.min(i + BATCH_SIZE, texts.length)}/${texts.length}`)
     }
   }
 
@@ -178,7 +180,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return []
 
-  console.log(`[Embeddings] Using ${PROVIDER} provider (${EMBEDDING_DIMENSIONS} dimensions)`)
+  logger.info(`[Embeddings] Using ${PROVIDER} provider (${EMBEDDING_DIMENSIONS} dimensions)`)
 
   if (PROVIDER === 'voyage') {
     return generateVoyageEmbeddings(texts)

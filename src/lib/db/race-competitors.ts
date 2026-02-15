@@ -6,6 +6,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 // Zod schema for validating DB rows
 const raceCompetitorRowSchema = z.object({
@@ -48,7 +49,7 @@ export type RaceCompetitorInsert = Omit<RaceCompetitor, 'id'>
 function parseRaceCompetitorRow(row: unknown): RaceCompetitorRow | null {
   const result = raceCompetitorRowSchema.safeParse(row)
   if (!result.success) {
-    console.warn('[race-competitors] Invalid row:', result.error.issues)
+    logger.warn('[race-competitors] Invalid row:', result.error.issues)
     return null
   }
   return result.data
@@ -88,7 +89,7 @@ export async function getCompetitorsForRace(
     .order('placement', { ascending: true })
 
   if (error || !data) {
-    console.error('[race-competitors] Error fetching:', error)
+    logger.error('[race-competitors] Error fetching:', error)
     return []
   }
 
@@ -115,7 +116,7 @@ export async function insertCompetitors(
     .select()
 
   if (error || !data) {
-    console.error('[race-competitors] Error inserting:', error)
+    logger.error('[race-competitors] Error inserting:', error)
     return []
   }
 
@@ -140,7 +141,7 @@ export async function deleteCompetitorsForRace(
     .eq('race_result_id', raceResultId)
 
   if (error) {
-    console.error('[race-competitors] Error deleting:', error)
+    logger.error('[race-competitors] Error deleting:', error)
     return false
   }
 
@@ -183,7 +184,7 @@ export async function getFrequentOpponents(
     .not('zwift_id', 'is', null)
 
   if (error || !competitors) {
-    console.error('[race-competitors] Error fetching opponents:', error)
+    logger.error('[race-competitors] Error fetching opponents:', error)
     return []
   }
 
@@ -435,7 +436,7 @@ export async function getFrequentOpponentsRPC(
   })
 
   if (error) {
-    console.error('[race-competitors] RPC get_frequent_opponents error:', error)
+    logger.error('[race-competitors] RPC get_frequent_opponents error:', error)
     return []
   }
 
@@ -467,7 +468,7 @@ export async function getNearFinishersSummaryRPC(
   })
 
   if (error) {
-    console.error('[race-competitors] RPC get_near_finishers_summary error:', error)
+    logger.error('[race-competitors] RPC get_near_finishers_summary error:', error)
     return { avgPowerGapToNextPlace: null, avgTimeGapToNextPlace: null, racesAnalyzed: 0, potentialPositionGain: null }
   }
 
@@ -499,7 +500,7 @@ export async function getCategoryComparisonRPC(
   })
 
   if (error) {
-    console.error('[race-competitors] RPC get_category_comparison error:', error)
+    logger.error('[race-competitors] RPC get_category_comparison error:', error)
     return []
   }
 

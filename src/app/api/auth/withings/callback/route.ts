@@ -3,6 +3,7 @@ import { exchangeWithingsCode } from '@/lib/withings'
 import { saveIntegration, PROVIDERS } from '@/lib/db/integrations'
 import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/logger'
 
 // HEAD request - Withings uses this to validate the callback URL exists
 export async function HEAD() {
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   // Check for OAuth errors
   if (error) {
-    console.error('Withings OAuth error:', error)
+    logger.error('Withings OAuth error:', error)
     return NextResponse.redirect(new URL('/settings?error=withings_denied', request.url))
   }
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   const storedState = cookieStore.get('withings_oauth_state')?.value
 
   if (!storedState || storedState !== state) {
-    console.error('State mismatch:', { storedState, receivedState: state })
+    logger.error('State mismatch:', { storedState, receivedState: state })
     return NextResponse.redirect(new URL('/settings?error=invalid_state', request.url))
   }
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
     // Redirect to settings with success
     return NextResponse.redirect(new URL('/settings?connected=withings', request.url))
   } catch (error) {
-    console.error('Withings token exchange error:', error)
+    logger.error('Withings token exchange error:', error)
     return NextResponse.redirect(new URL('/settings?error=token_exchange', request.url))
   }
 }

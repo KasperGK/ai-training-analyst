@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { Session, PowerZones, HRZones } from '@/types'
+import { logger } from '@/lib/logger'
 
 // Zod schema for validating DB rows
 const powerZonesSchema = z.object({
@@ -60,7 +61,7 @@ const VALID_SPORTS = ['cycling', 'running', 'swimming', 'other'] as const
 function parseSessionRow(row: unknown): SessionRow | null {
   const result = sessionRowSchema.safeParse(row)
   if (!result.success) {
-    console.warn('[sessions] Invalid session row:', result.error.issues)
+    logger.warn('[sessions] Invalid session row:', result.error.issues)
     return null
   }
   return result.data

@@ -9,6 +9,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { generateText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { detectPatterns, type DetectedPattern } from './pattern-detector'
+import { logger } from '@/lib/logger'
 
 export interface Insight {
   id: string
@@ -52,19 +53,19 @@ export async function generateInsights(athleteId: string, options: GenerationOpt
         p_athlete_id: athleteId,
       })
 
-      console.log(`[InsightGenerator] shouldGenerate=${shouldGenerate}, rpcError=${rpcError?.message}`)
+      logger.info(`[InsightGenerator] shouldGenerate=${shouldGenerate}, rpcError=${rpcError?.message}`)
 
       if (!shouldGenerate && !rpcError) {
-        console.log('[InsightGenerator] Skipping - recently generated')
+        logger.info('[InsightGenerator] Skipping - recently generated')
         return { success: true, insightsCreated: 0, patternsDetected: 0 }
       }
     } else {
-      console.log('[InsightGenerator] Force mode - skipping RPC check')
+      logger.info('[InsightGenerator] Force mode - skipping RPC check')
     }
 
     // Detect patterns in training data
     const patterns = await detectPatterns(athleteId)
-    console.log(`[InsightGenerator] Detected ${patterns.length} patterns`)
+    logger.info(`[InsightGenerator] Detected ${patterns.length} patterns`)
 
     if (patterns.length === 0) {
       // Log empty generation
@@ -74,7 +75,7 @@ export async function generateInsights(athleteId: string, options: GenerationOpt
 
     // Filter out patterns that already have recent similar insights
     const newPatterns = await filterExistingInsights(supabase, athleteId, patterns)
-    console.log(`[InsightGenerator] After filtering: ${newPatterns.length} new patterns`)
+    logger.info(`[InsightGenerator] After filtering: ${newPatterns.length} new patterns`)
 
     if (newPatterns.length === 0) {
       await logGeneration(supabase, athleteId, 0, patterns.map(p => p.type), null, 0, Date.now() - startTime)
@@ -95,14 +96,14 @@ export async function generateInsights(athleteId: string, options: GenerationOpt
       source: 'pattern_detected',
     }))
 
-    console.log(`[InsightGenerator] Inserting ${insights.length} insights:`, insights.map(i => i.title))
+    logger.info(`[InsightGenerator] Inserting ${insights.length} insights:`, insights.map(i => i.title))
     const { error } = await supabase.from('insights').insert(insights)
 
     if (error) {
-      console.error('[InsightGenerator] Error storing insights:', error)
+      logger.error('[InsightGenerator] Error storing insights:', error)
       return { success: false, insightsCreated: 0, patternsDetected: patterns.length, error: error.message }
     }
-    console.log(`[InsightGenerator] Successfully stored ${insights.length} insights`)
+    logger.info(`[InsightGenerator] Successfully stored ${insights.length} insights`)
 
     // Log generation
     await logGeneration(
@@ -121,7 +122,7 @@ export async function generateInsights(athleteId: string, options: GenerationOpt
       patternsDetected: patterns.length,
     }
   } catch (error) {
-    console.error('[InsightGenerator] Error:', error)
+    logger.error('[InsightGenerator] Error:', error)
     return {
       success: false,
       insightsCreated: 0,
@@ -194,7 +195,7 @@ Return each enhanced insight on a new line, numbered to match.`,
       }
     }
   } catch (error) {
-    console.error('[InsightGenerator] AI enhancement failed, using original:', error)
+    logger.error('[InsightGenerator] AI enhancement failed, using original:', error)
     // Continue with original descriptions
   }
 
@@ -261,7 +262,7 @@ export async function getInsights(
   const { data, error } = await query
 
   if (error) {
-    console.error('[InsightGenerator] Error fetching insights:', error)
+    logger.error('[InsightGenerator] Error fetching insights:', error)
     return []
   }
 
@@ -348,7 +349,7 @@ export async function createFitnessDiscrepancyInsight(
     .limit(1)
 
   if (existing && existing.length > 0) {
-    console.log('[InsightGenerator] Skipping discrepancy insight - already exists')
+    logger.info('[InsightGenerator] Skipping discrepancy insight - already exists')
     return false
   }
 
@@ -371,10 +372,10 @@ export async function createFitnessDiscrepancyInsight(
   const { error } = await supabase.from('insights').insert(insight)
 
   if (error) {
-    console.error('[InsightGenerator] Error creating discrepancy insight:', error)
+    logger.error('[InsightGenerator] Error creating discrepancy insight:', error)
     return false
   }
 
-  console.log(`[InsightGenerator] Created fitness discrepancy insight: CTL diff of ${diff}`)
+  logger.info(`[InsightGenerator] Created fitness discrepancy insight: CTL diff of ${diff}`)
   return true
 }

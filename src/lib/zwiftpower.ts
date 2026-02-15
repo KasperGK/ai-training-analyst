@@ -6,6 +6,7 @@
  */
 
 import { ZwiftPowerAPI } from '@codingwithspike/zwift-api-wrapper'
+import { logger } from '@/lib/logger'
 
 // Response wrapper type from the library
 interface ZwiftAPIWrapperResponse<T> {
@@ -106,7 +107,7 @@ class ZwiftPowerClient {
       }
       return true
     } catch (error) {
-      console.error('[ZwiftPower] Authentication failed:', error)
+      logger.error('[ZwiftPower] Authentication failed:', error)
       return false
     }
   }
@@ -151,7 +152,7 @@ class ZwiftPowerClient {
       }>
 
       if (response.statusCode !== 200 || !response.body) {
-        console.error('[ZwiftPower] Event results error:', response.error)
+        logger.error('[ZwiftPower] Event results error:', response.error)
         return []
       }
 
@@ -185,7 +186,7 @@ class ZwiftPowerClient {
         penalty: r.penalty,
       }))
     } catch (error) {
-      console.error('[ZwiftPower] Error fetching event results:', error)
+      logger.error('[ZwiftPower] Error fetching event results:', error)
       return []
     }
   }
@@ -205,7 +206,7 @@ class ZwiftPowerClient {
       const response = await this.api.getActivityResults(zwiftId)
 
       if (response.statusCode !== 200 || !response.body?.data) {
-        console.error('[ZwiftPower] Rider history error:', response.error)
+        logger.error('[ZwiftPower] Rider history error:', response.error)
         return []
       }
 
@@ -236,7 +237,7 @@ class ZwiftPowerClient {
         }
       })
     } catch (error) {
-      console.error('[ZwiftPower] Error fetching rider history:', error)
+      logger.error('[ZwiftPower] Error fetching rider history:', error)
       return []
     }
   }
@@ -269,14 +270,14 @@ class ZwiftPowerClient {
       ) as ZwiftAPIWrapperResponse<string>
 
       if (response.statusCode !== 200 || !response.body) {
-        console.error('[ZwiftPower] Event search error:', response.error)
+        logger.error('[ZwiftPower] Event search error:', response.error)
         return []
       }
 
       const data = JSON.parse(response.body) as { data?: ZwiftPowerEvent[] }
       return data.data || []
     } catch (error) {
-      console.error('[ZwiftPower] Error searching events:', error)
+      logger.error('[ZwiftPower] Error searching events:', error)
       return []
     }
   }
@@ -297,14 +298,14 @@ class ZwiftPowerClient {
       ) as ZwiftAPIWrapperResponse<string>
 
       if (response.statusCode !== 200 || !response.body) {
-        console.error('[ZwiftPower] Event details error:', response.error)
+        logger.error('[ZwiftPower] Event details error:', response.error)
         return null
       }
 
       const data = JSON.parse(response.body) as { event?: ZwiftPowerEvent }
       return data.event || null
     } catch (error) {
-      console.error('[ZwiftPower] Error fetching event details:', error)
+      logger.error('[ZwiftPower] Error fetching event details:', error)
       return null
     }
   }
@@ -328,13 +329,13 @@ class ZwiftPowerClient {
       ) as ZwiftAPIWrapperResponse<string>
 
       if (response.statusCode !== 200 || !response.body) {
-        console.error('[ZwiftPower] ZRS history error:', response.error)
+        logger.error('[ZwiftPower] ZRS history error:', response.error)
         return {}
       }
 
       return JSON.parse(response.body)
     } catch (error) {
-      console.error('[ZwiftPower] Error fetching ZRS history:', error)
+      logger.error('[ZwiftPower] Error fetching ZRS history:', error)
       return {}
     }
   }
