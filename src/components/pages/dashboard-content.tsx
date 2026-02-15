@@ -18,6 +18,7 @@ import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
 import { InsightFeed } from '@/components/insights/insight-feed'
 import type { Session } from '@/types'
+import { logger } from '@/lib/logger'
 
 export function DashboardContent() {
   const {
@@ -57,7 +58,7 @@ export function DashboardContent() {
         if (data.pmcData) setPmcDataState(data.pmcData)
         if (data.ctlTrend !== undefined) setPmcCtlTrendState(data.ctlTrend)
       })
-      .catch(err => console.error('Failed to fetch PMC data:', err))
+      .catch(err => logger.error('Failed to fetch PMC data:', err))
   }, [pmcTimeRange])
 
   const handleSessionUploaded = useCallback((session: Session) => {

@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ZwiftPowerAPI, ZwiftAPI } from '@codingwithspike/zwift-api-wrapper'
 import { encryptPassword } from '@/lib/zwiftpower'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
 const connectSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -50,13 +51,13 @@ export async function POST(request: NextRequest) {
     const { username, password } = validation.data
 
     // Test credentials by authenticating with ZwiftPower
-    console.log('[ZwiftPower Connect] Testing credentials...')
+    logger.info('[ZwiftPower Connect] Testing credentials...')
     const api = new ZwiftPowerAPI(username, password)
 
     try {
       await api.authenticate()
     } catch (authError) {
-      console.error('[ZwiftPower Connect] Authentication failed:', authError)
+      logger.error('[ZwiftPower Connect] Authentication failed:', authError)
       return NextResponse.json(
         { error: 'Invalid Zwift credentials. Please check your username and password.' },
         { status: 401 }
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     // This is essential for matching race results in rider history
     let zwiftId: string | undefined
     try {
-      console.log('[ZwiftPower Connect] Fetching Zwift ID...')
+      logger.info('[ZwiftPower Connect] Fetching Zwift ID...')
       const zwiftApi = new ZwiftAPI(username, password)
       await zwiftApi.authenticate()
 
@@ -81,12 +82,12 @@ export async function POST(request: NextRequest) {
         // Activity feed includes profile.id
         if (firstActivity.profile?.id) {
           zwiftId = String(firstActivity.profile.id)
-          console.log('[ZwiftPower Connect] Found Zwift ID from activity feed:', zwiftId)
+          logger.info('[ZwiftPower Connect] Found Zwift ID from activity feed:', zwiftId)
         }
       }
     } catch (err) {
       // Non-critical - continue without Zwift ID but log the error
-      console.warn('[ZwiftPower Connect] Could not fetch Zwift ID:', err)
+      logger.warn('[ZwiftPower Connect] Could not fetch Zwift ID:', err)
     }
 
     // Store/update integration
@@ -105,21 +106,21 @@ export async function POST(request: NextRequest) {
       })
 
     if (upsertError) {
-      console.error('[ZwiftPower Connect] Failed to save credentials:', upsertError)
+      logger.error('[ZwiftPower Connect] Failed to save credentials:', upsertError)
       return NextResponse.json(
         { error: 'Failed to save credentials' },
         { status: 500 }
       )
     }
 
-    console.log('[ZwiftPower Connect] Connected successfully for user:', user.id)
+    logger.info('[ZwiftPower Connect] Connected successfully for user:', user.id)
 
     return NextResponse.json({
       success: true,
       message: 'ZwiftPower connected successfully',
     })
   } catch (error) {
-    console.error('[ZwiftPower Connect] Unexpected error:', error)
+    logger.error('[ZwiftPower Connect] Unexpected error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
@@ -170,7 +171,7 @@ export async function GET() {
       connectedAt: data.updated_at,
     })
   } catch (error) {
-    console.error('[ZwiftPower Connect] Status check error:', error)
+    logger.error('[ZwiftPower Connect] Status check error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
@@ -208,7 +209,7 @@ export async function DELETE() {
       .eq('provider', 'zwiftpower')
 
     if (error) {
-      console.error('[ZwiftPower Connect] Failed to disconnect:', error)
+      logger.error('[ZwiftPower Connect] Failed to disconnect:', error)
       return NextResponse.json(
         { error: 'Failed to disconnect ZwiftPower' },
         { status: 500 }
@@ -218,14 +219,14 @@ export async function DELETE() {
     // Optionally: Delete race data when disconnecting?
     // For now, we keep the race data as it's still useful
 
-    console.log('[ZwiftPower Connect] Disconnected for user:', user.id)
+    logger.info('[ZwiftPower Connect] Disconnected for user:', user.id)
 
     return NextResponse.json({
       success: true,
       message: 'ZwiftPower disconnected',
     })
   } catch (error) {
-    console.error('[ZwiftPower Connect] Disconnect error:', error)
+    logger.error('[ZwiftPower Connect] Disconnect error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

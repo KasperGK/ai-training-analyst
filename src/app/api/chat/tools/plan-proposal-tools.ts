@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/training-plans'
 import { projectFitness, planDataToPlanDays } from '@/lib/plans/projection'
 import { analyzeAthletePatterns } from '@/lib/learning'
+import { logger } from '@/lib/logger'
 
 // ============================================================
 // PROPOSE PLAN
@@ -196,7 +197,7 @@ The athlete can then review the calendar view and projection, ask for modificati
           await createPlanDays(planDaysToInsert)
         }
       } catch (e) {
-        console.error('Failed to persist draft plan:', e)
+        logger.error('Failed to persist draft plan:', e)
       }
     }
 
@@ -428,7 +429,7 @@ export const modifyProposal = defineTool<ModifyProposalInput, unknown>({
       )
       await createPlanDays(planDaysToInsert)
     } catch (e) {
-      console.error('Failed to update draft plan:', e)
+      logger.error('Failed to update draft plan:', e)
     }
 
     // Build updated summaries

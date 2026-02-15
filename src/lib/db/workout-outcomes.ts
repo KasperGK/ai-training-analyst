@@ -2,6 +2,7 @@
 // Tracks suggestions vs actual execution for learning
 
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export interface WorkoutOutcome {
   id: string
@@ -55,7 +56,7 @@ export async function logWorkoutOutcome(
     .single()
 
   if (error) {
-    console.error('[logWorkoutOutcome] Error:', error)
+    logger.error('[logWorkoutOutcome] Error:', error)
     return null
   }
 
@@ -90,7 +91,7 @@ export async function getWorkoutOutcomes(
   const { data, error } = await query
 
   if (error) {
-    console.error('[getWorkoutOutcomes] Error:', error)
+    logger.error('[getWorkoutOutcomes] Error:', error)
     return []
   }
 

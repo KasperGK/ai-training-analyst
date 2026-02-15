@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
 import { getNormalizedPower, getAveragePower } from '@/lib/transforms'
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export async function GET(
   request: Request,
@@ -68,7 +69,7 @@ export async function GET(
         'time', 'watts', 'heartrate', 'cadence', 'altitude', 'velocity_smooth'
       ])
     } catch (streamError) {
-      console.warn('Could not fetch streams for activity:', intervalsActivityId, streamError)
+      logger.warn('Could not fetch streams for activity:', intervalsActivityId, streamError)
       // Continue without streams - they're optional
     }
 
@@ -147,7 +148,7 @@ export async function GET(
       } : null,
     })
   } catch (error) {
-    console.error('Error fetching activity:', error)
+    logger.error('Error fetching activity:', error)
     return NextResponse.json(
       { error: 'Failed to fetch activity details' },
       { status: 500 }

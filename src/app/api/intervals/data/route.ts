@@ -29,6 +29,7 @@ import { getAthlete } from '@/lib/db/athletes'
 import { getSessions } from '@/lib/db/sessions'
 import { getFitnessHistory, getCurrentFitness } from '@/lib/db/fitness'
 import type { PMCDataPoint } from '@/lib/transforms'
+import { logger } from '@/lib/logger'
 
 /**
  * Build PMC data from local fitness history
@@ -107,7 +108,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   // Use userId for local queries (sessions are stored with Supabase user.id)
   // Fall back to intervalsAthleteId only if userId not available
   const localQueryId = userId || intervalsAthleteId!
-  console.log('[intervals/data] Using localQueryId for DB queries:', localQueryId, userId ? '(Supabase user.id)' : '(intervals athlete_id fallback)')
+  logger.debug('[intervals/data] Using localQueryId for DB queries:', localQueryId, userId ? '(Supabase user.id)' : '(intervals athlete_id fallback)')
 
   try {
     // Try local data first (using Supabase user.id)
@@ -235,7 +236,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       ctlTrend,
     })
   } catch (error) {
-    console.error('intervals data API error:', error)
+    logger.error('intervals data API error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch data', connected: true },
       { status: 500 }

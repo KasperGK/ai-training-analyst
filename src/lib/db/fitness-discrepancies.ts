@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export interface FitnessDiscrepancy {
   id: string
@@ -85,7 +86,7 @@ export async function insertDiscrepancy(
     .single()
 
   if (error) {
-    console.error('[FitnessDiscrepancies] Insert error:', error)
+    logger.error('[FitnessDiscrepancies] Insert error:', error)
     return null
   }
   return data as FitnessDiscrepancy

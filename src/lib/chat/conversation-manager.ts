@@ -8,6 +8,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export interface ChatMessage {
   id: string
@@ -46,7 +47,7 @@ export async function listConversations(athleteId: string): Promise<Conversation
     .limit(500)
 
   if (error || !data) {
-    console.error('Error listing conversations:', error)
+    logger.error('Error listing conversations:', error)
     return []
   }
 
@@ -140,7 +141,7 @@ export async function getConversationMessages(
     .limit(200) // Reasonable limit for a single conversation
 
   if (error) {
-    console.error('Error getting conversation:', error)
+    logger.error('Error getting conversation:', error)
     return []
   }
 
@@ -173,7 +174,7 @@ export async function saveMessage(
     .single()
 
   if (error) {
-    console.error('Error saving message:', error)
+    logger.error('Error saving message:', error)
     return null
   }
 
@@ -208,7 +209,7 @@ export async function saveMessages(
     )
 
   if (error) {
-    console.error('Error saving messages:', error)
+    logger.error('Error saving messages:', error)
     return false
   }
 
@@ -232,7 +233,7 @@ export async function deleteConversation(
     .eq('athlete_id', athleteId)
 
   if (error) {
-    console.error('Error deleting conversation:', error)
+    logger.error('Error deleting conversation:', error)
     return false
   }
 
@@ -263,7 +264,7 @@ export async function setConversationTitle(
     )
 
   if (error) {
-    console.error('Error setting conversation title:', error)
+    logger.error('Error setting conversation title:', error)
     return false
   }
 

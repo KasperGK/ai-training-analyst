@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { generateText } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'edge'
 
@@ -33,7 +34,7 @@ Give a brief status update about their current form and one practical suggestion
 
     return NextResponse.json({ status: text.trim() })
   } catch (error) {
-    console.error('Failed to generate status:', error)
+    logger.error('Failed to generate status:', error)
 
     // Return a fallback based on TSB zones
     const { tsb, ctl_trend } = await request.json().catch(() => ({ tsb: 0, ctl_trend: 'stable' }))

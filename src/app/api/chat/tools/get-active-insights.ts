@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool } from './types'
 import { getInsights } from '@/lib/insights/insight-generator'
+import { logger } from '@/lib/logger'
 
 const inputSchema = z.object({
   includeRead: z.boolean().optional().describe('Include already-read insights (default: false)'),
@@ -89,7 +90,7 @@ export const getActiveInsights = defineTool<Input, Output>({
           : 'Mention relevant insights naturally in your response.',
       }
     } catch (error) {
-      console.error('[getActiveInsights] Error:', error)
+      logger.error('[getActiveInsights] Error:', error)
       return { error: 'Failed to retrieve insights' }
     }
   },

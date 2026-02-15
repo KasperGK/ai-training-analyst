@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { logger } from '@/lib/logger'
 
 interface Insight {
   id: string
@@ -194,7 +195,7 @@ export function InsightsDropdown() {
       setUnreadCount(data.total || data.insights?.length || 0)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
-      console.error('Failed to fetch insights:', err)
+      logger.error('Failed to fetch insights:', err)
     } finally {
       setLoading(false)
     }
@@ -220,7 +221,7 @@ export function InsightsDropdown() {
         await fetchInsights()
       }
     } catch (err) {
-      console.error('Failed to refresh insights:', err)
+      logger.error('Failed to refresh insights:', err)
     } finally {
       setRefreshing(false)
     }
@@ -236,7 +237,7 @@ export function InsightsDropdown() {
       setInsights((prev) => prev.filter((i) => i.id !== insightId))
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (err) {
-      console.error('Failed to mark as read:', err)
+      logger.error('Failed to mark as read:', err)
     }
   }
 
@@ -250,7 +251,7 @@ export function InsightsDropdown() {
       setInsights((prev) => prev.filter((i) => i.id !== insightId))
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (err) {
-      console.error('Failed to dismiss:', err)
+      logger.error('Failed to dismiss:', err)
     }
   }
 

@@ -22,6 +22,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 interface PlanDay {
   id: string
@@ -165,7 +166,7 @@ export function TrainingCalendarWidget() {
           }))
         )
       } catch (error) {
-        console.error('Failed to load calendar data:', error)
+        logger.error('Failed to load calendar data:', error)
       } finally {
         setLoading(false)
       }
@@ -216,7 +217,7 @@ export function TrainingCalendarWidget() {
         URL.revokeObjectURL(url)
       }
     } catch (error) {
-      console.error('Failed to export calendar:', error)
+      logger.error('Failed to export calendar:', error)
     } finally {
       setExporting(false)
     }

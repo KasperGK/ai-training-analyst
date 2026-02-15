@@ -7,6 +7,7 @@ import {
   getCategoryComparisonRPC,
 } from '@/lib/db/race-competitors'
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/race-analysis
@@ -140,7 +141,7 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({ raceHistory, competitors })
   } catch (error) {
-    console.error('Race analysis API error:', error)
+    logger.error('Race analysis API error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch race analysis data' },
       { status: 500 }

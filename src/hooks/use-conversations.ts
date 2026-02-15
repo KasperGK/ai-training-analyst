@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/lib/logger'
 
 export interface Conversation {
   id: string
@@ -52,7 +53,7 @@ export function useConversations(): UseConversationsReturn {
         setConversations(data.conversations || [])
       }
     } catch (error) {
-      console.error('Failed to load conversations:', error)
+      logger.error('Failed to load conversations:', error)
     } finally {
       setLoading(false)
     }
@@ -69,7 +70,7 @@ export function useConversations(): UseConversationsReturn {
         setCurrentMessages(data.messages || [])
       }
     } catch (error) {
-      console.error('Failed to load conversation:', error)
+      logger.error('Failed to load conversation:', error)
       setCurrentMessages([])
     } finally {
       setLoadingMessages(false)
@@ -98,7 +99,7 @@ export function useConversations(): UseConversationsReturn {
         return true
       }
     } catch (error) {
-      console.error('Failed to delete conversation:', error)
+      logger.error('Failed to delete conversation:', error)
     }
     return false
   }, [currentConversationId, startNewConversation])
@@ -110,12 +111,12 @@ export function useConversations(): UseConversationsReturn {
     toolCalls?: unknown
   ) => {
     if (!currentConversationId) {
-      console.warn('[useConversations] Cannot save message: no conversation ID set')
+      logger.warn('[useConversations] Cannot save message: no conversation ID set')
       return
     }
 
     if (!content || content.trim().length === 0) {
-      console.warn('[useConversations] Cannot save message: empty content')
+      logger.warn('[useConversations] Cannot save message: empty content')
       return
     }
 
@@ -139,10 +140,10 @@ export function useConversations(): UseConversationsReturn {
         // The list will refresh when user switches views
       } else {
         const errorData = await res.json().catch(() => ({}))
-        console.error('[useConversations] Failed to save message:', res.status, errorData)
+        logger.error('[useConversations] Failed to save message:', res.status, errorData)
       }
     } catch (error) {
-      console.error('[useConversations] Failed to save message:', error)
+      logger.error('[useConversations] Failed to save message:', error)
     }
   }, [currentConversationId])
 
@@ -169,7 +170,7 @@ export function useConversations(): UseConversationsReturn {
       // PATCH failed — reload to get correct state
       loadConversations()
     } catch (error) {
-      console.error('Failed to update conversation title:', error)
+      logger.error('Failed to update conversation title:', error)
       loadConversations()
     }
     return false

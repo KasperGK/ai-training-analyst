@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool } from './types'
 import { logWorkoutOutcome as logOutcome, getOutcomeStats } from '@/lib/db/workout-outcomes'
+import { logger } from '@/lib/logger'
 
 const inputSchema = z.object({
   sessionId: z.string().optional().describe('The session ID if linking to a completed workout'),
@@ -88,7 +89,7 @@ export const logWorkoutOutcome = defineTool<Input, Output>({
         message: `Logged workout outcome${rpe ? ` (RPE: ${rpe})` : ''}${feedback ? ` with feedback` : ''}`,
       }
     } catch (error) {
-      console.error('[logWorkoutOutcome] Error:', error)
+      logger.error('[logWorkoutOutcome] Error:', error)
       return { error: 'Failed to log workout outcome' }
     }
   },

@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { searchWiki, searchSessions } from '@/lib/rag/vector-store'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/rag/search - Search knowledge base
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ results })
   } catch (error) {
-    console.error('[RAG Search] Error:', error)
+    logger.error('[RAG Search] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Search failed' },
       { status: 500 }

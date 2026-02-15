@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getPowerCurveDisplay, STANDARD_DURATIONS } from '@/lib/db/power-bests'
 import { getAthlete } from '@/lib/db/athletes'
+import { logger } from '@/lib/logger'
 
 export interface RiderProfile {
   type: 'sprinter' | 'pursuiter' | 'climber' | 'TT specialist' | 'all-rounder'
@@ -157,7 +158,7 @@ export async function GET() {
 
     return NextResponse.json(response)
   } catch (error) {
-    console.error('[power-curve] Error:', error)
+    logger.error('[power-curve] Error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch power curve data' },
       { status: 500 }

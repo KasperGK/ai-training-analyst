@@ -4,6 +4,7 @@ import { getSessions } from '@/lib/db/sessions'
 import { getFitnessHistory } from '@/lib/db/fitness'
 import { getDateRange, type IntervalsActivity } from '@/lib/intervals-icu'
 import { getNormalizedPower } from '@/lib/transforms'
+import { logger } from '@/lib/logger'
 
 // ============================================================
 // ANALYZE POWER CURVE
@@ -108,7 +109,7 @@ export const analyzePowerCurve = defineTool<PowerCurveInput, unknown>({
           }
         }
       } catch (error) {
-        console.error('[analyzePowerCurve] Error fetching power curves:', error)
+        logger.error('[analyzePowerCurve] Error fetching power curves:', error)
       }
     }
 
@@ -283,7 +284,7 @@ export const analyzeEfficiency = defineTool<EfficiencyInput, unknown>({
           dataSource = 'intervals_icu'
         }
       } catch (error) {
-        console.error('[analyzeEfficiency] Error:', error)
+        logger.error('[analyzeEfficiency] Error:', error)
       }
     }
 
@@ -474,7 +475,7 @@ export const analyzeTrainingLoad = defineTool<TrainingLoadInput, unknown>({
           .sort((a, b) => a.date.localeCompare(b.date))
         dataSource = 'intervals_icu'
       } catch (error) {
-        console.error('[analyzeTrainingLoad] Error:', error)
+        logger.error('[analyzeTrainingLoad] Error:', error)
       }
     }
 

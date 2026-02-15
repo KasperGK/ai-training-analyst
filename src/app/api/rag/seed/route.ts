@@ -12,6 +12,7 @@ import { chunkWikiArticle } from '@/lib/rag/chunker'
 import { generateEmbeddings, getProviderInfo } from '@/lib/rag/embeddings'
 import { storeWikiChunks, clearWikiChunks, getWikiChunkCount } from '@/lib/rag/vector-store'
 import { reembedAllSessions } from '@/lib/rag/session-embeddings'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/rag/seed - Check seed status
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
       }
 
-      console.log('[RAG Seed] Re-embedding sessions for user:', user.id)
+      logger.info('[RAG Seed] Re-embedding sessions for user:', user.id)
       const sessionsReembedded = await reembedAllSessions(user.id)
 
       return NextResponse.json({
@@ -74,11 +75,11 @@ export async function POST(request: Request) {
 
     // Clear existing if force
     if (force && existingCount > 0) {
-      console.log('[RAG Seed] Clearing existing wiki chunks...')
+      logger.info('[RAG Seed] Clearing existing wiki chunks...')
       await clearWikiChunks()
     }
 
-    console.log(`[RAG Seed] Processing ${articles.length} wiki articles...`)
+    logger.info(`[RAG Seed] Processing ${articles.length} wiki articles...`)
 
     // Chunk all articles
     const allChunks: Array<{
@@ -104,13 +105,13 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log(`[RAG Seed] Generated ${allChunks.length} chunks, generating embeddings...`)
+    logger.info(`[RAG Seed] Generated ${allChunks.length} chunks, generating embeddings...`)
 
     // Generate embeddings for all chunks
     const contents = allChunks.map((c) => c.content)
     const embeddings = await generateEmbeddings(contents)
 
-    console.log(`[RAG Seed] Generated ${embeddings.length} embeddings, storing...`)
+    logger.info(`[RAG Seed] Generated ${embeddings.length} embeddings, storing...`)
 
     // Combine chunks with embeddings
     const chunksWithEmbeddings = allChunks.map((chunk, i) => ({
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
     }
 
     const providerInfo = getProviderInfo()
-    console.log(`[RAG Seed] Successfully seeded ${chunksWithEmbeddings.length} wiki chunks using ${providerInfo.provider}`)
+    logger.info(`[RAG Seed] Successfully seeded ${chunksWithEmbeddings.length} wiki chunks using ${providerInfo.provider}`)
 
     return NextResponse.json({
       success: true,
@@ -138,7 +139,7 @@ export async function POST(request: Request) {
       provider: providerInfo,
     })
   } catch (error) {
-    console.error('[RAG Seed] Error:', error)
+    logger.error('[RAG Seed] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to seed wiki' },
       { status: 500 }

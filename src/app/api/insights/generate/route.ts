@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateInsights } from '@/lib/insights/insight-generator'
 import { features } from '@/lib/features'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!features.insights) {
@@ -57,7 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
     })
   } catch (error) {
-    console.error('[Insights Generate API] Error:', error)
+    logger.error('[Insights Generate API] Error:', error)
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to generate insights',
@@ -108,7 +109,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         },
       })
     } catch (error) {
-      console.error('[Insights Generate API] Force generate error:', error)
+      logger.error('[Insights Generate API] Force generate error:', error)
       return NextResponse.json({
         action: 'force_generated',
         success: false,
@@ -143,7 +144,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       } : null,
     })
   } catch (error) {
-    console.error('[Insights Generate API] GET error:', error)
+    logger.error('[Insights Generate API] GET error:', error)
     return NextResponse.json({ enabled: true, error: 'Failed to get status' }, { status: 500 })
   }
 }

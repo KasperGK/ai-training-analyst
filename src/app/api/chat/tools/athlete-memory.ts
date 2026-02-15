@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool } from './types'
 import { getMemories, upsertMemory, type MemoryType, type MemorySource } from '@/lib/personalization/athlete-memory'
+import { logger } from '@/lib/logger'
 
 // Get Athlete Memory
 const getMemoryInputSchema = z.object({
@@ -70,7 +71,7 @@ export const getAthleteMemory = defineTool<GetMemoryInput, GetMemoryOutput>({
         tip: 'Use these memories to personalize your advice. Update or add memories as you learn more.',
       }
     } catch (error) {
-      console.error('[getAthleteMemory] Error:', error)
+      logger.error('[getAthleteMemory] Error:', error)
       return { error: 'Failed to retrieve memories' }
     }
   },
@@ -132,7 +133,7 @@ export const saveAthleteMemory = defineTool<SaveMemoryInput, SaveMemoryOutput>({
         message: `Saved ${memoryType} memory: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`,
       }
     } catch (error) {
-      console.error('[saveAthleteMemory] Error:', error)
+      logger.error('[saveAthleteMemory] Error:', error)
       return { error: 'Failed to save memory' }
     }
   },

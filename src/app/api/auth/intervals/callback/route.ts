@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForToken } from '@/lib/intervals-icu'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   // Check for OAuth errors
   if (error) {
-    console.error('OAuth error:', error)
+    logger.error('OAuth error:', error)
     return NextResponse.redirect(new URL('/?error=oauth_denied', request.url))
   }
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const storedState = cookieStore.get('intervals_oauth_state')?.value
 
   if (!storedState || storedState !== state) {
-    console.error('State mismatch:', { storedState, receivedState: state })
+    logger.error('State mismatch:', { storedState, receivedState: state })
     return NextResponse.redirect(new URL('/?error=invalid_state', request.url))
   }
 
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
     // Redirect to dashboard with success
     return NextResponse.redirect(new URL('/?connected=intervals', request.url))
   } catch (error) {
-    console.error('Token exchange error:', error)
+    logger.error('Token exchange error:', error)
     return NextResponse.redirect(new URL('/?error=token_exchange', request.url))
   }
 }

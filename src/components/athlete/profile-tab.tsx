@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { TrendingUp, TrendingDown, Minus, Zap } from 'lucide-react'
 import { AreaChart, Area, ReferenceLine, ResponsiveContainer } from 'recharts'
+import { logger } from '@/lib/logger'
 
 interface PMCDataPoint {
   date: string
@@ -59,7 +60,7 @@ export function AthleteProfileTab() {
           setPmcHistory(data.pmcData || [])
         }
       } catch (error) {
-        console.error('Failed to load PMC history:', error)
+        logger.error('Failed to load PMC history:', error)
       }
     }
     fetchPmcHistory()
@@ -86,7 +87,7 @@ export function AthleteProfileTab() {
           setAiStatus(data.status)
         }
       } catch (error) {
-        console.error('Failed to fetch AI status:', error)
+        logger.error('Failed to fetch AI status:', error)
       } finally {
         setAiLoading(false)
       }

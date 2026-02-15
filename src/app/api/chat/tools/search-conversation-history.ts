@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineTool } from './types'
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 const inputSchema = z.object({
   query: z.string().describe('Search query for past conversations'),
@@ -73,7 +74,7 @@ Returns relevant messages with conversation date and context.`,
       .limit(500) // Search through recent messages
 
     if (error || !messages) {
-      console.error('Error searching conversation history:', error)
+      logger.error('Error searching conversation history:', error)
       return {
         matches: [],
         totalMatches: 0,

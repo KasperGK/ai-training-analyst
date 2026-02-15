@@ -12,6 +12,7 @@ import {
   saveMessage,
   generateConversationId,
 } from '@/lib/chat/conversation-manager'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/conversations - List conversations
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
       conversationId,
     })
   } catch (error) {
-    console.error('Error saving message:', error)
+    logger.error('Error saving message:', error)
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }

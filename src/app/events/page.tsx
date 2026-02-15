@@ -35,6 +35,7 @@ import {
   Flag,
 } from 'lucide-react'
 import type { Event, Goal } from '@/types'
+import { logger } from '@/lib/logger'
 
 const EVENT_TYPES = [
   { value: 'road_race', label: 'Road Race' },
@@ -122,7 +123,7 @@ export default function EventsPage() {
         setGoals(await goalsRes.json())
       }
     } catch (error) {
-      console.error('Failed to load data:', error)
+      logger.error('Failed to load data:', error)
     } finally {
       setLoading(false)
     }
@@ -184,7 +185,7 @@ export default function EventsPage() {
         loadData()
       }
     } catch (error) {
-      console.error('Failed to save event:', error)
+      logger.error('Failed to save event:', error)
     } finally {
       setSaving(false)
     }
@@ -199,7 +200,7 @@ export default function EventsPage() {
         loadData()
       }
     } catch (error) {
-      console.error('Failed to delete event:', error)
+      logger.error('Failed to delete event:', error)
     }
   }
 
@@ -253,7 +254,7 @@ export default function EventsPage() {
         loadData()
       }
     } catch (error) {
-      console.error('Failed to save goal:', error)
+      logger.error('Failed to save goal:', error)
     } finally {
       setSaving(false)
     }
@@ -268,7 +269,7 @@ export default function EventsPage() {
         loadData()
       }
     } catch (error) {
-      console.error('Failed to delete goal:', error)
+      logger.error('Failed to delete goal:', error)
     }
   }
 
@@ -284,7 +285,7 @@ export default function EventsPage() {
         loadData()
       }
     } catch (error) {
-      console.error('Failed to update goal:', error)
+      logger.error('Failed to update goal:', error)
     }
   }
 

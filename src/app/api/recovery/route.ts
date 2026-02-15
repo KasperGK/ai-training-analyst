@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { intervalsClient, getDateRange } from '@/lib/intervals-icu'
+import { logger } from '@/lib/logger'
 
 export interface WellnessDataPoint {
   date: string
@@ -124,7 +125,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       sessions,
     } satisfies RecoveryData)
   } catch (error) {
-    console.error('Recovery API error:', error)
+    logger.error('Recovery API error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch recovery data', connected: true },
       { status: 500 }

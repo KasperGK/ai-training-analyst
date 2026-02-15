@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { parseFitFile, calculateTSS, calculateIF } from '@/lib/fit-parser'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: Request) {
   try {
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       message: 'Parsed ' + file.name + ': ' + Math.round(fitData.duration_seconds / 60) + ' min, ' + tss + ' TSS',
     })
   } catch (error) {
-    console.error('FIT file parse error:', error)
+    logger.error('FIT file parse error:', error)
     return NextResponse.json(
       { error: 'Failed to parse FIT file' },
       { status: 500 }

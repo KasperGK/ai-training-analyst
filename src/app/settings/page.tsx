@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/hooks/use-user'
 import { useTheme } from 'next-themes'
 import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock, Scale, Trophy } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 interface AthleteProfile {
   name: string
@@ -94,7 +95,7 @@ export default function SettingsPage() {
         })
       }
     } catch (error) {
-      console.error('Failed to load profile:', error)
+      logger.error('Failed to load profile:', error)
     } finally {
       setProfileLoading(false)
     }
@@ -162,7 +163,7 @@ export default function SettingsPage() {
         setSyncStatus(data)
       }
     } catch (error) {
-      console.error('Failed to fetch sync status:', error)
+      logger.error('Failed to fetch sync status:', error)
     }
   }, [user])
 
@@ -192,7 +193,7 @@ export default function SettingsPage() {
         await fetchSyncStatus()
       }
     } catch (error) {
-      console.error('Sync failed:', error)
+      logger.error('Sync failed:', error)
     } finally {
       setSyncing(false)
     }
@@ -220,10 +221,10 @@ export default function SettingsPage() {
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       } else {
-        console.error('Failed to save profile:', await res.text())
+        logger.error('Failed to save profile:', await res.text())
       }
     } catch (error) {
-      console.error('Failed to save profile:', error)
+      logger.error('Failed to save profile:', error)
     } finally {
       setLoading(false)
     }
@@ -246,7 +247,7 @@ export default function SettingsPage() {
         setIntervalsConnected(false)
       }
     } catch (error) {
-      console.error('Failed to disconnect:', error)
+      logger.error('Failed to disconnect:', error)
     } finally {
       setDisconnecting(false)
     }
@@ -269,7 +270,7 @@ export default function SettingsPage() {
         setWithingsConnected(false)
       }
     } catch (error) {
-      console.error('Failed to disconnect Withings:', error)
+      logger.error('Failed to disconnect Withings:', error)
     } finally {
       setWithingsDisconnecting(false)
     }
@@ -290,7 +291,7 @@ export default function SettingsPage() {
         await loadProfile()
       }
     } catch (error) {
-      console.error('Withings sync failed:', error)
+      logger.error('Withings sync failed:', error)
     } finally {
       setWithingsSyncing(false)
     }
@@ -320,7 +321,7 @@ export default function SettingsPage() {
         setZwiftPowerError(data.error || 'Failed to connect')
       }
     } catch (error) {
-      console.error('ZwiftPower connect failed:', error)
+      logger.error('ZwiftPower connect failed:', error)
       setZwiftPowerError('Failed to connect')
     } finally {
       setZwiftPowerConnecting(false)
@@ -335,7 +336,7 @@ export default function SettingsPage() {
         setZwiftPowerConnected(false)
       }
     } catch (error) {
-      console.error('ZwiftPower disconnect failed:', error)
+      logger.error('ZwiftPower disconnect failed:', error)
     } finally {
       setZwiftPowerDisconnecting(false)
     }
@@ -361,7 +362,7 @@ export default function SettingsPage() {
         setZwiftPowerError(data.error || 'Sync failed')
       }
     } catch (error) {
-      console.error('ZwiftPower sync failed:', error)
+      logger.error('ZwiftPower sync failed:', error)
       setZwiftPowerError('Sync failed')
     } finally {
       setZwiftPowerSyncing(false)

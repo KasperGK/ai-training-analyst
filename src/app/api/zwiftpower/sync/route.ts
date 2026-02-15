@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { syncZwiftPowerRaces, isZwiftPowerConnected } from '@/lib/sync/zwiftpower-sync'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,11 +50,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Run sync
-    console.log('[ZwiftPower Sync] Starting sync for user:', user.id)
+    logger.info('[ZwiftPower Sync] Starting sync for user:', user.id)
     const result = await syncZwiftPowerRaces(user.id, options)
 
     if (!result.success && result.errors.length > 0) {
-      console.error('[ZwiftPower Sync] Sync completed with errors:', result.errors)
+      logger.error('[ZwiftPower Sync] Sync completed with errors:', result.errors)
     }
 
     return NextResponse.json({
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       duration_ms: result.duration_ms,
     })
   } catch (error) {
-    console.error('[ZwiftPower Sync] Unexpected error:', error)
+    logger.error('[ZwiftPower Sync] Unexpected error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred during sync' },
       { status: 500 }
@@ -118,7 +119,7 @@ export async function GET() {
       recentRace: recentRace || null,
     })
   } catch (error) {
-    console.error('[ZwiftPower Sync] Status check error:', error)
+    logger.error('[ZwiftPower Sync] Status check error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

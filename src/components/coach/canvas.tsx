@@ -44,6 +44,7 @@ import { usePowerCurve } from '@/hooks/use-power-curve'
 import { useRaceAnalysis } from '@/hooks/use-race-analysis'
 import type { WidgetConfig, CanvasState, ChartConfig } from '@/lib/widgets/types'
 import { History } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 interface CanvasProps {
   state: CanvasState
@@ -99,11 +100,11 @@ export function Canvas({
           setApprovedPlanIds(prev => new Set(prev).add(planId))
           onPlanApproved?.(planId)
         } else {
-          console.error('Failed to approve plan:', data.error)
+          logger.error('Failed to approve plan:', data.error)
         }
       }
     } catch (error) {
-      console.error('Failed to approve plan:', error)
+      logger.error('Failed to approve plan:', error)
     } finally {
       setApprovingPlanId(null)
     }
@@ -307,7 +308,7 @@ function PMCChartWithState({
         if (data.pmcData) setPmcData(data.pmcData)
         if (data.ctlTrend !== undefined) setCtlTrend(data.ctlTrend)
       })
-      .catch(err => console.error('Failed to fetch PMC data:', err))
+      .catch(err => logger.error('Failed to fetch PMC data:', err))
   }, [])
 
   return (

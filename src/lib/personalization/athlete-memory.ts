@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export type MemoryType =
   | 'preference'   // e.g., "prefers morning workouts"
@@ -86,7 +87,7 @@ export async function getMemories(
   const { data, error } = await query
 
   if (error) {
-    console.error('[AthleteMemory] Error fetching memories:', error)
+    logger.error('[AthleteMemory] Error fetching memories:', error)
     return []
   }
 
@@ -169,7 +170,7 @@ export async function createMemory(
     .single()
 
   if (error) {
-    console.error('[AthleteMemory] Error creating memory:', error)
+    logger.error('[AthleteMemory] Error creating memory:', error)
     return null
   }
 
@@ -196,7 +197,7 @@ export async function updateMemory(
     .single()
 
   if (error) {
-    console.error('[AthleteMemory] Error updating memory:', error)
+    logger.error('[AthleteMemory] Error updating memory:', error)
     return null
   }
 
@@ -220,7 +221,7 @@ export async function deleteMemory(
     .eq('athlete_id', athleteId) // Ensure ownership
 
   if (error) {
-    console.error('[AthleteMemory] Error deleting memory:', error)
+    logger.error('[AthleteMemory] Error deleting memory:', error)
     return false
   }
 
@@ -250,7 +251,7 @@ export async function findSimilarMemory(
     .single()
 
   if (error && error.code !== 'PGRST116') {
-    console.error('[AthleteMemory] Error finding similar:', error)
+    logger.error('[AthleteMemory] Error finding similar:', error)
   }
 
   return data as AthleteMemory | null
@@ -310,7 +311,7 @@ export async function expireStaleMemories(
     .select('id')
 
   if (error) {
-    console.error('[AthleteMemory] Error expiring memories:', error)
+    logger.error('[AthleteMemory] Error expiring memories:', error)
     return 0
   }
 
@@ -337,7 +338,7 @@ export async function getMemoryStats(
     .or('expires_at.is.null,expires_at.gt.now()')
 
   if (error) {
-    console.error('[AthleteMemory] Error getting stats:', error)
+    logger.error('[AthleteMemory] Error getting stats:', error)
     return { total: 0, byType: {}, bySource: {} }
   }
 

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 export interface BodyMeasurement {
   id: string
@@ -73,7 +74,7 @@ export async function getBodyMeasurements(
   const { data, error } = await query
 
   if (error) {
-    console.error('Error fetching body measurements:', error)
+    logger.error('Error fetching body measurements:', error)
     return []
   }
 
@@ -112,7 +113,7 @@ export async function saveBodyMeasurements(
       .select()
 
     if (error) {
-      console.error('Error saving body measurement:', error)
+      logger.error('Error saving body measurement:', error)
       continue
     }
 
@@ -147,7 +148,7 @@ export async function deleteBodyMeasurementsBySource(
     .eq('source', source)
 
   if (error) {
-    console.error('Error deleting body measurements:', error)
+    logger.error('Error deleting body measurements:', error)
     return false
   }
 

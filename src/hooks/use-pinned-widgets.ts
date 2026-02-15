@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { WidgetConfig } from '@/lib/widgets/types'
+import { logger } from '@/lib/logger'
 
 const STORAGE_KEY = 'coach-pinned-widgets-v1'
 
@@ -45,7 +46,7 @@ function loadFromStorage(): WidgetConfig[] {
       )
     })
   } catch (error) {
-    console.error('Failed to load pinned widgets:', error)
+    logger.error('Failed to load pinned widgets:', error)
     return []
   }
 }
@@ -60,7 +61,7 @@ function saveToStorage(widgets: WidgetConfig[]): void {
     const serialized = widgets.map(serializeWidget)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized))
   } catch (error) {
-    console.error('Failed to save pinned widgets:', error)
+    logger.error('Failed to save pinned widgets:', error)
   }
 }
 
