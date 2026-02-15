@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { DragHandle } from '@/components/ui/drag-handle'
@@ -15,7 +16,7 @@ import { cn } from '@/lib/utils'
 import {
   TrendingUp,
   AlertTriangle,
-  Trophy,
+  Award,
   Lightbulb,
   Activity,
   Calendar,
@@ -23,6 +24,7 @@ import {
   Check,
   RefreshCw,
   Bell,
+  MessageSquare,
 } from 'lucide-react'
 
 interface Insight {
@@ -46,26 +48,19 @@ interface InsightFeedProps {
 const INSIGHT_ICONS: Record<string, React.ElementType> = {
   trend: TrendingUp,
   warning: AlertTriangle,
-  achievement: Trophy,
+  achievement: Award,
   suggestion: Lightbulb,
   pattern: Activity,
   event_prep: Calendar,
 }
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'border-l-red-500 bg-red-500/5',
-  high: 'border-l-orange-500 bg-orange-500/5',
-  medium: 'border-l-blue-500 bg-blue-500/5',
-  low: 'border-l-gray-400 bg-gray-500/5',
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  trend: 'text-green-500',
-  warning: 'text-red-500',
-  achievement: 'text-yellow-500',
-  suggestion: 'text-blue-500',
-  pattern: 'text-purple-500',
-  event_prep: 'text-orange-500',
+const ICON_BG_COLORS: Record<string, string> = {
+  trend: 'bg-green-500/15 text-green-600 dark:text-green-400',
+  warning: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  achievement: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
+  suggestion: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  pattern: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+  event_prep: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
 }
 
 export function InsightFeed({
@@ -79,6 +74,7 @@ export function InsightFeed({
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const router = useRouter()
 
   const fetchInsights = useCallback(async () => {
     // Cancel any in-flight request
@@ -147,6 +143,12 @@ export function InsightFeed({
     } catch (err) {
       console.error('Failed to dismiss:', err)
     }
+  }
+
+  const askCoach = (insight: Insight) => {
+    markAsRead(insight.id)
+    const message = `Regarding the insight "${insight.title}": ${insight.content}`
+    router.push(`/coach?message=${encodeURIComponent(message)}`)
   }
 
   useEffect(() => {
@@ -225,7 +227,7 @@ export function InsightFeed({
         </CardHeader>
       )}
 
-      <CardContent className={cn('flex-1 overflow-y-auto min-h-0', showHeader ? '' : 'pt-4')}>
+      <CardContent className={cn('flex-1 overflow-y-auto min-h-0 px-0', showHeader ? '' : 'pt-4')}>
         {error && (
           <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
@@ -239,33 +241,31 @@ export function InsightFeed({
             <p className="text-xs mt-1">Check back after your next workout</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div>
             {insights.map(insight => {
               const Icon = INSIGHT_ICONS[insight.insight_type] || Activity
-              const priorityClass = PRIORITY_COLORS[insight.priority] || PRIORITY_COLORS.medium
-              const iconClass = TYPE_COLORS[insight.insight_type] || 'text-muted-foreground'
+              const iconColorClass = ICON_BG_COLORS[insight.insight_type] || 'bg-muted text-muted-foreground'
 
               return (
                 <div
                   key={insight.id}
-                  className={cn(
-                    'relative rounded-md border-l-4 p-3 transition-colors',
-                    priorityClass
-                  )}
+                  className="px-3 py-3 hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0"
                 >
                   <div className="flex items-start gap-3">
-                    <Icon className={cn('mt-0.5 h-5 w-5 flex-shrink-0', iconClass)} />
+                    <div className={cn('flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center', iconColorClass)}>
+                      <Icon className="h-5 w-5" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-medium text-sm leading-tight">
                           {insight.title}
                         </h4>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                           {formatDate(insight.created_at)}
                         </span>
                       </div>
                       {!compact && (
-                        <p className="mt-1 text-sm text-muted-foreground leading-snug">
+                        <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
                           {insight.content}
                         </p>
                       )}
@@ -274,7 +274,7 @@ export function InsightFeed({
                           variant="ghost"
                           size="sm"
                           onClick={() => markAsRead(insight.id)}
-                          className="h-7 px-2 text-xs"
+                          className="h-7 px-2 text-xs hover:bg-primary/10 hover:text-primary"
                         >
                           <Check className="mr-1 h-3 w-3" />
                           Got it
@@ -283,10 +283,19 @@ export function InsightFeed({
                           variant="ghost"
                           size="sm"
                           onClick={() => dismissInsight(insight.id)}
-                          className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         >
                           <X className="mr-1 h-3 w-3" />
                           Dismiss
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => askCoach(insight)}
+                          className="h-7 px-2 text-xs hover:bg-blue-500/10"
+                        >
+                          <MessageSquare className="mr-1 h-3 w-3" />
+                          Ask Coach
                         </Button>
                       </div>
                     </div>

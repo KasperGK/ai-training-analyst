@@ -55,8 +55,10 @@ function canvasReducer(
       const pinnedWidgets = state.widgets.filter(w => state.pinnedWidgetIds.has(w.id))
       const nonPinnedWidgets = state.widgets.filter(w => !state.pinnedWidgetIds.has(w.id))
 
-      // Move non-pinned existing widgets to dismissed history
-      const newDismissed = [...state.dismissedWidgets, ...nonPinnedWidgets]
+      // Move non-pinned existing widgets to dismissed history (deduplicate by id)
+      const existingDismissedIds = new Set(state.dismissedWidgets.map(w => w.id))
+      const freshDismissals = nonPinnedWidgets.filter(w => !existingDismissedIds.has(w.id))
+      const newDismissed = [...state.dismissedWidgets, ...freshDismissals]
 
       // Combine: pinned (preserved) + new widgets
       const allWidgets = [...pinnedWidgets, ...action.widgets]

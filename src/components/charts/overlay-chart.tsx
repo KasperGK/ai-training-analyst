@@ -16,6 +16,7 @@ import {
   YAxis,
   CartesianGrid,
   ReferenceLine,
+  ReferenceArea,
   Legend,
 } from 'recharts'
 import { Card } from '@/components/ui/card'
@@ -50,6 +51,7 @@ export interface OverlayDataPoint {
   speed?: number
   altitude?: number
   smoothedPower?: number
+  smoothedHeartRate?: number
 }
 
 interface MetricConfig {
@@ -137,11 +139,13 @@ export function OverlayChart({
   const smoothedData = useMemo(() => {
     if (!data || data.length === 0) return data
 
-    const smoothedPower = smoothArray(data.map(d => d.power), 5)
+    const smoothedPower = smoothArray(data.map(d => d.power), 30)
+    const smoothedHeartRate = smoothArray(data.map(d => d.heartRate), 15)
 
     return data.map((point, i) => ({
       ...point,
       smoothedPower: smoothedPower[i],
+      smoothedHeartRate: smoothedHeartRate[i],
     }))
   }, [data])
 
@@ -250,8 +254,26 @@ export function OverlayChart({
             />
           )}
 
-          {/* Annotations */}
-          {annotations?.map(ann => (
+          {/* Annotations - lines and areas */}
+          {annotations?.filter(ann => ann.type === 'area' && ann.xStart != null && ann.xEnd != null).map(ann => (
+            <ReferenceArea
+              key={ann.id}
+              x1={ann.xStart}
+              x2={ann.xEnd}
+              yAxisId={hasLeftAxis ? 'left' : 'right'}
+              fill={ann.color || '#888'}
+              fillOpacity={0.08}
+              stroke={ann.color || '#888'}
+              strokeOpacity={0.2}
+              label={{
+                value: ann.label,
+                position: 'insideTop',
+                fill: 'hsl(var(--muted-foreground))',
+                fontSize: 10,
+              }}
+            />
+          ))}
+          {annotations?.filter(ann => ann.type === 'line').map(ann => (
             <ReferenceLine
               key={ann.id}
               x={ann.x}
@@ -303,7 +325,7 @@ export function OverlayChart({
             <Line
               yAxisId={METRIC_CONFIGS.heartRate.yAxisId}
               type="monotone"
-              dataKey="heartRate"
+              dataKey="smoothedHeartRate"
               stroke={METRIC_CONFIGS.heartRate.color}
               strokeWidth={1.5}
               dot={false}

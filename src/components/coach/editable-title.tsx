@@ -13,10 +13,13 @@ interface EditableTitleProps {
 export function EditableTitle({ conversationId, defaultTitle, onSave }: EditableTitleProps) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(defaultTitle)
+  const [displayValue, setDisplayValue] = useState(defaultTitle)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Sync from parent when prop changes (e.g., conversation switch)
   useEffect(() => {
     setValue(defaultTitle)
+    setDisplayValue(defaultTitle)
   }, [defaultTitle])
 
   useEffect(() => {
@@ -30,20 +33,21 @@ export function EditableTitle({ conversationId, defaultTitle, onSave }: Editable
     const trimmed = value.trim()
     if (trimmed && trimmed !== defaultTitle && conversationId) {
       onSave(conversationId, trimmed)
+      setDisplayValue(trimmed) // Optimistic update
     } else {
-      setValue(defaultTitle)
+      setValue(displayValue)
     }
     setEditing(false)
-  }, [value, defaultTitle, conversationId, onSave])
+  }, [value, defaultTitle, displayValue, conversationId, onSave])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       save()
     } else if (e.key === 'Escape') {
-      setValue(defaultTitle)
+      setValue(displayValue)
       setEditing(false)
     }
-  }, [save, defaultTitle])
+  }, [save, displayValue])
 
   if (editing) {
     return (
@@ -67,7 +71,7 @@ export function EditableTitle({ conversationId, defaultTitle, onSave }: Editable
         conversationId && 'hover:text-foreground transition-colors cursor-pointer'
       )}
     >
-      <span className="truncate max-w-[200px]">{defaultTitle}</span>
+      <span className="truncate max-w-[300px]">{displayValue}</span>
       {conversationId && (
         <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
       )}

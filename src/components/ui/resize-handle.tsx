@@ -16,8 +16,8 @@ export function ResizeHandle({ onResize, onDragStart, onResizeEnd, className }: 
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    setIsDragging(true)
     onDragStart?.()
+    setIsDragging(true)
   }, [onDragStart])
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function ResizeHandle({ onResize, onDragStart, onResizeEnd, className }: 
       document.body.style.userSelect = ''
       document.body.style.cursor = ''
     }
-  }, [isDragging, onResize])
+  }, [isDragging, onResize, onResizeEnd])
 
   return (
     <div

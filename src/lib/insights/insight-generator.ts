@@ -162,11 +162,11 @@ async function filterExistingInsights(
  * Enhance high-priority patterns with AI-generated content
  */
 async function enhanceWithAI(patterns: DetectedPattern[]): Promise<DetectedPattern[]> {
-  // Only enhance urgent/high priority with AI to save costs
-  const highPriority = patterns.filter(p => p.priority === 'urgent' || p.priority === 'high')
-  const lowPriority = patterns.filter(p => p.priority !== 'urgent' && p.priority !== 'high')
+  // Enhance all insights with AI for better coaching advice
+  const toEnhance = patterns
+  const remaining: DetectedPattern[] = []
 
-  if (highPriority.length === 0) {
+  if (toEnhance.length === 0) {
     return patterns
   }
 
@@ -179,7 +179,7 @@ Be encouraging but direct.
 Focus on what the athlete should do, not just what the data shows.`,
       prompt: `Enhance these training insights with personalized coaching advice. Keep each under 2 sentences.
 
-${highPriority.map((p, i) => `${i + 1}. [${p.type.toUpperCase()}] ${p.title}: ${p.description}`).join('\n\n')}
+${toEnhance.map((p, i) => `${i + 1}. [${p.type.toUpperCase()}] ${p.title}: ${p.description}`).join('\n\n')}
 
 Return each enhanced insight on a new line, numbered to match.`,
     })
@@ -187,10 +187,10 @@ Return each enhanced insight on a new line, numbered to match.`,
     // Parse enhanced descriptions
     const enhanced = result.text.split('\n').filter(line => line.trim())
 
-    for (let i = 0; i < highPriority.length && i < enhanced.length; i++) {
+    for (let i = 0; i < toEnhance.length && i < enhanced.length; i++) {
       const enhancedText = enhanced[i].replace(/^\d+\.\s*/, '').trim()
       if (enhancedText.length > 20) {
-        highPriority[i].description = enhancedText
+        toEnhance[i].description = enhancedText
       }
     }
   } catch (error) {
@@ -198,7 +198,7 @@ Return each enhanced insight on a new line, numbered to match.`,
     // Continue with original descriptions
   }
 
-  return [...highPriority, ...lowPriority]
+  return [...toEnhance, ...remaining]
 }
 
 /**

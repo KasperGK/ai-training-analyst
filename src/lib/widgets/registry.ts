@@ -44,6 +44,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     name: 'Power Curve',
     description: 'Power duration curve showing best power outputs across time durations',
     keywords: ['power', 'power curve', 'ftp', 'watts', 'peak power', 'power profile', 'mmp']
+  },
+  {
+    type: 'session-analysis',
+    name: 'Session Analysis',
+    description: 'Deep multi-tier analysis of a training session with metrics, zones, pacing, and comparison data',
+    keywords: ['session', 'analysis', 'analyze', 'ride', 'workout', 'race', 'detailed', 'deep dive', 'review']
   }
 ]
 

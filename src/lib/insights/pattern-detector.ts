@@ -135,7 +135,9 @@ function detectTrainingStatus(fitness: FitnessData[], sessions: SessionData[]): 
       type: 'trend',
       priority: 'low',
       title: 'Current Training Status',
-      description: `Fitness (CTL): ${Math.round(current.ctl)}, Fatigue (ATL): ${Math.round(current.atl)}, Form (TSB): ${Math.round(current.tsb)}. ${current.tsb < 0 ? 'You\'re carrying some fatigue.' : 'You\'re relatively fresh.'}`,
+      description: current.tsb < 0
+        ? `You're carrying fatigue — keep today easy or take a rest day. Your fitness base is solid, just let your body catch up.`
+        : `You're fresh and recovered. Your fitness base is solid — a good time to push if you're feeling up to it.`,
       data: { ctl: current.ctl, atl: current.atl, tsb: current.tsb },
     })
   }
@@ -150,7 +152,7 @@ function detectTrainingStatus(fitness: FitnessData[], sessions: SessionData[]): 
       type: 'pattern',
       priority: 'low',
       title: 'Recent Training',
-      description: `You've completed ${sessions.length} workouts in the last 30 days, averaging ${avgDuration} minutes per session.`,
+      description: `${sessions.length} sessions in 30 days — strong consistency. Make sure at least 20% of rides are truly easy to stay healthy.`,
       data: { sessionCount: sessions.length, avgDuration },
     })
   }
@@ -181,7 +183,7 @@ function detectFitnessTrends(fitness: FitnessData[]): DetectedPattern[] {
       type: 'trend',
       priority: 'medium',
       title: 'Fitness Building Nicely',
-      description: `Your CTL has increased ${Math.round(ctlChangePercent2w)}% over the last 2 weeks (${Math.round(twoWeeksAgo.ctl)} → ${Math.round(current.ctl)}). Great progress!`,
+      description: `Your fitness jumped ${Math.round(ctlChangePercent2w)}% in 2 weeks — plan a recovery week within the next 2-3 weeks to lock in these gains.`,
       data: { ctlChange: ctlChange2w, ctlChangePercent: ctlChangePercent2w, period: '2 weeks' },
     })
   } else if (ctlChangePercent2w <= -10) {
@@ -189,7 +191,7 @@ function detectFitnessTrends(fitness: FitnessData[]): DetectedPattern[] {
       type: 'trend',
       priority: 'medium',
       title: 'Fitness Declining',
-      description: `Your CTL has dropped ${Math.round(Math.abs(ctlChangePercent2w))}% over the last 2 weeks. Consider whether this is intentional (rest/taper) or if you need to increase training load.`,
+      description: `Fitness dropped ${Math.round(Math.abs(ctlChangePercent2w))}% in 2 weeks. If this isn't a planned taper, try adding 1-2 structured sessions this week to reverse the trend.`,
       data: { ctlChange: ctlChange2w, ctlChangePercent: ctlChangePercent2w, period: '2 weeks' },
     })
   }
@@ -277,7 +279,7 @@ function detectAchievements(sessions: SessionData[]): DetectedPattern[] {
         type: 'achievement',
         priority: 'medium',
         title: 'Strong Power Output',
-        description: `Your recent ride hit ${Math.round(maxNP)}W normalized power - one of your best efforts in the past month!`,
+        description: `${Math.round(maxNP)}W normalized power — a top effort this month. Build on this with a similar session in 3-5 days while the form is there.`,
         data: { normalizedPower: maxNP, sessionId: maxNPSession?.id, date: maxNPSession?.date },
       })
     }
@@ -290,7 +292,7 @@ function detectAchievements(sessions: SessionData[]): DetectedPattern[] {
       type: 'achievement',
       priority: 'low',
       title: 'Training Consistency',
-      description: `You've trained ${daysWithTraining} days in the last month. Consistency is key to improvement!`,
+      description: `${daysWithTraining} training days this month — consistency is your biggest advantage. Keep showing up.`,
       data: { trainingDays: daysWithTraining },
     })
   }
@@ -302,7 +304,7 @@ function detectAchievements(sessions: SessionData[]): DetectedPattern[] {
       type: 'achievement',
       priority: 'low',
       title: 'High Training Volume',
-      description: `You've logged ${Math.round(totalHours)} hours of training in the past month. Solid volume!`,
+      description: `${Math.round(totalHours)} hours this month is serious volume. Watch for signs of accumulated fatigue — sleep quality and morning HR are your early warnings.`,
       data: { totalHours },
     })
   }
@@ -411,7 +413,7 @@ function detectFormSuggestions(fitness: FitnessData[]): DetectedPattern[] {
       type: 'suggestion',
       priority: 'medium',
       title: 'Good Day for Intensity',
-      description: `Your form (TSB: ${Math.round(current.tsb)}) is in the sweet spot. You're fresh enough for a quality workout but fit enough to handle it.`,
+      description: `You're fresh and fit — today's a great day for a hard session. Don't waste this form on an easy ride.`,
       data: { tsb: current.tsb, ctl: current.ctl },
     })
   }
@@ -422,7 +424,7 @@ function detectFormSuggestions(fitness: FitnessData[]): DetectedPattern[] {
       type: 'suggestion',
       priority: 'low',
       title: 'Time to Train',
-      description: `Your form (TSB: ${Math.round(current.tsb)}) is very high. Unless you're tapering, you might be losing fitness. Consider getting back to training.`,
+      description: `You've been resting a while — fitness fades after ~5 days off. Get a session in today to keep momentum.`,
       data: { tsb: current.tsb },
     })
   }

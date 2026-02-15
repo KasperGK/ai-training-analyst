@@ -21,7 +21,7 @@ import {
   X,
   TrendingUp,
   AlertTriangle,
-  Trophy,
+  Award,
   Lightbulb,
   Activity,
   Calendar,
@@ -52,7 +52,7 @@ interface Insight {
 const INSIGHT_ICONS: Record<string, React.ElementType> = {
   trend: TrendingUp,
   warning: AlertTriangle,
-  achievement: Trophy,
+  achievement: Award,
   suggestion: Lightbulb,
   pattern: Activity,
   event_prep: Calendar,
@@ -93,7 +93,7 @@ function InsightItem({ insight, onMarkRead, onDismiss, onAskCoach }: InsightItem
   const iconColorClass = ICON_BG_COLORS[insight.insight_type] || 'bg-muted text-muted-foreground'
 
   return (
-    <div className="px-3 py-3 hover:bg-accent/50 rounded-lg transition-colors border-b border-border/50 last:border-b-0">
+    <div className="px-3 py-3 hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0">
       <div className="flex items-start gap-3">
         {/* Circular icon */}
         <div

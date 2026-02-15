@@ -101,7 +101,7 @@ export function SleepCard({ sleepSeconds, sleepScore, className }: SleepCardProp
               tick={false}
             />
             <RadialBar
-              background={{ fill: '#f3f4f6' }}
+              background={{ fill: 'hsl(0 0% 20%)' }}
               dataKey="value"
               cornerRadius={10}
               angleAxisId={0}

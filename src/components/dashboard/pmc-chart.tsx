@@ -29,6 +29,7 @@ import type { PMCDataPoint } from '@/lib/transforms'
 
 export const TIME_RANGES = {
   '1w': { label: '1 Week', days: 7 },
+  '3w': { label: '3 Weeks', days: 21 },
   '6w': { label: '6 Weeks', days: 42 },
   '3m': { label: '3 Months', days: 90 },
   '6m': { label: '6 Months', days: 180 },

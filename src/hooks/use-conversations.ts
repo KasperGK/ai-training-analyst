@@ -148,6 +148,15 @@ export function useConversations(): UseConversationsReturn {
 
   // Update a conversation's title
   const updateConversationTitle = useCallback(async (id: string, title: string): Promise<boolean> => {
+    // Optimistic update — apply immediately so History view is in sync
+    setConversations((prev) => {
+      const exists = prev.some((c) => c.id === id)
+      if (exists) {
+        return prev.map((c) => (c.id === id ? { ...c, title } : c))
+      }
+      return [{ id, title, last_message_at: new Date().toISOString(), message_count: 0 }, ...prev]
+    })
+
     try {
       const res = await fetch(`/api/conversations/${id}`, {
         method: 'PATCH',
@@ -155,17 +164,16 @@ export function useConversations(): UseConversationsReturn {
         body: JSON.stringify({ title }),
       })
       if (res.ok) {
-        // Update local state
-        setConversations((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, title } : c))
-        )
         return true
       }
+      // PATCH failed — reload to get correct state
+      loadConversations()
     } catch (error) {
       console.error('Failed to update conversation title:', error)
+      loadConversations()
     }
     return false
-  }, [])
+  }, [loadConversations])
 
   // Initial load
   useEffect(() => {

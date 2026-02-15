@@ -74,9 +74,9 @@ export function WidgetHistorySheet({
         <ScrollArea className="flex-1 -mx-4 px-4">
           {hasWidgets ? (
             <div className="space-y-2 py-2">
-              {dismissedWidgets.map((widget) => (
+              {dismissedWidgets.map((widget, index) => (
                 <div
-                  key={widget.id}
+                  key={`${widget.id}-${index}`}
                   className="flex items-start gap-3 p-3 rounded-lg border bg-card"
                 >
                   <div className="flex-1 min-w-0">

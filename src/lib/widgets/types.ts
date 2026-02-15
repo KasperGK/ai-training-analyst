@@ -103,7 +103,7 @@ export type CanvasAction = 'show' | 'add' | 'compare' | 'clear'
 /**
  * Widget icon type for status badges
  */
-export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout' | 'race' | 'competitors' | 'plan' | 'projection' | 'calendar'
+export type WidgetIcon = 'fitness' | 'chart' | 'sessions' | 'power' | 'sleep' | 'workout' | 'race' | 'competitors' | 'plan' | 'projection' | 'calendar' | 'analysis'
 
 export interface CanvasState {
   widgets: WidgetConfig[]
@@ -144,7 +144,7 @@ export function getWidgetIcon(type: WidgetType): WidgetIcon {
     'plan-proposal': 'plan',
     'plan-projection': 'projection',
     'training-calendar': 'calendar',
-    'session-analysis': 'fitness',
+    'session-analysis': 'analysis',
   }
   return iconMap[type] || 'chart'
 }

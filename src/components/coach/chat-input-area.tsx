@@ -59,14 +59,16 @@ export function ChatInputArea({
 
   const handleFocus = useCallback(() => {
     setIsFocused(true)
-  }, [])
+    onFocusChange?.(true)
+  }, [onFocusChange])
 
   const handleBlur = useCallback(() => {
     // Small delay to allow click events on suggestions
     setTimeout(() => {
       setIsFocused(false)
+      onFocusChange?.(false)
     }, 150)
-  }, [])
+  }, [onFocusChange])
 
   const handleSelectSuggestion = useCallback(
     (prompt: string) => {
