@@ -121,6 +121,9 @@ export async function POST(request: Request) {
   try {
     const result = await syncAll(user.id, options)
 
+    // Clear intervals.icu API cache after sync so fresh DB data is used
+    intervalsClient.clearCache()
+
     // === PHASE 8.1: Auto-generate insights after new data arrives ===
     let insightsGenerated = 0
     if (result.success && result.activitiesSynced > 0) {
