@@ -133,6 +133,7 @@ Common patterns:
       const fromDate = new Date(now)
       fromDate.setDate(fromDate.getDate() - input.daysBack)
       dateFrom = fromDate.toISOString().split('T')[0]
+      console.log(`[findSessions] daysBack=${input.daysBack}, dateFrom=${dateFrom}, dateTo=${dateTo}`)
     }
 
     // Build search criteria description

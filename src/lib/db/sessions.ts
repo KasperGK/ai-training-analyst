@@ -127,7 +127,10 @@ export async function getSessions(
     query = query.gte('date', startDate)
   }
   if (endDate) {
-    query = query.lte('date', endDate)
+    // If endDate is date-only (no time component), treat as end-of-day
+    // so timestamps like '2026-02-15T09:24:00Z' match endDate '2026-02-15'
+    const endStr = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`
+    query = query.lte('date', endStr)
   }
   if (sport) {
     query = query.eq('sport', sport)
