@@ -18,13 +18,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-
-interface PMCDataPoint {
-  date: string
-  ctl: number
-  atl: number
-  tsb: number
-}
+import type { PMCDataPoint } from '@/lib/transforms'
 
 interface PMCChartProps {
   data: PMCDataPoint[]

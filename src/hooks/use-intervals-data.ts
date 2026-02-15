@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { CurrentFitness, Session } from '@/types'
+import type { PMCDataPoint } from '@/lib/transforms'
 
 // Auto-refresh interval: 5 minutes
 const REFRESH_INTERVAL = 5 * 60 * 1000
@@ -21,7 +22,7 @@ interface IntervalsData {
   } | null
   currentFitness: CurrentFitness | null
   sessions: Session[]
-  pmcData: { date: string; ctl: number; atl: number; tsb: number }[]
+  pmcData: PMCDataPoint[]
   ctlTrend: number
   lastUpdated: Date | null
 }
