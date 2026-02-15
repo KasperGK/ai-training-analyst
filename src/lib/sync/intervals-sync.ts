@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { intervalsClient, formatDateForApi } from '@/lib/intervals-icu'
 import type { IntervalsActivity, IntervalsWellness } from '@/lib/intervals-icu'
 import type { SyncLog, SyncResult, SyncOptions, SessionInsert, FitnessHistoryInsert } from './types'
+import type { DiscrepancyInsert } from '@/lib/db/fitness-discrepancies'
 
 const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_LOOKBACK_DAYS = 365
@@ -381,20 +382,24 @@ export async function syncActivities(
   return { synced, errors }
 }
 
+/** Threshold in CTL points to trigger a discrepancy alert */
+const CTL_DISCREPANCY_THRESHOLD = 5
+
 /**
  * Sync wellness/fitness data from intervals.icu to Supabase
  */
 export async function syncWellness(
   athleteId: string,
   options: SyncOptions = {}
-): Promise<{ synced: number; errors: string[] }> {
+): Promise<{ synced: number; errors: string[]; discrepanciesFound: number }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { synced: 0, errors: ['Supabase not configured'] }
+    return { synced: 0, errors: ['Supabase not configured'], discrepanciesFound: 0 }
   }
 
   const errors: string[] = []
   let synced = 0
+  let discrepanciesFound = 0
 
   // Determine date range
   const newest = options.until || formatDateForApi(new Date())
@@ -416,13 +421,20 @@ export async function syncWellness(
     const wellnessData = await intervalsClient.getWellness(oldest, newest)
 
     if (!wellnessData || wellnessData.length === 0) {
-      return { synced: 0, errors: [] }
+      return { synced: 0, errors: [], discrepanciesFound: 0 }
     }
 
     // Filter out records without valid dates and transform
     const validWellness = wellnessData.filter(w => w.id || w.date)
     const fitnessRecords: FitnessHistoryInsert[] = validWellness.map(w =>
       transformWellness(w, athleteId)
+    )
+
+    // --- Discrepancy detection: compare local values with incoming ---
+    discrepanciesFound = await detectFitnessDiscrepancies(
+      supabase,
+      athleteId,
+      fitnessRecords
     )
 
     // Upsert all fitness records
@@ -450,7 +462,113 @@ export async function syncWellness(
     errors.push(message)
   }
 
-  return { synced, errors }
+  return { synced, errors, discrepanciesFound }
+}
+
+/**
+ * Compare incoming intervals.icu fitness values with local data.
+ * Detects when CTL differs by more than CTL_DISCREPANCY_THRESHOLD points,
+ * which indicates upstream recalculation of fitness history.
+ */
+async function detectFitnessDiscrepancies(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  athleteId: string,
+  incomingRecords: FitnessHistoryInsert[]
+): Promise<number> {
+  if (incomingRecords.length === 0) return 0
+
+  // Compare only the most recent 7 days to limit query scope
+  const recentRecords = incomingRecords
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 7)
+
+  const dates = recentRecords.map(r => r.date)
+
+  // Fetch existing local fitness records for these dates
+  const { data: localRecords, error } = await supabase
+    .from('fitness_history')
+    .select('date, ctl, atl')
+    .eq('athlete_id', athleteId)
+    .in('date', dates)
+
+  if (error || !localRecords || localRecords.length === 0) {
+    // No local data to compare - first sync or error
+    return 0
+  }
+
+  // Build lookup map of local values by date
+  const localByDate = new Map(
+    localRecords.map(r => [r.date, { ctl: r.ctl, atl: r.atl }])
+  )
+
+  const discrepancies: DiscrepancyInsert[] = []
+
+  for (const incoming of recentRecords) {
+    const local = localByDate.get(incoming.date)
+    if (!local) continue
+
+    const ctlDelta = incoming.ctl - local.ctl
+    const atlDelta = incoming.atl - local.atl
+
+    if (Math.abs(ctlDelta) > CTL_DISCREPANCY_THRESHOLD) {
+      discrepancies.push({
+        athlete_id: athleteId,
+        date: incoming.date,
+        local_ctl: local.ctl,
+        local_atl: local.atl,
+        remote_ctl: incoming.ctl,
+        remote_atl: incoming.atl,
+        ctl_delta: ctlDelta,
+        atl_delta: atlDelta,
+      })
+    }
+  }
+
+  if (discrepancies.length === 0) return 0
+
+  // Store discrepancies in the database
+  const { error: insertError } = await supabase
+    .from('fitness_discrepancies')
+    .insert(discrepancies)
+
+  if (insertError) {
+    console.error('[Sync] Failed to insert discrepancies:', insertError)
+    return 0
+  }
+
+  console.log(
+    `[Sync] Detected ${discrepancies.length} fitness discrepancy(ies) for athlete ${athleteId}:`,
+    discrepancies.map(d => `${d.date}: CTL ${d.local_ctl}→${d.remote_ctl} (${d.ctl_delta > 0 ? '+' : ''}${d.ctl_delta})`)
+  )
+
+  // Create an insight for the most significant discrepancy
+  const largest = discrepancies.reduce((max, d) =>
+    Math.abs(d.ctl_delta) > Math.abs(max.ctl_delta) ? d : max
+  )
+
+  const direction = largest.ctl_delta > 0 ? 'higher' : 'lower'
+  const absDelta = Math.abs(Math.round(largest.ctl_delta))
+
+  await supabase.from('insights').insert({
+    athlete_id: athleteId,
+    insight_type: 'warning',
+    priority: absDelta > 10 ? 'high' : 'medium',
+    title: 'Fitness Data Recalculated Upstream',
+    content: `intervals.icu recalculated your fitness history. Your CTL is now ${absDelta} points ${direction} than what we had locally (${Math.round(largest.local_ctl)} → ${Math.round(largest.remote_ctl)}). This can happen when activities are added, deleted, or reprocessed on intervals.icu.`,
+    data: {
+      date: largest.date,
+      local_ctl: largest.local_ctl,
+      remote_ctl: largest.remote_ctl,
+      ctl_delta: largest.ctl_delta,
+      local_atl: largest.local_atl,
+      remote_atl: largest.remote_atl,
+      atl_delta: largest.atl_delta,
+      discrepancy_count: discrepancies.length,
+    },
+    source: 'pattern_detected',
+  })
+
+  return discrepancies.length
 }
 
 /**
@@ -470,6 +588,7 @@ export async function syncAll(
       success: false,
       activitiesSynced: 0,
       wellnessSynced: 0,
+      discrepanciesFound: 0,
       lastActivityDate: null,
       errors: ['Failed to create athlete record'],
       duration_ms: Date.now() - startTime,
@@ -489,7 +608,7 @@ export async function syncAll(
   const activitiesResult = await syncActivities(athleteId, options)
   allErrors.push(...activitiesResult.errors)
 
-  // Then sync wellness
+  // Then sync wellness (includes discrepancy detection)
   const wellnessResult = await syncWellness(athleteId, options)
   allErrors.push(...wellnessResult.errors)
 
@@ -504,6 +623,7 @@ export async function syncAll(
     success: allErrors.length === 0,
     activitiesSynced: activitiesResult.synced,
     wellnessSynced: wellnessResult.synced,
+    discrepanciesFound: wellnessResult.discrepanciesFound,
     lastActivityDate: syncLog?.last_activity_date || null,
     errors: allErrors,
     duration_ms: Date.now() - startTime,

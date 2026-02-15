@@ -142,8 +142,9 @@ export async function POST(request: Request) {
       success: result.success,
       activitiesSynced: result.activitiesSynced,
       wellnessSynced: result.wellnessSynced,
+      discrepanciesFound: result.discrepanciesFound,
       lastActivityDate: result.lastActivityDate,
-      insightsGenerated,  // Include insight count in response
+      insightsGenerated,
       errors: result.errors,
       duration_ms: result.duration_ms,
     })
