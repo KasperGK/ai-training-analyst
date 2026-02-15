@@ -218,8 +218,10 @@ For complex queries, use the findSessions tool:
 - "Thursday ride" → findSessions({ nameSearch: "Thursday" }) or resolve to a date
 - "hardest workout this week" → findSessions({ daysBack: 7, sortBy: "intensity", limit: 1 })
 
-When searching for races, findSessions also checks the race_results table (ZwiftPower)
-for definitive data including placement and category.
+IMPORTANT: When the user mentions "race", "last race", or asks about race performance,
+ALWAYS use sessionType: "race" in your findSessions call. Never search without sessionType
+when the intent is clearly about races. The race filter checks ZwiftPower results first
+(ground truth for placement and category) then falls back to heuristic detection.
 
 **Option 3: analyzeRace (Race Deep Dive)**
 For aggregate race analysis with trends, form correlation, terrain strengths, competitors, and pacing:
