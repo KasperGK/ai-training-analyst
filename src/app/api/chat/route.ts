@@ -19,6 +19,7 @@ import { workoutLibrary, getWorkoutById, type WorkoutCategory } from '@/lib/work
 import { generateTrainingPlan, getAvailablePlans } from '@/lib/plans/generator'
 import { planTemplates, getPlanTemplateSummary, type PlanGoal } from '@/lib/plans/templates'
 import { createTrainingPlan, createPlanDays, getActivePlan as getActivePlanFromDB, updateTrainingPlan, getPlanDays, calculatePlanProgress } from '@/lib/db/training-plans'
+import { getRaceResults, getRaceResultsBySessionIds } from '@/lib/db/race-results'
 import { analyzeAthletePatterns, summarizePatterns } from '@/lib/learning'
 import type { WorkoutSuggestion, Session } from '@/types'
 
@@ -2521,7 +2522,180 @@ Note: These insights are already available - you don't need to call getActiveIns
         },
       },
 
-      // Tool 18: Update plan day / mark complete
+      // Tool 18: Find sessions (search/filter)
+      findSessions: {
+        description: 'Search and filter training sessions by date, type, intensity, or race status. Use for questions like "show me this morning\'s session", "my last race", "hard workouts this week", or "sessions from last 3 days". Returns session summaries with start times.',
+        inputSchema: z.object({
+          daysBack: z.number().optional().describe('Number of days to look back. Use 0 for today only, 1 for yesterday+today, 7 for last week, etc.'),
+          sport: z.string().optional().describe('Filter by sport type (cycling, running, swimming, other)'),
+          minTSS: z.number().optional().describe('Minimum TSS threshold. Use 0 to include all.'),
+          minIntensityFactor: z.number().optional().describe('Minimum IF threshold. Use 0 to include all.'),
+          nameSearch: z.string().optional().describe('Search session names/workout types (e.g., "zwift", "tempo", "race")'),
+          onlyRaces: z.boolean().optional().describe('Only return races. Checks race_results table first (ZwiftPower ground truth), then falls back to heuristic detection.'),
+          limit: z.number().optional().describe('Maximum sessions to return (default: 10)'),
+        }),
+        execute: async ({
+          daysBack,
+          sport,
+          minTSS,
+          minIntensityFactor,
+          nameSearch,
+          onlyRaces = false,
+          limit = 10,
+        }: {
+          daysBack?: number
+          sport?: string
+          minTSS?: number
+          minIntensityFactor?: number
+          nameSearch?: string
+          onlyRaces?: boolean
+          limit?: number
+        }) => {
+          if (!athleteId) {
+            return { error: 'No athlete ID available. Session search requires a logged-in user.' }
+          }
+
+          // Build date range - use != null to handle daysBack: 0 correctly
+          let startDate: string | undefined
+          let endDate: string | undefined
+          if (daysBack != null) {
+            const end = new Date()
+            const start = new Date()
+            start.setDate(start.getDate() - daysBack)
+            startDate = start.toISOString().split('T')[0]
+            endDate = end.toISOString().split('T')[0]
+          }
+
+          // Helper: extract start_time (HH:MM) from raw_data.start_date_local
+          const extractStartTime = (rawData?: Record<string, unknown>): string | null => {
+            if (!rawData) return null
+            const startDateLocal = rawData.start_date_local as string | undefined
+            if (!startDateLocal || typeof startDateLocal !== 'string') return null
+            const match = startDateLocal.match(/T(\d{2}:\d{2})/)
+            return match ? match[1] : null
+          }
+
+          // Helper: determine if a session is likely a race (heuristic)
+          const isLikelyRace = (session: Session): boolean => {
+            const name = (session.workout_type || '').toLowerCase()
+            // Name-keyword check (reliable)
+            const raceKeywords = ['race', 'event', 'crit', 'criterium', 'gran fondo', 'granfondo', 'cx', 'cyclocross', 'time trial', 'tt ', 'championship', 'cup ']
+            if (raceKeywords.some(kw => name.includes(kw))) return true
+
+            // Intensity heuristic: IF >= 0.95 AND TSS/min >= 1.5
+            const iF = session.intensity_factor || 0
+            const durationMin = session.duration_seconds / 60
+            const tssPerMin = durationMin > 0 ? (session.tss || 0) / durationMin : 0
+            if (iF >= 0.95 && tssPerMin >= 1.5) return true
+
+            return false
+          }
+
+          try {
+            // Fetch sessions from local DB
+            const sessions = await getSessions(athleteId, {
+              startDate,
+              endDate,
+              sport,
+              limit: onlyRaces ? 100 : limit, // Fetch more if filtering for races
+            })
+
+            if (sessions.length === 0) {
+              return {
+                sessions: [],
+                count: 0,
+                message: daysBack != null
+                  ? `No sessions found in the last ${daysBack} day${daysBack !== 1 ? 's' : ''}.`
+                  : 'No sessions found matching your criteria.',
+              }
+            }
+
+            // Apply additional filters (minTSS, minIntensityFactor, nameSearch)
+            let filtered = sessions
+
+            if (minTSS != null) {
+              filtered = filtered.filter(s => (s.tss || 0) >= minTSS)
+            }
+            if (minIntensityFactor != null) {
+              filtered = filtered.filter(s => (s.intensity_factor || 0) >= minIntensityFactor)
+            }
+            if (nameSearch) {
+              const search = nameSearch.toLowerCase()
+              filtered = filtered.filter(s =>
+                (s.workout_type || '').toLowerCase().includes(search)
+              )
+            }
+
+            // Race filtering: race_results table first, then heuristic fallback
+            if (onlyRaces) {
+              // Step 1: Check race_results table (ground truth from ZwiftPower)
+              const sessionIds = filtered.map(s => s.id)
+              const raceResults = await getRaceResultsBySessionIds(athleteId, sessionIds)
+              const raceSessionIds = new Set(raceResults.map(r => r.session_id).filter(Boolean))
+
+              // Also fetch race_results by date range if available
+              const dateRaceResults = await getRaceResults(athleteId, {
+                startDate,
+                endDate,
+                limit: 50,
+              })
+              dateRaceResults.forEach(r => {
+                if (r.session_id) raceSessionIds.add(r.session_id)
+              })
+
+              // Step 2: Sessions matched to race_results are confirmed races
+              const confirmedRaces = filtered.filter(s => raceSessionIds.has(s.id))
+              const unmatched = filtered.filter(s => !raceSessionIds.has(s.id))
+
+              // Step 3: Apply heuristic only to unmatched sessions
+              const heuristicRaces = unmatched.filter(s => isLikelyRace(s))
+
+              // Combine: confirmed races first, then heuristic races
+              filtered = [
+                ...confirmedRaces.map(s => ({ ...s, _raceSource: 'race_results' as const })),
+                ...heuristicRaces.map(s => ({ ...s, _raceSource: 'heuristic' as const })),
+              ] as (Session & { _raceSource?: 'race_results' | 'heuristic' })[]
+            }
+
+            // Limit results
+            const results = filtered.slice(0, limit)
+
+            // Build session summaries with start_time
+            const summaries = results.map(s => {
+              const startTime = extractStartTime(s.raw_data)
+              const raceSource = (s as Session & { _raceSource?: string })._raceSource
+              return {
+                id: s.id,
+                date: s.date,
+                start_time: startTime,
+                name: s.workout_type || s.sport,
+                sport: s.sport,
+                duration_minutes: Math.round(s.duration_seconds / 60),
+                tss: s.tss || null,
+                intensity_factor: s.intensity_factor || null,
+                normalized_power: s.normalized_power || null,
+                avg_power: s.avg_power || null,
+                avg_hr: s.avg_hr || null,
+                distance_km: s.distance_meters ? Math.round(s.distance_meters / 100) / 10 : null,
+                ...(onlyRaces && raceSource ? { race_detection: raceSource } : {}),
+                ...(onlyRaces && isLikelyRace(s) ? { is_race: true } : {}),
+              }
+            })
+
+            return {
+              sessions: summaries,
+              count: summaries.length,
+              totalMatched: filtered.length,
+              dateRange: startDate && endDate ? { from: startDate, to: endDate } : null,
+            }
+          } catch (error) {
+            console.error('[findSessions] Error:', error)
+            return { error: `Failed to search sessions: ${error instanceof Error ? error.message : 'Unknown error'}` }
+          }
+        },
+      },
+
+      // Tool 19: Update plan day / mark complete
       updatePlanDay: {
         description: 'Update a training plan day - mark workout as complete, add notes, or link to actual session. Use after athlete completes a workout to track compliance.',
         inputSchema: z.object({

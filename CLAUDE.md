@@ -106,6 +106,7 @@ npm run build  # Build for production
 - `generateTrainingPlan` - Multi-week structured plans (persisted to DB)
 - `getTrainingPlan` - Retrieve active plan with schedule and progress
 - `updatePlanDay` - Mark workouts complete, track compliance
+- `findSessions` - Search/filter sessions by date, type, intensity, race status (with start_time)
 - `logWorkoutOutcome` - Record workout outcomes for learning
 - `analyzePatterns` - Discover and save training patterns from outcome history
 
@@ -142,9 +143,10 @@ All database operations go through `src/lib/db/`:
 - `goals.ts` - Goal tracking
 - `training-plans.ts` - Training plans and plan days (Phase 4)
 - `power-bests.ts` - Power curve personal bests (Phase 4)
+- `race-results.ts` - Race results from ZwiftPower and other sources
 - `integrations.ts` - OAuth integrations
 
 ## Migrations
-Latest: `010_training_plans.sql` (training_plans, plan_days, power_bests)
+Latest: `011_race_results.sql` (race_results for ZwiftPower race data)
 
 Run pending: `npx supabase migration up`
