@@ -155,6 +155,41 @@ export function OverlayChart({
   const hasLeftAxis = leftAxisMetrics.length > 0
   const hasRightAxis = rightAxisMetrics.length > 0
 
+  // Compute explicit Y-axis domains from actual metric data.
+  // Recharts string expressions like 'dataMin - 20' resolve across ALL numeric
+  // fields in the data (including time), producing garbled axis values.
+  const { leftDomain, rightDomain } = useMemo(() => {
+    if (!smoothedData || smoothedData.length === 0) {
+      return { leftDomain: undefined, rightDomain: undefined }
+    }
+
+    function computeDomain(
+      metricList: ChartMetric[],
+      padding: number,
+    ): [number, number] | undefined {
+      const values: number[] = []
+      for (const point of smoothedData) {
+        for (const metric of metricList) {
+          // Use the same data keys the chart series actually plot
+          let val: number | undefined
+          if (metric === 'power') val = point.smoothedPower
+          else if (metric === 'heartRate') val = point.smoothedHeartRate
+          else val = point[metric]
+          if (val != null && isFinite(val)) values.push(val)
+        }
+      }
+      if (values.length === 0) return undefined
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      return [min - padding, max + padding]
+    }
+
+    return {
+      leftDomain: hasLeftAxis ? computeDomain(leftAxisMetrics, 20) : undefined,
+      rightDomain: hasRightAxis ? computeDomain(rightAxisMetrics, 10) : undefined,
+    }
+  }, [smoothedData, leftAxisMetrics, rightAxisMetrics, hasLeftAxis, hasRightAxis])
+
   if (!data || data.length === 0) {
     return (
       <Card className="p-4">
@@ -225,7 +260,7 @@ export function OverlayChart({
               axisLine={false}
               tickMargin={8}
               width={50}
-              domain={['dataMin - 20', 'dataMax + 20']}
+              domain={leftDomain}
               label={{
                 value: leftAxisMetrics.map(m => METRIC_CONFIGS[m].unit).join('/'),
                 angle: -90,
@@ -244,7 +279,7 @@ export function OverlayChart({
               axisLine={false}
               tickMargin={8}
               width={50}
-              domain={['dataMin - 10', 'dataMax + 10']}
+              domain={rightDomain}
               label={{
                 value: rightAxisMetrics.map(m => METRIC_CONFIGS[m].unit).join('/'),
                 angle: 90,
