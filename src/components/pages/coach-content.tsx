@@ -348,6 +348,8 @@ export function CoachContent() {
 
   const lastSavedMessageCount = useRef(0)
   const lastProcessedCanvasMessageId = useRef<string | null>(null)
+  // Track which conversation's savedMessages have been restored to canvas
+  const canvasRestoredForConversationId = useRef<string | null>(null)
 
   // Track screen size for responsive layout
   useEffect(() => {
@@ -659,16 +661,21 @@ export function CoachContent() {
     startNewConversation()
     setMessages([])
     lastSavedMessageCount.current = 0
+    lastProcessedCanvasMessageId.current = null
+    canvasRestoredForConversationId.current = null
     clearNonPinnedWidgets()  // Clear canvas except pinned widgets
     setActiveView('chat')
   }, [startNewConversation, setMessages, clearNonPinnedWidgets])
 
   // Handle loading a conversation
   const handleLoadConversation = useCallback(async (id: string) => {
-    await loadConversation(id)
+    // Reset canvas tracking BEFORE loading to prevent stale replays
+    lastProcessedCanvasMessageId.current = null
+    canvasRestoredForConversationId.current = null
+    clearNonPinnedWidgets()  // Clear canvas except pinned widgets
     setMessages([])
     lastSavedMessageCount.current = 0
-    clearNonPinnedWidgets()  // Clear canvas except pinned widgets
+    await loadConversation(id)
     setActiveView('chat')
   }, [loadConversation, setMessages, clearNonPinnedWidgets])
 
@@ -779,9 +786,19 @@ export function CoachContent() {
     [savedMessages]
   )
 
-  // Restore canvas state from saved messages when loading a conversation
+  // Restore canvas state from saved messages when loading a conversation.
+  // Guards against stale replays by tracking which conversation was last restored.
   useEffect(() => {
     if (savedMessages.length === 0) return
+    if (!currentConversationId) return
+
+    // Skip if we already restored canvas for this conversation
+    if (canvasRestoredForConversationId.current === currentConversationId) return
+
+    // Verify savedMessages belong to this conversation (check first message)
+    if (savedMessages[0].conversation_id !== currentConversationId) return
+
+    canvasRestoredForConversationId.current = currentConversationId
 
     // Process each assistant message to find canvas actions
     for (const msg of savedMessages) {
@@ -803,7 +820,7 @@ export function CoachContent() {
         showWidgets(widgets)
       }
     }
-  }, [savedMessages, processCanvasAction, showWidgets])
+  }, [savedMessages, currentConversationId, processCanvasAction, showWidgets])
 
   // Display messages: live session messages, saved messages, or welcome
   const displayMessages = useMemo(() => {
