@@ -426,8 +426,25 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     parts: Array<{ type: string; text?: string; [key: string]: unknown }>
   }
 
-  // Helper to extract text from message parts
+  // Helper to extract text from message parts — for assistant messages, only show text
+  // AFTER the last tool part to filter out intermediate narration between tool calls
   const getMessageText = (message: DisplayMessage) => {
+    if (message.role === 'assistant') {
+      let lastToolIdx = -1
+      for (let i = message.parts.length - 1; i >= 0; i--) {
+        if (message.parts[i].type.startsWith('tool-')) {
+          lastToolIdx = i
+          break
+        }
+      }
+      if (lastToolIdx >= 0) {
+        return message.parts
+          .slice(lastToolIdx + 1)
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text' && !!part.text)
+          .map(part => part.text)
+          .join('')
+      }
+    }
     return message.parts
       .filter((part): part is { type: 'text'; text: string } => part.type === 'text' && !!part.text)
       .map(part => part.text)
@@ -482,20 +499,21 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
   // Convert saved messages from DB format to display format
   const savedDisplayMessages = useMemo(() =>
     savedMessages.map(msg => {
-      // Start with text part
       const parts: Array<{ type: string; text?: string; [key: string]: unknown }> = []
 
-      if (msg.content) {
-        parts.push({ type: 'text' as const, text: msg.content })
-      }
-
-      // Restore tool call results if saved
+      // Restore tool call results BEFORE text (matching original order: tools run first, then text response)
+      // This is critical because getMessageText() shows only text AFTER the last tool part
       if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
         for (const toolCall of msg.tool_calls) {
           if (toolCall && typeof toolCall === 'object' && 'type' in toolCall) {
             parts.push(toolCall as { type: string; [key: string]: unknown })
           }
         }
+      }
+
+      // Text comes after tools (matching original message order)
+      if (msg.content) {
+        parts.push({ type: 'text' as const, text: msg.content })
       }
 
       return {
@@ -683,7 +701,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
                         'rounded-2xl px-4 py-2.5',
                         isUser
                           ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                          : 'bg-muted rounded-tl-sm'
+                          : 'bg-muted text-foreground rounded-tl-sm'
                       )}
                     >
                       {text && (

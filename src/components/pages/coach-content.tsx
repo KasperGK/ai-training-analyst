@@ -743,9 +743,30 @@ export function CoachContent() {
     sendMessage({ text: prompt })
   }, [sendMessage])
 
-  // Get message text helper
+  // Get message text helper — for assistant messages, only show text AFTER the last tool part
+  // to filter out intermediate narration like "Let me search..." between tool calls
   const getMessageText = (message: typeof messages[0]) => {
-    return message.parts
+    const parts = message.parts
+    if (message.role === 'assistant') {
+      // Find the index of the last tool-related part
+      let lastToolIdx = -1
+      for (let i = parts.length - 1; i >= 0; i--) {
+        if (parts[i].type.startsWith('tool-')) {
+          lastToolIdx = i
+          break
+        }
+      }
+      // If there are tool parts, only show text that comes after the last one
+      if (lastToolIdx >= 0) {
+        return parts
+          .slice(lastToolIdx + 1)
+          .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && !!p.text)
+          .map(p => p.text)
+          .join('')
+      }
+    }
+    // User messages or assistant messages without tools: show all text
+    return parts
       .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && !!p.text)
       .map(p => p.text)
       .join('')
@@ -755,9 +776,10 @@ export function CoachContent() {
   const savedDisplayMessages = useMemo(() =>
     savedMessages.map(msg => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parts: any[] = [{ type: 'text' as const, text: msg.content }]
+      const parts: any[] = []
 
-      // Reconstruct tool parts from saved tool_calls for chapter tracking
+      // Reconstruct tool parts BEFORE text (matching original order: tools run first, then text response)
+      // This is critical because getMessageText() shows only text AFTER the last tool part
       if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
         for (const tc of msg.tool_calls) {
           const toolCall = tc as { toolName?: string; state?: string; result?: unknown }
@@ -775,6 +797,9 @@ export function CoachContent() {
           }
         }
       }
+
+      // Text comes after tools (matching original message order)
+      parts.push({ type: 'text' as const, text: msg.content })
 
       return {
         id: msg.id,
@@ -1136,7 +1161,7 @@ export function CoachContent() {
                             'rounded-2xl px-4 py-2.5',
                             isUser
                               ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                              : 'bg-muted rounded-tl-sm'
+                              : 'bg-muted text-foreground rounded-tl-sm'
                           )}>
                             {isUser ? (
                               <p className="text-sm whitespace-pre-wrap">{text}</p>
