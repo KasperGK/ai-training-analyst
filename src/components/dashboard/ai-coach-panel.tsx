@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { useConversations } from '@/hooks/use-conversations'
@@ -265,6 +266,49 @@ function ChartCard({ data }: { data: ChartData }) {
   )
 }
 
+function ChatSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Assistant message skeleton */}
+      <div className="flex gap-3">
+        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+        <div className="flex flex-col gap-1 items-start">
+          <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5">
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="h-3.5 w-64" />
+              <Skeleton className="h-3.5 w-36" />
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* User message skeleton */}
+      <div className="flex gap-3 flex-row-reverse">
+        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+        <div className="flex flex-col gap-1 items-end">
+          <div className="rounded-2xl rounded-tr-sm bg-primary/10 px-4 py-2.5">
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-40" />
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Assistant message skeleton */}
+      <div className="flex gap-3">
+        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+        <div className="flex flex-col gap-1 items-start">
+          <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5">
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-56" />
+              <Skeleton className="h-3.5 w-44" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
@@ -283,6 +327,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     loading: conversationsLoading,
     currentConversationId,
     currentMessages: savedMessages,
+    loadingMessages,
     loadConversation,
     startNewConversation,
     deleteConversation,
@@ -490,6 +535,9 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
     }]
   }, [messages, savedDisplayMessages])
 
+  // Show skeleton while initial conversations load or messages are loading
+  const showSkeleton = (conversationsLoading || loadingMessages) && messages.length === 0
+
   // Format timestamp (only after mount to avoid hydration mismatch)
   const formatTime = (date: Date | undefined) => {
     if (!date || !mounted) return ''
@@ -599,6 +647,9 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
           <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
             <div className="p-4">
             <div className="space-y-4">
+            {showSkeleton ? (
+              <ChatSkeleton />
+            ) : (<>
             {displayMessages.map((message) => {
               const text = getMessageText(message)
               const toolResults = message.role === 'assistant' ? getToolResults(message) : []
@@ -678,6 +729,7 @@ export function AICoachPanel({ athleteContext, athleteId, className }: AICoachPa
                 </div>
               </div>
             )}
+            </>)}
           </div>
           </div>
         </ScrollArea>
