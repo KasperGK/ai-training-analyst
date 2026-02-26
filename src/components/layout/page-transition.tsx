@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useSwipeNavigation } from '@/hooks/use-swipe-navigation'
 
 type TransitionDirection = 'left' | 'right' | 'none'
 
@@ -31,6 +32,7 @@ function getPageIndex(path: string): number {
 }
 
 export function PageTransitionProvider({ children }: { children: React.ReactNode }) {
+  useSwipeNavigation()
   const pathname = usePathname()
   const [direction, setDirection] = useState<TransitionDirection>('none')
   const [isTransitioning, setIsTransitioning] = useState(false)

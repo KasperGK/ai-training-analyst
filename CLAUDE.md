@@ -138,6 +138,16 @@ Replace text-based `[CANVAS:fitness]` commands with structured `showOnCanvas` to
 - [x] System prompt guides AI to two-widget pattern (session-analysis + annotated chart)
 - [x] Export `determineSessionType` from get-detailed-session.ts for reuse
 
+### Phase 15: Quality Audit & Fixes ✅ Complete
+- [x] 21-prompt automated quality audit via Playwright (docs/audit-results.md)
+- [x] Fix plan generation crash (memoized canvas data object)
+- [x] Suppress tool narration (system prompt + client-side text filtering)
+- [x] Increase step limit 5→8, maxDuration 30→45s
+- [x] Force suggestWorkout, analyzeTrainingLoad, searchKnowledge via MANDATORY rules
+- [x] Fix race query clarification behavior
+- [x] Expand Opus model routing (5→13 patterns)
+- Overall audit score: 23.1/30 (3.7/5 average across 6 dimensions)
+
 ---
 
 ## Architecture

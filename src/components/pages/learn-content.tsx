@@ -76,7 +76,7 @@ function ArticleListItem({ article }: { article: WikiArticle }) {
   )
 }
 
-export default function LearnPage() {
+export function LearnContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
@@ -111,7 +111,7 @@ export default function LearnPage() {
   }, [filteredArticles])
 
   return (
-    <main className="flex-1 overflow-auto bg-muted/40 px-6 py-6">
+    <div className="h-full overflow-y-auto bg-muted/40 px-6 pt-[88px] pb-6">
         <div className="mx-auto max-w-5xl space-y-6">
           {/* Header with title and search */}
           <div className="flex items-center justify-between gap-4">
@@ -185,7 +185,6 @@ export default function LearnPage() {
 
           {/* Articles */}
           {searchQuery || selectedCategory ? (
-            // Show flat list/grid when filtering
             viewMode === 'cards' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredArticles.map((article) => (
@@ -200,7 +199,6 @@ export default function LearnPage() {
               </Card>
             )
           ) : (
-            // Show grouped by category when not filtering
             <div className="space-y-8">
               {Object.entries(categories).map(([key, cat]) => {
                 const categoryArticles = articlesByCategory[key]
@@ -256,6 +254,6 @@ export default function LearnPage() {
             </CardContent>
           </Card>
         </div>
-    </main>
+    </div>
   )
 }

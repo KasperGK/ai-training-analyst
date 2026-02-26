@@ -56,6 +56,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     defaultW: 2,
     defaultH: 3,
   },
+  weight: {
+    id: 'weight',
+    name: 'Weight',
+    description: 'Body weight from Withings',
+    minW: 2,
+    minH: 2,
+    maxW: 4,
+    maxH: 4,
+    defaultW: 2,
+    defaultH: 2,
+  },
   upload: {
     id: 'upload',
     name: 'Upload',
@@ -110,6 +121,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     maxH: 12,
     defaultW: 4,
     defaultH: 10,
+  },
+  customize: {
+    id: 'customize',
+    name: 'Add Widget',
+    description: 'Show or hide dashboard widgets',
+    minW: 2,
+    minH: 2,
+    maxW: 2,
+    maxH: 2,
+    defaultW: 2,
+    defaultH: 2,
   },
 }
 

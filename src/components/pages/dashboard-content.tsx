@@ -6,6 +6,7 @@ import { SessionsTable } from '@/components/dashboard/sessions-table'
 import { PMCChart, TIME_RANGES, type TimeRangeKey } from '@/components/dashboard/pmc-chart'
 import { FileUpload } from '@/components/dashboard/file-upload'
 import { SleepCard } from '@/components/dashboard/sleep-card'
+import { WeightCard } from '@/components/dashboard/weight-card'
 import { DashboardGrid } from '@/components/dashboard/dashboard-grid'
 import {
   MetricCardSkeleton,
@@ -17,6 +18,7 @@ import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
 import { InsightFeed } from '@/components/insights/insight-feed'
+import { WidgetConfigurator } from '@/components/dashboard/widget-configurator'
 import type { Session } from '@/types'
 import { logger } from '@/lib/logger'
 
@@ -36,7 +38,7 @@ export function DashboardContent() {
   useSync({ autoSync: true })
 
   // Dashboard layout state
-  const { layouts, onLayoutChange } = useDashboardLayout()
+  const { layouts, onLayoutChange, resetLayout, visibleWidgets, toggleWidget } = useDashboardLayout()
 
   const [uploadedSessions, setUploadedSessions] = useState<Session[]>([])
   const [pmcTimeRange, setPmcTimeRange] = useState<TimeRangeKey>('6w')
@@ -78,7 +80,7 @@ export function DashboardContent() {
   const athleteFtp = athlete?.ftp || 250
 
   return (
-    <main className="h-full overflow-auto bg-muted/40 pt-24 pb-6 pl-[96px] pr-6 scrollbar-left scrollbar-subtle">
+    <main className="h-full overflow-auto bg-muted/40 pt-[88px] pb-4 px-4 scrollbar-left scrollbar-subtle">
       <div className="mx-auto max-w-7xl">
         {/* Connect prompt when not connected */}
         {!connected && !loading && (
@@ -89,81 +91,106 @@ export function DashboardContent() {
 
         {/* Dashboard Grid */}
         <DashboardGrid layouts={layouts} onLayoutChange={onLayoutChange}>
-          {/* Fitness Card */}
-          <div key="fitness" data-widget-id="fitness" className="h-full">
-            {loading ? (
-              <MetricCardSkeleton />
-            ) : (
-              <FitnessCard fitness={displayFitness} />
-            )}
+          <div key="customize" data-widget-id="customize" className="h-full">
+            <WidgetConfigurator
+              visibleWidgets={visibleWidgets}
+              onToggleWidget={toggleWidget}
+              onReset={resetLayout}
+            />
           </div>
+          {visibleWidgets.has('fitness') && (
+            <div key="fitness" data-widget-id="fitness" className="h-full">
+              {loading ? (
+                <MetricCardSkeleton />
+              ) : (
+                <FitnessCard fitness={displayFitness} />
+              )}
+            </div>
+          )}
 
-          {/* Fatigue Card */}
-          <div key="fatigue" data-widget-id="fatigue" className="h-full">
-            {loading ? (
-              <MetricCardSkeleton />
-            ) : (
-              <FatigueCard fitness={displayFitness} />
-            )}
-          </div>
+          {visibleWidgets.has('fatigue') && (
+            <div key="fatigue" data-widget-id="fatigue" className="h-full">
+              {loading ? (
+                <MetricCardSkeleton />
+              ) : (
+                <FatigueCard fitness={displayFitness} />
+              )}
+            </div>
+          )}
 
-          {/* Form Card */}
-          <div key="form" data-widget-id="form" className="h-full">
-            {loading ? (
-              <MetricCardSkeleton />
-            ) : (
-              <FormCard fitness={displayFitness} />
-            )}
-          </div>
+          {visibleWidgets.has('form') && (
+            <div key="form" data-widget-id="form" className="h-full">
+              {loading ? (
+                <MetricCardSkeleton />
+              ) : (
+                <FormCard fitness={displayFitness} />
+              )}
+            </div>
+          )}
 
-          {/* Sleep Card - uses recovery data (separate from training load) */}
-          <div key="sleep" data-widget-id="sleep" className="h-full">
-            {loading ? (
-              <MetricCardSkeleton />
-            ) : (
-              <SleepCard
-                sleepSeconds={recovery?.sleepSeconds}
-                sleepScore={recovery?.sleepScore}
-              />
-            )}
-          </div>
+          {visibleWidgets.has('weight') && (
+            <div key="weight" data-widget-id="weight" className="h-full">
+              {loading ? (
+                <MetricCardSkeleton />
+              ) : (
+                <WeightCard />
+              )}
+            </div>
+          )}
 
-          {/* Upload Card */}
-          <div key="upload" data-widget-id="upload" className="h-full">
-            {loading ? (
-              <FileUploadSkeletonCompact />
-            ) : (
-              <FileUpload onSessionUploaded={handleSessionUploaded} ftp={athleteFtp} compact />
-            )}
-          </div>
+          {visibleWidgets.has('sleep') && (
+            <div key="sleep" data-widget-id="sleep" className="h-full">
+              {loading ? (
+                <MetricCardSkeleton />
+              ) : (
+                <SleepCard
+                  sleepSeconds={recovery?.sleepSeconds}
+                  sleepScore={recovery?.sleepScore}
+                />
+              )}
+            </div>
+          )}
 
-          {/* Insights */}
-          <div key="insights" data-widget-id="insights" className="h-full">
-            <InsightFeed maxItems={5} className="h-full" />
-          </div>
+          {visibleWidgets.has('upload') && (
+            <div key="upload" data-widget-id="upload" className="h-full">
+              {loading ? (
+                <FileUploadSkeletonCompact />
+              ) : (
+                <FileUpload onSessionUploaded={handleSessionUploaded} ftp={athleteFtp} compact />
+              )}
+            </div>
+          )}
 
-          {/* PMC Chart */}
-          <div key="chart" data-widget-id="chart" className="h-full">
-            {loading ? (
-              <PMCChartSkeleton />
-            ) : (
-              <PMCChart
-                data={displayPmcData}
-                ctlTrend={displayCtlTrend}
-                timeRange={pmcTimeRange}
-                onTimeRangeChange={setPmcTimeRange}
-              />
-            )}
-          </div>
+          {visibleWidgets.has('insights') && (
+            <div key="insights" data-widget-id="insights" className="h-full">
+              <InsightFeed maxItems={5} className="h-full" />
+            </div>
+          )}
 
-          {/* Sessions Table */}
-          <div key="sessions" data-widget-id="sessions" className="h-full">
-            {loading ? (
-              <SessionsTableSkeleton />
-            ) : (
-              <SessionsTable sessions={displaySessions} />
-            )}
-          </div>
+          {visibleWidgets.has('chart') && (
+            <div key="chart" data-widget-id="chart" className="h-full">
+              {loading ? (
+                <PMCChartSkeleton />
+              ) : (
+                <PMCChart
+                  data={displayPmcData}
+                  ctlTrend={displayCtlTrend}
+                  timeRange={pmcTimeRange}
+                  onTimeRangeChange={setPmcTimeRange}
+                />
+              )}
+            </div>
+          )}
+
+          {visibleWidgets.has('sessions') && (
+            <div key="sessions" data-widget-id="sessions" className="h-full">
+              {loading ? (
+                <SessionsTableSkeleton />
+              ) : (
+                <SessionsTable sessions={displaySessions} />
+              )}
+            </div>
+          )}
         </DashboardGrid>
       </div>
     </main>

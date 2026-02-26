@@ -26,16 +26,18 @@ function createLayoutItem(
  * Dashboard layout with insights panel on right
  */
 const lgLayout: LayoutItem[] = [
-  // Top row: 4 metric cards (fitness, fatigue, form, upload)
+  // Top row: 4 metric cards (fitness, fatigue, form, weight)
   createLayoutItem('fitness', 0, 0, 2, 2),
   createLayoutItem('fatigue', 2, 0, 2, 2),
   createLayoutItem('form', 4, 0, 2, 2),
-  createLayoutItem('upload', 6, 0, 2, 2),
+  createLayoutItem('weight', 6, 0, 2, 2),
   // Insights panel on right spanning multiple rows
   createLayoutItem('insights', 8, 0, 4, 6),
-  // Second row: sleep + sessions
+  // Second row: sleep + upload + sessions
   createLayoutItem('sleep', 0, 2, 2, 4),
-  createLayoutItem('sessions', 2, 2, 6, 4),
+  createLayoutItem('upload', 2, 2, 2, 2),
+  createLayoutItem('customize', 2, 4, 2, 2),
+  createLayoutItem('sessions', 4, 2, 4, 4),
   // PMC chart at bottom
   createLayoutItem('chart', 0, 6, 12, 4),
 ]
@@ -48,10 +50,12 @@ const mdLayout: LayoutItem[] = [
   createLayoutItem('fitness', 0, 0, 2, 2),
   createLayoutItem('fatigue', 2, 0, 2, 2),
   createLayoutItem('form', 4, 0, 2, 2),
-  createLayoutItem('upload', 6, 0, 2, 2),
-  // Second row: sleep + sessions
+  createLayoutItem('weight', 6, 0, 2, 2),
+  // Second row: sleep + upload + sessions
   createLayoutItem('sleep', 0, 2, 2, 4),
-  createLayoutItem('sessions', 2, 2, 6, 4),
+  createLayoutItem('upload', 2, 2, 2, 2),
+  createLayoutItem('customize', 2, 4, 2, 2),
+  createLayoutItem('sessions', 4, 2, 4, 4),
   // Insights
   createLayoutItem('insights', 0, 6, 8, 4),
   // Chart at bottom
@@ -67,15 +71,18 @@ const smLayout: LayoutItem[] = [
   createLayoutItem('fitness', 0, 0, 2, 2),
   createLayoutItem('fatigue', 2, 0, 2, 2),
   createLayoutItem('form', 0, 2, 2, 2),
-  createLayoutItem('upload', 2, 2, 2, 2),
-  // Sleep
+  createLayoutItem('weight', 2, 2, 2, 2),
+  // Sleep + Upload
   createLayoutItem('sleep', 0, 4, 4, 3),
+  createLayoutItem('upload', 0, 7, 4, 2),
   // Insights
-  createLayoutItem('insights', 0, 7, 4, 4),
+  createLayoutItem('insights', 0, 9, 4, 4),
   // Sessions
-  createLayoutItem('sessions', 0, 11, 4, 4),
+  createLayoutItem('sessions', 0, 13, 4, 4),
+  // Customize
+  createLayoutItem('customize', 0, 17, 2, 2),
   // Chart
-  createLayoutItem('chart', 0, 15, 4, 4),
+  createLayoutItem('chart', 0, 19, 4, 4),
 ]
 
 /**

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUser } from '@/hooks/use-user'
 import { useTheme } from 'next-themes'
-import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, RefreshCw, Database, Clock, Scale, Trophy } from 'lucide-react'
+import { Check, Loader2, Link2, Unlink, Sun, Moon, Monitor, GlassWater, RefreshCw, Database, Clock, Scale, Trophy } from 'lucide-react'
 import { logger } from '@/lib/logger'
 
 interface AthleteProfile {
@@ -36,7 +36,16 @@ interface SyncStatus {
 }
 
 export default function SettingsPage() {
+  return (
+    <Suspense>
+      <SettingsContent />
+    </Suspense>
+  )
+}
+
+function SettingsContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, signOut, loading: userLoading } = useUser()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -59,6 +68,7 @@ export default function SettingsPage() {
   const [zwiftPowerDisconnecting, setZwiftPowerDisconnecting] = useState(false)
   const [zwiftPowerSyncing, setZwiftPowerSyncing] = useState(false)
   const [zwiftPowerError, setZwiftPowerError] = useState<string | null>(null)
+  const [withingsError, setWithingsError] = useState<string | null>(null)
   const [zwiftPowerSyncResult, setZwiftPowerSyncResult] = useState<{ racesSynced: number; competitorsSynced: number } | null>(null)
   const [zwiftUsername, setZwiftUsername] = useState('')
   const [zwiftPassword, setZwiftPassword] = useState('')
@@ -106,13 +116,34 @@ export default function SettingsPage() {
     setMounted(true)
   }, [])
 
+  // Handle URL query params from OAuth redirects
+  useEffect(() => {
+    const connected = searchParams.get('connected')
+    const error = searchParams.get('error')
+
+    if (connected === 'withings') {
+      setWithingsConnected(true)
+      router.replace('/settings', { scroll: false })
+    }
+
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        withings_not_configured: 'Withings OAuth is not configured. Add your Withings developer credentials to enable this integration.',
+        withings_denied: 'Connection was denied on Withings.',
+        token_exchange: 'Failed to connect to Withings. Please try again.',
+      }
+      setWithingsError(errorMessages[error] || `Connection error: ${error}`)
+      router.replace('/settings', { scroll: false })
+    }
+  }, [searchParams, router])
+
   // Check intervals.icu connection status
   useEffect(() => {
     const checkConnection = async () => {
       try {
         const res = await fetch('/api/fitness')
         const data = await res.json()
-        setIntervalsConnected(!!data.athlete)
+        setIntervalsConnected(!!data.connected)
       } catch {
         setIntervalsConnected(false)
       }
@@ -125,10 +156,9 @@ export default function SettingsPage() {
     const checkWithingsConnection = async () => {
       if (!user) return
       try {
-        // Try to sync - if it fails with "not connected", we're not connected
-        const res = await fetch('/api/withings/sync', { method: 'POST' })
+        const res = await fetch('/api/withings/status')
         const data = await res.json()
-        setWithingsConnected(res.ok || data.error !== 'Withings not connected')
+        setWithingsConnected(data.connected)
       } catch {
         setWithingsConnected(false)
       }
@@ -728,22 +758,29 @@ export default function SettingsPage() {
                     </Button>
                   </>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                        <Scale className="h-5 w-5 text-muted-foreground" />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                          <Scale className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Not Connected</p>
+                          <p className="text-sm text-muted-foreground">
+                            Connect to track weight and body composition
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">Not Connected</p>
-                        <p className="text-sm text-muted-foreground">
-                          Connect to track weight and body composition
-                        </p>
-                      </div>
+                      <Button onClick={handleConnectWithings}>
+                        <Link2 className="mr-2 h-4 w-4" />
+                        Connect
+                      </Button>
                     </div>
-                    <Button onClick={handleConnectWithings}>
-                      <Link2 className="mr-2 h-4 w-4" />
-                      Connect
-                    </Button>
+                    {withingsError && (
+                      <div className="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                        {withingsError}
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -913,7 +950,7 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 {mounted ? (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-3">
                     <button
                       onClick={() => setTheme('light')}
                       className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted ${
@@ -931,6 +968,15 @@ export default function SettingsPage() {
                     >
                       <Moon className="h-5 w-5 text-muted-foreground" />
                       <span className="text-sm">Dark</span>
+                    </button>
+                    <button
+                      onClick={() => setTheme('glass')}
+                      className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-muted ${
+                        theme === 'glass' ? 'border-foreground/20 bg-muted' : 'border-transparent'
+                      }`}
+                    >
+                      <GlassWater className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">Glass</span>
                     </button>
                     <button
                       onClick={() => setTheme('system')}

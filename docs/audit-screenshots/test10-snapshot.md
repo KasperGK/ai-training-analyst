@@ -1,0 +1,540 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img "Conundrum logo" [ref=e5]
+        - heading "Conundrum." [level=1] [ref=e10]
+      - navigation [ref=e11]:
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: /
+          - img
+          - generic [ref=e13]: Dashboard
+        - link "AI Coach" [ref=e14] [cursor=pointer]:
+          - /url: /coach
+          - img
+          - generic [ref=e15]: AI Coach
+        - link "Training Plan" [ref=e16] [cursor=pointer]:
+          - /url: /training
+          - img
+          - generic [ref=e17]: Training Plan
+        - link "Athlete Profile" [ref=e18] [cursor=pointer]:
+          - /url: /athlete
+          - img
+          - generic [ref=e19]: Athlete Profile
+        - link "Learn" [ref=e20] [cursor=pointer]:
+          - /url: /learn
+          - img
+          - generic [ref=e21]: Learn
+        - button "1 1 unread insights" [ref=e286]:
+          - img
+          - generic [ref=e287]: "1"
+          - generic [ref=e23]: 1 unread insights
+        - button "Connected to intervals.icu" [ref=e288]:
+          - img
+        - link "Settings" [ref=e24] [cursor=pointer]:
+          - /url: /settings
+          - img
+          - generic [ref=e25]: Settings
+        - button "Sign out" [ref=e289]
+  - generic [ref=e28]:
+    - generic [ref=e29]:
+      - main [ref=e30]:
+        - generic [ref=e32]:
+          - generic [ref=e290] [cursor=pointer]:
+            - generic "Drag to move" [ref=e291]:
+              - img [ref=e292]
+            - generic [ref=e297]:
+              - generic [ref=e298]: Fitness (CTL)
+              - img [ref=e299]
+            - generic [ref=e302]: "49"
+            - paragraph [ref=e304]: 42-day training load
+            - generic [ref=e305]:
+              - img [ref=e306]
+              - generic [ref=e309]: "+6"
+          - generic [ref=e310] [cursor=pointer]:
+            - generic "Drag to move" [ref=e311]:
+              - img [ref=e312]
+            - generic [ref=e317]:
+              - generic [ref=e318]: Fatigue (ATL)
+              - img [ref=e319]
+            - generic [ref=e322]: "82"
+            - paragraph [ref=e324]: 7-day training load
+          - generic [ref=e325] [cursor=pointer]:
+            - generic "Drag to move" [ref=e326]:
+              - img [ref=e327]
+            - generic [ref=e332]:
+              - generic [ref=e333]: Form (TSB)
+              - img [ref=e334]
+            - generic [ref=e337]: "-33"
+            - paragraph [ref=e339]: Risk of overtraining
+          - generic [ref=e340] [cursor=pointer]:
+            - generic "Drag to move" [ref=e341]:
+              - img [ref=e342]
+            - generic [ref=e347]:
+              - generic [ref=e348]: Sleep
+              - img [ref=e349]
+            - generic [ref=e351]:
+              - generic [ref=e352]:
+                - application [ref=e354]
+                - generic [ref=e382]:
+                  - generic [ref=e383]: "84"
+                  - generic [ref=e384]: Excellent
+              - generic [ref=e385]:
+                - paragraph [ref=e386]: 7h 3m
+                - paragraph [ref=e387]: Last night
+          - generic [ref=e388] [cursor=pointer]:
+            - generic "Drag to move" [ref=e389]:
+              - img [ref=e390]
+            - button "Choose File" [ref=e395]
+            - generic [ref=e396]:
+              - generic [ref=e397]: Upload
+              - img [ref=e398]
+            - img [ref=e402]
+            - paragraph [ref=e406]: Drop .FIT file
+          - generic [ref=e84]:
+            - generic "Drag to move" [ref=e85]:
+              - img [ref=e86]
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - img [ref=e94]
+                - text: Insights
+                - generic [ref=e407]: "1"
+              - button [ref=e97]:
+                - img
+            - generic [ref=e409]:
+              - img [ref=e411]
+              - generic [ref=e413]:
+                - generic [ref=e414]:
+                  - heading "Training Load Spike" [level=4] [ref=e415]
+                  - generic [ref=e416]: 2h ago
+                - paragraph [ref=e417]: "Your acute load (ATL: 82) is significantly higher than your chronic load (CTL: 49). Be careful not to overreach."
+                - generic [ref=e418]:
+                  - button "Got it" [ref=e419]:
+                    - img
+                    - text: Got it
+                  - button "Dismiss" [ref=e420]:
+                    - img
+                    - text: Dismiss
+                  - button "Ask Coach" [ref=e421]:
+                    - img
+                    - text: Ask Coach
+          - generic [ref=e422]:
+            - generic "Drag to move" [ref=e423]:
+              - img [ref=e424]
+            - generic [ref=e430]:
+              - generic [ref=e431]:
+                - generic [ref=e432]: Performance Management
+                - generic [ref=e433]: Fitness, fatigue, and form
+              - combobox [ref=e434]:
+                - generic: 6 Weeks
+                - img
+            - application [ref=e439]:
+              - generic [ref=e456]:
+                - generic [ref=e457]:
+                  - generic [ref=e459]: Nov 18
+                  - generic [ref=e461]: Nov 24
+                  - generic [ref=e463]: Nov 30
+                  - generic [ref=e465]: Dec 6
+                  - generic [ref=e467]: Dec 12
+                  - generic [ref=e469]: Dec 18
+                  - generic [ref=e471]: Dec 24
+                  - generic [ref=e473]: Dec 30
+                  - generic [ref=e475]: Jan 5
+                  - generic [ref=e477]: Jan 11
+                  - generic [ref=e479]: Jan 17
+                  - generic [ref=e481]: Jan 23
+                  - generic [ref=e483]: Jan 29
+                  - generic [ref=e485]: Feb 4
+                  - generic [ref=e487]: Feb 10
+                  - generic [ref=e489]: Feb 16
+                - generic [ref=e490]:
+                  - generic [ref=e492]: "-45"
+                  - generic [ref=e494]: "0"
+                  - generic [ref=e496]: "45"
+                  - generic [ref=e498]: "90"
+                  - generic [ref=e500]: "135"
+            - generic [ref=e503]:
+              - generic [ref=e504]:
+                - text: Fitness up 6 points this week
+                - img [ref=e505]
+              - generic [ref=e508]: Based on your training load
+          - generic [ref=e509]:
+            - generic "Drag to move" [ref=e510]:
+              - img [ref=e511]
+            - generic [ref=e517]:
+              - generic [ref=e518]:
+                - generic [ref=e519]: Recent Sessions
+                - generic [ref=e520]: Your latest training activities
+              - combobox [ref=e521]:
+                - generic: Training
+                - img
+            - table [ref=e524]:
+              - rowgroup [ref=e525]:
+                - row "Date Type Time TSS NP IF" [ref=e526]:
+                  - columnheader "Date" [ref=e527]
+                  - columnheader "Type" [ref=e528]
+                  - columnheader "Time" [ref=e529]
+                  - columnheader "TSS" [ref=e530]
+                  - columnheader "NP" [ref=e531]
+                  - columnheader "IF" [ref=e532]
+              - rowgroup [ref=e533]:
+                - 'row "Mon, Feb 16 5:22 AM Zwift - Mandag: SweetSpot (Progression) on Empire Elevation in New York 1h 25m 95 245 0.82" [ref=e534] [cursor=pointer]':
+                  - cell "Mon, Feb 16 5:22 AM" [ref=e535]:
+                    - generic [ref=e536]: Mon, Feb 16
+                    - generic [ref=e537]: 5:22 AM
+                  - 'cell "Zwift - Mandag: SweetSpot (Progression) on Empire Elevation in New York" [ref=e538]':
+                    - generic [ref=e539]: "Zwift - Mandag: SweetSpot (Progression) on Empire Elevation in New York"
+                  - cell "1h 25m" [ref=e540]
+                  - cell "95" [ref=e541]
+                  - cell "245" [ref=e542]
+                  - cell "0.82" [ref=e543]
+                - 'row "Sun, Feb 15 9:24 AM Zwift - Søndag A: Zone 2 on Richmond Loop Around in Richmond 2h 4m 89 196 0.66" [ref=e544] [cursor=pointer]':
+                  - cell "Sun, Feb 15 9:24 AM" [ref=e545]:
+                    - generic [ref=e546]: Sun, Feb 15
+                    - generic [ref=e547]: 9:24 AM
+                  - 'cell "Zwift - Søndag A: Zone 2 on Richmond Loop Around in Richmond" [ref=e548]':
+                    - generic [ref=e549]: "Zwift - Søndag A: Zone 2 on Richmond Loop Around in Richmond"
+                  - cell "2h 4m" [ref=e550]
+                  - cell "89" [ref=e551]
+                  - cell "196" [ref=e552]
+                  - cell "0.66" [ref=e553]
+                - row "Sat, Feb 14 10:42 AM Zwift - Active recovery EASY (1) on Outer Scotland in Scotland 30m 12 144 0.48" [ref=e554] [cursor=pointer]:
+                  - cell "Sat, Feb 14 10:42 AM" [ref=e555]:
+                    - generic [ref=e556]: Sat, Feb 14
+                    - generic [ref=e557]: 10:42 AM
+                  - cell "Zwift - Active recovery EASY (1) on Outer Scotland in Scotland" [ref=e558]:
+                    - generic [ref=e559]: Zwift - Active recovery EASY (1) on Outer Scotland in Scotland
+                  - cell "30m" [ref=e560]
+                  - cell "12" [ref=e561]
+                  - cell "144" [ref=e562]
+                  - cell "0.48" [ref=e563]
+                - 'row "Sat, Feb 14 10:11 AM Zwift - Race: Stage 6 - Race - Tour de Zwift (B) on Richmond Rollercoaster in Richmond 28m 62 343 1.15" [ref=e564] [cursor=pointer]':
+                  - cell "Sat, Feb 14 10:11 AM" [ref=e565]:
+                    - generic [ref=e566]: Sat, Feb 14
+                    - generic [ref=e567]: 10:11 AM
+                  - 'cell "Zwift - Race: Stage 6 - Race - Tour de Zwift (B) on Richmond Rollercoaster in Richmond" [ref=e568]':
+                    - generic [ref=e569]: "Zwift - Race: Stage 6 - Race - Tour de Zwift (B) on Richmond Rollercoaster in Richmond"
+                  - cell "28m" [ref=e570]
+                  - cell "62" [ref=e571]
+                  - cell "343" [ref=e572]
+                  - cell "1.15" [ref=e573]
+                - 'row "Sat, Feb 14 9:41 AM Zwift - Warming Up: Basic on Loch Loop in Scotland 24m 18 199 0.67" [ref=e574] [cursor=pointer]':
+                  - cell "Sat, Feb 14 9:41 AM" [ref=e575]:
+                    - generic [ref=e576]: Sat, Feb 14
+                    - generic [ref=e577]: 9:41 AM
+                  - 'cell "Zwift - Warming Up: Basic on Loch Loop in Scotland" [ref=e578]':
+                    - generic [ref=e579]: "Zwift - Warming Up: Basic on Loch Loop in Scotland"
+                  - cell "24m" [ref=e580]
+                  - cell "18" [ref=e581]
+                  - cell "199" [ref=e582]
+                  - cell "0.67" [ref=e583]
+                - 'row "Fri, Feb 13 11:35 AM Zwift - Fredag: Openers on Scotland Smash in Scotland 1h 0m 50 210 0.70" [ref=e584] [cursor=pointer]':
+                  - cell "Fri, Feb 13 11:35 AM" [ref=e585]:
+                    - generic [ref=e586]: Fri, Feb 13
+                    - generic [ref=e587]: 11:35 AM
+                  - 'cell "Zwift - Fredag: Openers on Scotland Smash in Scotland" [ref=e588]':
+                    - generic [ref=e589]: "Zwift - Fredag: Openers on Scotland Smash in Scotland"
+                  - cell "1h 0m" [ref=e590]
+                  - cell "50" [ref=e591]
+                  - cell "210" [ref=e592]
+                  - cell "0.70" [ref=e593]
+                - 'row "Thu, Feb 12 9:36 AM Zwift - Torsdag: Zone 2 on Makuri 40 in Makuri Islands 1h 30m 63 194 0.65" [ref=e594] [cursor=pointer]':
+                  - cell "Thu, Feb 12 9:36 AM" [ref=e595]:
+                    - generic [ref=e596]: Thu, Feb 12
+                    - generic [ref=e597]: 9:36 AM
+                  - 'cell "Zwift - Torsdag: Zone 2 on Makuri 40 in Makuri Islands" [ref=e598]':
+                    - generic [ref=e599]: "Zwift - Torsdag: Zone 2 on Makuri 40 in Makuri Islands"
+                  - cell "1h 30m" [ref=e600]
+                  - cell "63" [ref=e601]
+                  - cell "194" [ref=e602]
+                  - cell "0.65" [ref=e603]
+                - 'row "Wed, Feb 11 10:56 AM Zwift - Onsdag: VO2 on Tour Of Tewit Well in Yorkshire 1h 6m 80 254 0.85" [ref=e604] [cursor=pointer]':
+                  - cell "Wed, Feb 11 10:56 AM" [ref=e605]:
+                    - generic [ref=e606]: Wed, Feb 11
+                    - generic [ref=e607]: 10:56 AM
+                  - 'cell "Zwift - Onsdag: VO2 on Tour Of Tewit Well in Yorkshire" [ref=e608]':
+                    - generic [ref=e609]: "Zwift - Onsdag: VO2 on Tour Of Tewit Well in Yorkshire"
+                  - cell "1h 6m" [ref=e610]
+                  - cell "80" [ref=e611]
+                  - cell "254" [ref=e612]
+                  - cell "0.85" [ref=e613]
+                - 'row "Tue, Feb 10 11:57 AM Zwift - Tirsdag: Zone 2 on Ven-Top in France 2h 23m 101 194 0.65" [ref=e614] [cursor=pointer]':
+                  - cell "Tue, Feb 10 11:57 AM" [ref=e615]:
+                    - generic [ref=e616]: Tue, Feb 10
+                    - generic [ref=e617]: 11:57 AM
+                  - 'cell "Zwift - Tirsdag: Zone 2 on Ven-Top in France" [ref=e618]':
+                    - generic [ref=e619]: "Zwift - Tirsdag: Zone 2 on Ven-Top in France"
+                  - cell "2h 23m" [ref=e620]
+                  - cell "101" [ref=e621]
+                  - cell "194" [ref=e622]
+                  - cell "0.65" [ref=e623]
+                - 'row "Mon, Feb 9 10:19 AM Zwift - Mandag: SweetSpot (Progression) on La Reine in France 1h 32m 110 253 0.85" [ref=e624] [cursor=pointer]':
+                  - cell "Mon, Feb 9 10:19 AM" [ref=e625]:
+                    - generic [ref=e626]: Mon, Feb 9
+                    - generic [ref=e627]: 10:19 AM
+                  - 'cell "Zwift - Mandag: SweetSpot (Progression) on La Reine in France" [ref=e628]':
+                    - generic [ref=e629]: "Zwift - Mandag: SweetSpot (Progression) on La Reine in France"
+                  - cell "1h 32m" [ref=e630]
+                  - cell "110" [ref=e631]
+                  - cell "253" [ref=e632]
+                  - cell "0.85" [ref=e633]
+                - 'row "Sun, Feb 8 2:00 PM Zwift - Søndag A: Zone 2 on Queen''s Highway After Party in Yorkshire 2h 0m 86 196 0.66" [ref=e634] [cursor=pointer]':
+                  - cell "Sun, Feb 8 2:00 PM" [ref=e635]:
+                    - generic [ref=e636]: Sun, Feb 8
+                    - generic [ref=e637]: 2:00 PM
+                  - 'cell "Zwift - Søndag A: Zone 2 on Queen''s Highway After Party in Yorkshire" [ref=e638]':
+                    - generic [ref=e639]: "Zwift - Søndag A: Zone 2 on Queen's Highway After Party in Yorkshire"
+                  - cell "2h 0m" [ref=e640]
+                  - cell "86" [ref=e641]
+                  - cell "196" [ref=e642]
+                  - cell "0.66" [ref=e643]
+                - row "Sat, Feb 7 10:45 AM Zwift - Active recovery EASY (1) on Double Span Spin in New York 31m 12 143 0.48" [ref=e644] [cursor=pointer]:
+                  - cell "Sat, Feb 7 10:45 AM" [ref=e645]:
+                    - generic [ref=e646]: Sat, Feb 7
+                    - generic [ref=e647]: 10:45 AM
+                  - cell "Zwift - Active recovery EASY (1) on Double Span Spin in New York" [ref=e648]:
+                    - generic [ref=e649]: Zwift - Active recovery EASY (1) on Double Span Spin in New York
+                  - cell "31m" [ref=e650]
+                  - cell "12" [ref=e651]
+                  - cell "143" [ref=e652]
+                  - cell "0.48" [ref=e653]
+                - 'row "Sat, Feb 7 10:11 AM Zwift - Race: Stage 5 - Race - Tour de Zwift (B) on Ocean Lava Cliffside Loop in Watopia 29m 56 318 1.06" [ref=e654] [cursor=pointer]':
+                  - cell "Sat, Feb 7 10:11 AM" [ref=e655]:
+                    - generic [ref=e656]: Sat, Feb 7
+                    - generic [ref=e657]: 10:11 AM
+                  - 'cell "Zwift - Race: Stage 5 - Race - Tour de Zwift (B) on Ocean Lava Cliffside Loop in Watopia" [ref=e658]':
+                    - generic [ref=e659]: "Zwift - Race: Stage 5 - Race - Tour de Zwift (B) on Ocean Lava Cliffside Loop in Watopia"
+                  - cell "29m" [ref=e660]
+                  - cell "56" [ref=e661]
+                  - cell "318" [ref=e662]
+                  - cell "1.06" [ref=e663]
+                - 'row "Sat, Feb 7 9:43 AM Zwift - Warming Up: Basic on Prospect Park Loop in New York 22m 17 200 0.67" [ref=e664] [cursor=pointer]':
+                  - cell "Sat, Feb 7 9:43 AM" [ref=e665]:
+                    - generic [ref=e666]: Sat, Feb 7
+                    - generic [ref=e667]: 9:43 AM
+                  - 'cell "Zwift - Warming Up: Basic on Prospect Park Loop in New York" [ref=e668]':
+                    - generic [ref=e669]: "Zwift - Warming Up: Basic on Prospect Park Loop in New York"
+                  - cell "22m" [ref=e670]
+                  - cell "17" [ref=e671]
+                  - cell "200" [ref=e672]
+                  - cell "0.67" [ref=e673]
+                - 'row "Fri, Feb 6 9:14 AM Zwift - Fredag: Openers on Richmond Rollercoaster in Richmond 1h 20m 59 198 0.66" [ref=e674] [cursor=pointer]':
+                  - cell "Fri, Feb 6 9:14 AM" [ref=e675]:
+                    - generic [ref=e676]: Fri, Feb 6
+                    - generic [ref=e677]: 9:14 AM
+                  - 'cell "Zwift - Fredag: Openers on Richmond Rollercoaster in Richmond" [ref=e678]':
+                    - generic [ref=e679]: "Zwift - Fredag: Openers on Richmond Rollercoaster in Richmond"
+                  - cell "1h 20m" [ref=e680]
+                  - cell "59" [ref=e681]
+                  - cell "198" [ref=e682]
+                  - cell "0.66" [ref=e683]
+                - 'row "Thu, Feb 5 5:20 AM Zwift - Torsdag: Zone 2 on No Sleep Till Brooklyn in New York 1h 30m 63 194 0.65" [ref=e684] [cursor=pointer]':
+                  - cell "Thu, Feb 5 5:20 AM" [ref=e685]:
+                    - generic [ref=e686]: Thu, Feb 5
+                    - generic [ref=e687]: 5:20 AM
+                  - 'cell "Zwift - Torsdag: Zone 2 on No Sleep Till Brooklyn in New York" [ref=e688]':
+                    - generic [ref=e689]: "Zwift - Torsdag: Zone 2 on No Sleep Till Brooklyn in New York"
+                  - cell "1h 30m" [ref=e690]
+                  - cell "63" [ref=e691]
+                  - cell "194" [ref=e692]
+                  - cell "0.65" [ref=e693]
+                - 'row "Wed, Feb 4 5:29 AM Zwift - Onsdag: VO2 on The Greenway in New York 1h 6m 80 253 0.85" [ref=e694] [cursor=pointer]':
+                  - cell "Wed, Feb 4 5:29 AM" [ref=e695]:
+                    - generic [ref=e696]: Wed, Feb 4
+                    - generic [ref=e697]: 5:29 AM
+                  - 'cell "Zwift - Onsdag: VO2 on The Greenway in New York" [ref=e698]':
+                    - generic [ref=e699]: "Zwift - Onsdag: VO2 on The Greenway in New York"
+                  - cell "1h 6m" [ref=e700]
+                  - cell "80" [ref=e701]
+                  - cell "253" [ref=e702]
+                  - cell "0.85" [ref=e703]
+                - 'row "Tue, Feb 3 4:57 AM Zwift - Tirsdag: Zone 2 on Glyph Heights in Watopia 2h 0m 86 196 0.66" [ref=e704] [cursor=pointer]':
+                  - cell "Tue, Feb 3 4:57 AM" [ref=e705]:
+                    - generic [ref=e706]: Tue, Feb 3
+                    - generic [ref=e707]: 4:57 AM
+                  - 'cell "Zwift - Tirsdag: Zone 2 on Glyph Heights in Watopia" [ref=e708]':
+                    - generic [ref=e709]: "Zwift - Tirsdag: Zone 2 on Glyph Heights in Watopia"
+                  - cell "2h 0m" [ref=e710]
+                  - cell "86" [ref=e711]
+                  - cell "196" [ref=e712]
+                  - cell "0.66" [ref=e713]
+                - 'row "Mon, Feb 2 5:45 AM Zwift - Mandag: SweetSpot (Progression) on Yorkshire Double Loop in Yorkshire 1h 14m 80 241 0.81" [ref=e714] [cursor=pointer]':
+                  - cell "Mon, Feb 2 5:45 AM" [ref=e715]:
+                    - generic [ref=e716]: Mon, Feb 2
+                    - generic [ref=e717]: 5:45 AM
+                  - 'cell "Zwift - Mandag: SweetSpot (Progression) on Yorkshire Double Loop in Yorkshire" [ref=e718]':
+                    - generic [ref=e719]: "Zwift - Mandag: SweetSpot (Progression) on Yorkshire Double Loop in Yorkshire"
+                  - cell "1h 14m" [ref=e720]
+                  - cell "80" [ref=e721]
+                  - cell "241" [ref=e722]
+                  - cell "0.81" [ref=e723]
+      - generic:
+        - generic: Dashboard
+    - generic [ref=e209]:
+      - generic:
+        - generic: AI Coach
+      - main [ref=e210]:
+        - generic [ref=e212]:
+          - generic [ref=e214]:
+            - generic [ref=e215]:
+              - button "Analyze my current fitness metrics in detail. What..." [ref=e724] [cursor=pointer]:
+                - generic [ref=e217]: Analyze my current fitness metrics in detail. What...
+                - img [ref=e725]
+              - generic [ref=e218]:
+                - button "Chat" [ref=e219]
+                - generic [ref=e220]: "|"
+                - button "History" [ref=e221]
+            - generic [ref=e222]:
+              - generic [ref=e223]:
+                - generic [ref=e230]:
+                  - generic [ref=e728]:
+                    - img [ref=e731]
+                    - paragraph [ref=e736]: I only have 45 minutes, what can I do?
+                  - generic [ref=e737]:
+                    - img [ref=e740]
+                    - generic [ref=e745]:
+                      - paragraph [ref=e746]:
+                        - strong [ref=e747]: Skip intensity today
+                        - text: "- your fatigue levels are dangerously high (TSB: -33)."
+                      - paragraph [ref=e748]:
+                        - text: Do a 45-minute
+                        - strong [ref=e749]: Easy Recovery Spin
+                        - text: below
+                        - generic [ref=e750]:
+                          - generic [ref=e751]: "164"
+                          - generic [ref=e752]: W
+                        - text: (55% FTP). Keep it genuinely easy - high cadence, smooth pedaling, almost effortless feeling. Your body needs recovery more than training stress right now.
+                      - paragraph [ref=e753]: This will promote blood flow and help clear metabolic waste without digging the fatigue hole deeper. With your acute load spiked this high, even "easy" efforts can backfire if you push too hard.
+                - generic:
+                  - generic:
+                    - button "I only have 45 minutes, what can I…":
+                      - generic: I only have 45 minutes, what can I…
+              - generic [ref=e243]:
+                - generic [ref=e244]:
+                  - textbox "Ask about your training..." [ref=e245]
+                  - button [disabled] [ref=e246]:
+                    - img [ref=e247]
+                - generic [ref=e250]:
+                  - button "Feeling fatigued" [ref=e765]
+                  - button "Suggest workout" [ref=e766]
+                  - button "Show fitness" [ref=e767]
+                  - button "Show PMC" [ref=e768]
+                  - button [ref=e255]:
+                    - img [ref=e256]
+          - img [ref=e260]
+          - generic [ref=e271]:
+            - generic [ref=e272]:
+              - generic [ref=e769]:
+                - button "All" [ref=e770] [cursor=pointer]:
+                  - img [ref=e771]
+                  - generic [ref=e776]: All
+                - generic "Current Fitness" [ref=e777] [cursor=pointer]:
+                  - img [ref=e778]
+                  - generic [ref=e780]: Current Fitness
+                  - button "Close widget" [ref=e781]:
+                    - img [ref=e782]
+                - generic "Performance Management" [ref=e785] [cursor=pointer]:
+                  - img [ref=e786]
+                  - generic [ref=e788]: Performance Management
+                  - button "Close widget" [ref=e789]:
+                    - img [ref=e790]
+              - button "History 10" [ref=e909]:
+                - img
+                - generic [ref=e794]: History
+                - generic [ref=e795]: "10"
+            - generic [ref=e910]:
+              - generic [ref=e914]:
+                - generic [ref=e915]:
+                  - generic [ref=e916]:
+                    - generic [ref=e917]:
+                      - generic [ref=e918]: Current Fitness
+                      - generic [ref=e919]: AI insight
+                    - paragraph [ref=e920]: Your fitness (CTL 49) is lagging behind your recent training load (ATL 82) - this creates high fatigue and injury risk that needs immediate attention.
+                  - generic [ref=e921]:
+                    - generic [ref=e922]:
+                      - button "Pin" [ref=e923]:
+                        - img
+                        - generic [ref=e924]: Pin
+                      - button "Expand" [ref=e925]:
+                        - img
+                        - generic [ref=e926]: Expand
+                      - button "Dismiss" [ref=e927]:
+                        - img
+                        - generic [ref=e928]: Dismiss
+                    - button "Expand" [ref=e929]:
+                      - img
+                      - generic [ref=e930]: Expand
+                - button "Analyze" [ref=e932]:
+                  - img
+                  - text: Analyze
+              - generic [ref=e934]:
+                - generic [ref=e936]:
+                  - button "Pin" [ref=e937]:
+                    - img
+                    - generic [ref=e938]: Pin
+                  - button "Expand" [ref=e939]:
+                    - img
+                    - generic [ref=e940]: Expand
+                  - button "Dismiss" [ref=e941]:
+                    - img
+                    - generic [ref=e942]: Dismiss
+                - generic [ref=e944]: AI insight
+                - generic [ref=e945]:
+                  - generic "Drag to move" [ref=e946]:
+                    - img [ref=e947]
+                  - generic [ref=e953]:
+                    - generic [ref=e954]:
+                      - generic [ref=e955]: Performance Management
+                      - generic [ref=e956]: Fitness, fatigue, and form
+                    - combobox [ref=e957]:
+                      - generic: 6 Weeks
+                      - img
+                  - generic [ref=e961]:
+                    - generic:
+                      - generic:
+                        - generic: Jan 29
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Form (TSB)
+                              - generic: "-41"
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Fatigue (ATL)
+                              - generic: "71"
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: Fitness (CTL)
+                              - generic: "31"
+                    - application [ref=e962]:
+                      - generic [ref=e979]:
+                        - generic [ref=e980]:
+                          - generic [ref=e982]: Nov 18
+                          - generic [ref=e984]: Nov 27
+                          - generic [ref=e986]: Dec 6
+                          - generic [ref=e988]: Dec 15
+                          - generic [ref=e990]: Dec 24
+                          - generic [ref=e992]: Jan 2
+                          - generic [ref=e994]: Jan 11
+                          - generic [ref=e996]: Jan 20
+                          - generic [ref=e998]: Jan 29
+                          - generic [ref=e1000]: Feb 7
+                          - generic [ref=e1002]: Feb 16
+                        - generic [ref=e1003]:
+                          - generic [ref=e1005]: "-45"
+                          - generic [ref=e1007]: "0"
+                          - generic [ref=e1009]: "45"
+                          - generic [ref=e1011]: "90"
+                          - generic [ref=e1013]: "135"
+                  - generic [ref=e1016]:
+                    - generic [ref=e1017]:
+                      - text: Fitness up 6 points this week
+                      - img [ref=e1018]
+                    - generic [ref=e1021]: Based on your training load
+  - button "Open Next.js Dev Tools" [ref=e281] [cursor=pointer]:
+    - img [ref=e282]
+  - alert [ref=e285]
+  - generic [ref=e908]: Nov 24

@@ -1,7 +1,5 @@
 import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import type { TrainingPlan } from '@/types'
 
 const MONTH_NAMES_SHORT = [
   'jan', 'feb', 'mar', 'apr', 'may', 'jun',
@@ -18,8 +16,6 @@ function getISOWeekNumber(date: Date): number {
 
 interface CalendarToolbarProps {
   weekStartDate: Date
-  plan: TrainingPlan | null
-  planProgress?: number
   onPrevWeek: () => void
   onNextWeek: () => void
   onToday: () => void
@@ -29,16 +25,12 @@ interface CalendarToolbarProps {
 
 export function CalendarToolbar({
   weekStartDate,
-  plan,
-  planProgress,
   onPrevWeek,
   onNextWeek,
   onToday,
   events,
   today,
 }: CalendarToolbarProps) {
-  const progress = planProgress ?? plan?.progress_percent ?? 0
-
   // Compute week end (Sunday)
   const weekEndDate = new Date(weekStartDate)
   weekEndDate.setDate(weekStartDate.getDate() + 6)
@@ -89,16 +81,8 @@ export function CalendarToolbar({
         </div>
       </div>
 
-      {/* Right: plan badge + next event */}
+      {/* Right: next event */}
       <div className="flex items-center gap-3">
-        {/* Plan badge */}
-        {plan && (
-          <Badge variant="secondary" className="text-xs font-normal">
-            {plan.name} · {Math.round(progress)}%
-          </Badge>
-        )}
-
-        {/* Next event chip */}
         {nextEvent && (
           <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
             <Trophy className="size-3.5" />

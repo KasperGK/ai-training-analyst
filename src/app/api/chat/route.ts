@@ -14,7 +14,7 @@ import { parseAthleteContext } from './tools/types'
 import { getConversationSummary } from '@/lib/chat/conversation-manager'
 import { logger } from '@/lib/logger'
 
-export const maxDuration = 30
+export const maxDuration = 45
 
 interface Message {
   role: 'user' | 'assistant'
@@ -34,13 +34,21 @@ function shouldUseOpus(messages: Message[]): boolean {
     ? lastUserMessage.content.toLowerCase()
     : ''
 
-  // Use Opus for: training plan generation, deep analysis requests
+  // Use Opus for: training plan generation, deep analysis, comparisons, patterns
   const opusPatterns = [
     'generate.*plan',
     'create.*plan',
     'build.*training',
     'analyze.*season',
     'periodiz',
+    'compare.*workout',
+    'compare.*session',
+    'compare.*race',
+    'pattern',
+    'what.*see.*in.*training',
+    'deep.*analy',
+    'race.*season',
+    'how.*races.*going',
   ]
   return opusPatterns.some(p => new RegExp(p).test(content))
 }
@@ -242,7 +250,7 @@ You have a canvas. When users ask to "show", "display", or "see" data:
     model,
     system: systemPrompt,
     messages: convertedMessages,
-    stopWhen: stepCountIs(5), // Allow up to 5 tool call + response cycles
+    stopWhen: stepCountIs(8), // Allow up to 8 tool call + response cycles
     tools,
   })
 

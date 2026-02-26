@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *, .glass *));
 
 @theme inline {
   --color-background: var(--background);
@@ -113,6 +113,98 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+.glass {
+  /* Dark base (inherited from .dark since classList can't hold both) */
+  --foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.556 0 0);
+
+  /* Glass overrides — translucent surfaces */
+  --background: oklch(1 0 0 / 0.15);
+  --card: oklch(1 0 0 / 0.15);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(1 0 0 / 0.2);
+  --popover-foreground: oklch(0.15 0 0);
+  --muted: oklch(1 0 0 / 0.1);
+  --muted-foreground: oklch(0.4 0 0);
+  --secondary: oklch(1 0 0 / 0.12);
+  --secondary-foreground: oklch(0.15 0 0);
+  --accent: oklch(1 0 0 / 0.12);
+  --accent-foreground: oklch(0.15 0 0);
+  --border: oklch(0 0 0 / 8%);
+  --input: oklch(0 0 0 / 8%);
+  --sidebar: oklch(1 0 0 / 0.15);
+  --sidebar-border: oklch(0 0 0 / 8%);
+  --sidebar-accent: oklch(1 0 0 / 0.08);
+}
+
+/* Solid dark background — same as normal dark theme */
+.glass body {
+  background: oklch(0.145 0 0) !important;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Decorative glow orbs — visible through glass blur */
+.glass body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: url('/glass-bg.jpg') center/cover no-repeat;
+  filter: blur(50px) saturate(0.6);
+  transform: scale(1.15);
+}
+
+/* Subtle noise texture for depth */
+.glass body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+.glass [data-slot="card"],
+.glass [data-slot="popover"],
+.glass [data-slot="dialog"],
+.glass [data-slot="sheet"] {
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+}
+
+.glass .react-grid-item.react-grid-placeholder {
+  background: oklch(0.7 0.1 270 / 0.15);
+}
+
+.glass .react-grid-item [data-slot="card"] {
+  border-color: oklch(1 0 0 / 10%);
+}
+
+/* Make page-level backgrounds transparent so body glow shows through */
+.glass main {
+  background: transparent !important;
+  position: relative;
+  z-index: 1;
 }
 
 @layer base {

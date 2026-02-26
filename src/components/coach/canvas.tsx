@@ -155,7 +155,7 @@ export function Canvas({
     })
   }, [state.widgets, state.widgetOrder])
 
-  const data = {
+  const data = useMemo(() => ({
     fitness: currentFitness,
     sessions,
     pmcData,
@@ -166,7 +166,7 @@ export function Canvas({
     competitorData,
     loading: dataLoading || powerLoading,
     raceLoading,
-  }
+  }), [currentFitness, sessions, pmcData, ctlTrend, athlete, powerCurve, raceHistory, competitorData, dataLoading, powerLoading, raceLoading])
 
   return (
     <div className={className}>

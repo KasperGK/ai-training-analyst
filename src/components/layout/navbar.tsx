@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,6 @@ import { InsightsDropdown } from '@/components/insights/insights-dropdown'
 import { useUser } from '@/hooks/use-user'
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import {
-  Settings,
   BookOpen,
   Link2,
   Unlink,
@@ -18,13 +18,25 @@ import {
   Brain,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProfileDropdown } from '@/components/layout/profile-dropdown'
 
 export function Navbar() {
   const pathname = usePathname()
   const { user, signOut } = useUser()
   const { connected, loading, connect } = useIntervalsData()
 
-  const isActive = (path: string) => pathname === path
+  // Track active path — syncs with both Next.js navigation and carousel swipes
+  const [activePath, setActivePath] = useState(pathname)
+
+  useEffect(() => { setActivePath(pathname) }, [pathname])
+
+  useEffect(() => {
+    const handler = (e: Event) => setActivePath((e as CustomEvent).detail.path)
+    window.addEventListener('carousel-page-change', handler)
+    return () => window.removeEventListener('carousel-page-change', handler)
+  }, [])
+
+  const isActive = (path: string) => activePath === path
 
   return (
     <header className="fixed top-4 left-4 right-4 z-50 bg-white/10 backdrop-blur-lg backdrop-saturate-150 px-6 py-2.5 rounded-full border border-white/20 shadow-lg shadow-black/5 dark:bg-white/5 dark:border-white/10">
@@ -43,7 +55,7 @@ export function Navbar() {
             className={cn(isActive('/') && 'bg-muted')}
           >
             <Link href="/">
-              <LayoutGrid className="h-[18px] w-[18px]" />
+              <LayoutGrid className="h-[18px] w-[18px]" fill={isActive('/') ? 'currentColor' : 'none'} />
               <span className="sr-only">Dashboard</span>
             </Link>
           </Button>
@@ -57,7 +69,7 @@ export function Navbar() {
             className={cn(isActive('/coach') && 'bg-muted')}
           >
             <Link href="/coach">
-              <Brain className="h-[18px] w-[18px]" />
+              <Brain className="h-[18px] w-[18px]" fill={isActive('/coach') ? 'currentColor' : 'none'} />
               <span className="sr-only">AI Coach</span>
             </Link>
           </Button>
@@ -71,7 +83,7 @@ export function Navbar() {
             className={cn(isActive('/training') && 'bg-muted')}
           >
             <Link href="/training">
-              <CalendarCheck className="h-[18px] w-[18px]" />
+              <CalendarCheck className="h-[18px] w-[18px]" fill={isActive('/training') ? 'currentColor' : 'none'} />
               <span className="sr-only">Training Plan</span>
             </Link>
           </Button>
@@ -85,7 +97,7 @@ export function Navbar() {
             className={cn(isActive('/athlete') && 'bg-muted')}
           >
             <Link href="/athlete">
-              <User className="h-[18px] w-[18px]" />
+              <User className="h-[18px] w-[18px]" fill={isActive('/athlete') ? 'currentColor' : 'none'} />
               <span className="sr-only">Athlete Profile</span>
             </Link>
           </Button>
@@ -96,10 +108,10 @@ export function Navbar() {
             size="icon"
             asChild
             title="Learn"
-            className={cn(pathname.startsWith('/learn') && 'bg-muted')}
+            className={cn(activePath.startsWith('/learn') && 'bg-muted')}
           >
             <Link href="/learn">
-              <BookOpen className="h-[18px] w-[18px]" />
+              <BookOpen className="h-[18px] w-[18px]" fill={activePath.startsWith('/learn') ? 'currentColor' : 'none'} />
               <span className="sr-only">Learn</span>
             </Link>
           </Button>
@@ -118,25 +130,9 @@ export function Navbar() {
             </Button>
           )}
 
-          {/* Settings */}
-          <Button
-            variant="ghost"
-            size="icon"
-            asChild
-            title="Settings"
-            className={cn(isActive('/settings') && 'bg-muted')}
-          >
-            <Link href="/settings">
-              <Settings className="h-[18px] w-[18px]" />
-              <span className="sr-only">Settings</span>
-            </Link>
-          </Button>
-
-          {/* Sign out */}
+          {/* Profile dropdown */}
           {user && (
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              Sign out
-            </Button>
+            <ProfileDropdown user={user} onSignOut={signOut} />
           )}
         </nav>
       </div>
