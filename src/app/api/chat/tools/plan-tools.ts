@@ -1,7 +1,6 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext, resolveAthleteProfile } from './types'
-import { getCurrentFitness } from '@/lib/db/fitness'
-import { formatDateForApi } from '@/lib/intervals-icu'
+import { defineTool } from './types'
+import { enrichAthleteContext } from './utils/athlete-context-utils'
 import { generateTrainingPlan as generatePlan, getAvailablePlans } from '@/lib/plans/generator'
 import { planTemplates } from '@/lib/plans/templates'
 import {
@@ -51,50 +50,19 @@ export const generateTrainingPlan = defineTool<GeneratePlanInput, unknown>({
     targetEventDate,
     showAvailablePlans = false,
   }, ctx) => {
-    // Resolve athlete profile from context or intervals.icu — no hardcoded defaults
-    const profile = await resolveAthleteProfile(ctx)
-    if (!profile.ftp) {
+    // Gather athlete context from best available source — no hardcoded defaults
+    const enriched = await enrichAthleteContext(ctx)
+    if (!enriched.ftp) {
       return {
         error: 'Cannot generate a training plan without your FTP. Please set your FTP in intervals.icu or your profile settings.',
-        warnings: profile.warnings,
+        warnings: enriched.warnings,
       }
     }
-    const athleteFTP = profile.ftp
-    const weightKg = profile.weight_kg
-
-    const parsed = parseAthleteContext(ctx.athleteContext)
-    let currentCTL = parsed.currentFitness?.ctl || 50
-    let currentATL = parsed.currentFitness?.atl || 50
-    let fitnessSource = parsed.currentFitness ? 'context' : 'default'
-
-    // Try local Supabase
-    if (ctx.flags.useLocalData && ctx.athleteId) {
-      try {
-        const localFitness = await getCurrentFitness(ctx.athleteId)
-        if (localFitness) {
-          currentCTL = localFitness.ctl
-          currentATL = localFitness.atl
-          fitnessSource = 'local'
-        }
-      } catch {
-        // Fall through
-      }
-    }
-
-    // Fall back to intervals.icu
-    if (fitnessSource !== 'local' && ctx.intervalsConnected) {
-      try {
-        const today = formatDateForApi(new Date())
-        const wellness = await ctx.intervalsClient.getWellnessForDate(today)
-        if (wellness) {
-          currentCTL = wellness.ctl
-          currentATL = wellness.atl
-          fitnessSource = 'intervals_icu'
-        }
-      } catch {
-        // Use fallback
-      }
-    }
+    const athleteFTP = enriched.ftp
+    const weightKg = enriched.weight_kg
+    const currentCTL = enriched.ctl
+    const currentATL = enriched.atl
+    const fitnessSource = enriched.fitness_source
 
     // If just listing available plans
     if (showAvailablePlans) {
@@ -281,10 +249,10 @@ export const generateTrainingPlan = defineTool<GeneratePlanInput, unknown>({
         atl: Math.round(currentATL),
         ftp: athleteFTP,
         weight_kg: weightKg,
-        profileSource: profile.source,
+        profileSource: enriched.profile_source,
         fitnessSource,
       },
-      warnings: [...(result.warnings || []), ...profile.warnings],
+      warnings: [...(result.warnings || []), ...enriched.warnings],
       tip: savedPlanId
         ? 'This plan has been saved and is now active. I\'ll track your progress as you complete workouts. Use "show my plan" to see details anytime.'
         : 'This plan is generated based on your current fitness. Review the week-by-week structure and let me know if you want to adjust intensity, add rest days, or modify any workouts.',

@@ -1,9 +1,8 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext } from './types'
+import { defineTool } from './types'
+import { enrichAthleteContext } from './utils/athlete-context-utils'
 import { getUpcomingEvents, getNextAEvent } from '@/lib/db/events'
 import { getActiveGoals, type Goal as DbGoal } from '@/lib/db/goals'
-import { getCurrentFitness } from '@/lib/db/fitness'
-import { formatDateForApi } from '@/lib/intervals-icu'
 import { calculateGoalProgress, calculateGoalRiskLevel } from '@/lib/goals/progress-detector'
 import type { MetricGoalType, MetricConditions } from '@/types'
 
@@ -73,60 +72,16 @@ export const getAthleteGoals = defineTool<Input, Output>({
       }
     }
 
-    // Get current fitness - try local Supabase first
-    let currentFitness: CurrentFitness | null = null
-
-    if (ctx.flags.useLocalData && ctx.athleteId) {
-      try {
-        const localFitness = await getCurrentFitness(ctx.athleteId)
-        if (localFitness) {
-          currentFitness = {
-            ctl: Math.round(localFitness.ctl),
-            atl: Math.round(localFitness.atl),
-            tsb: Math.round(localFitness.tsb),
+    // Get current fitness from best available source
+    const enriched = await enrichAthleteContext(ctx)
+    const currentFitness: CurrentFitness | null =
+      enriched.fitness_source !== 'default'
+        ? {
+            ctl: Math.round(enriched.ctl),
+            atl: Math.round(enriched.atl),
+            tsb: Math.round(enriched.tsb),
           }
-        }
-      } catch {
-        // Fall through to intervals.icu
-      }
-    }
-
-    // Fall back to intervals.icu if no local fitness
-    if (!currentFitness && ctx.intervalsConnected) {
-      try {
-        const today = formatDateForApi(new Date())
-        const wellness = await ctx.intervalsClient.getWellnessForDate(today)
-        if (wellness) {
-          currentFitness = {
-            ctl: Math.round(wellness.ctl),
-            atl: Math.round(wellness.atl),
-            tsb: Math.round(wellness.ctl - wellness.atl),
-          }
-        }
-      } catch {
-        // Fallback to context if available
-        const parsed = parseAthleteContext(ctx.athleteContext)
-        if (parsed.currentFitness) {
-          currentFitness = {
-            ctl: Math.round(parsed.currentFitness.ctl || 0),
-            atl: Math.round(parsed.currentFitness.atl || 0),
-            tsb: Math.round(parsed.currentFitness.tsb || 0),
-          }
-        }
-      }
-    }
-
-    // Last resort: try context
-    if (!currentFitness) {
-      const parsed = parseAthleteContext(ctx.athleteContext)
-      if (parsed.currentFitness) {
-        currentFitness = {
-          ctl: Math.round(parsed.currentFitness.ctl || 0),
-          atl: Math.round(parsed.currentFitness.atl || 0),
-          tsb: Math.round(parsed.currentFitness.tsb || 0),
-        }
-      }
-    }
+        : null
 
     // Calculate periodization phase based on next A event
     let periodizationPhase = 'base'
