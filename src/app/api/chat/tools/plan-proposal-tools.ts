@@ -1,7 +1,6 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext, resolveAthleteProfile } from './types'
-import { getCurrentFitness } from '@/lib/db/fitness'
-import { formatDateForApi } from '@/lib/intervals-icu'
+import { defineTool } from './types'
+import { enrichAthleteContext } from './utils/athlete-context-utils'
 import { generateTrainingPlan as generatePlan, getAvailablePlans } from '@/lib/plans/generator'
 import {
   createTrainingPlan,
@@ -49,50 +48,19 @@ The athlete can then review the calendar view and projection, ask for modificati
   inputSchema: proposePlanInputSchema,
 
   execute: async ({ goal, targetEventDate, weeklyHours, preferences }, ctx) => {
-    // Resolve athlete profile from context or intervals.icu — no hardcoded defaults
-    const profile = await resolveAthleteProfile(ctx)
-    if (!profile.ftp) {
+    // Gather athlete context from best available source — no hardcoded defaults
+    const enriched = await enrichAthleteContext(ctx)
+    if (!enriched.ftp) {
       return {
         error: 'Cannot create a training plan without your FTP. Please set your FTP in intervals.icu or your profile settings.',
-        warnings: profile.warnings,
+        warnings: enriched.warnings,
       }
     }
-    const athleteFTP = profile.ftp
-    const weightKg = profile.weight_kg
-
-    const parsed = parseAthleteContext(ctx.athleteContext)
-    let currentCTL = parsed.currentFitness?.ctl || 50
-    let currentATL = parsed.currentFitness?.atl || 50
-    let fitnessSource = parsed.currentFitness ? 'context' : 'default'
-
-    // Try local Supabase for accurate fitness data
-    if (ctx.flags.useLocalData && ctx.athleteId) {
-      try {
-        const localFitness = await getCurrentFitness(ctx.athleteId)
-        if (localFitness) {
-          currentCTL = localFitness.ctl
-          currentATL = localFitness.atl
-          fitnessSource = 'local'
-        }
-      } catch {
-        // Fall through
-      }
-    }
-
-    // Fall back to intervals.icu
-    if (fitnessSource !== 'local' && ctx.intervalsConnected) {
-      try {
-        const today = formatDateForApi(new Date())
-        const wellness = await ctx.intervalsClient.getWellnessForDate(today)
-        if (wellness) {
-          currentCTL = wellness.ctl
-          currentATL = wellness.atl
-          fitnessSource = 'intervals_icu'
-        }
-      } catch {
-        // Use fallback
-      }
-    }
+    const athleteFTP = enriched.ftp
+    const weightKg = enriched.weight_kg
+    const currentCTL = enriched.ctl
+    const currentATL = enriched.atl
+    const fitnessSource = enriched.fitness_source
 
     // Calculate start date (next Monday by default)
     let planStartDate = preferences?.startDate
@@ -265,10 +233,10 @@ The athlete can then review the calendar view and projection, ask for modificati
         atl: Math.round(currentATL),
         ftp: athleteFTP,
         weight_kg: weightKg,
-        profileSource: profile.source,
+        profileSource: enriched.profile_source,
         fitnessSource,
       },
-      warnings: [...(result.warnings || []), ...profile.warnings],
+      warnings: [...(result.warnings || []), ...enriched.warnings],
       // Canvas instructions for the AI to show widgets
       canvasWidgets: [
         {
@@ -333,33 +301,18 @@ export const modifyProposal = defineTool<ModifyProposalInput, unknown>({
       return { error: `Plan is already ${existingPlan.status}. Only draft plans can be modified.` }
     }
 
-    // Resolve athlete profile — no hardcoded defaults
-    const profile = await resolveAthleteProfile(ctx)
-    if (!profile.ftp) {
+    // Get current fitness from best available source — no hardcoded defaults
+    const enriched = await enrichAthleteContext(ctx)
+    if (!enriched.ftp) {
       return {
         error: 'Cannot modify the training plan without your FTP. Please set your FTP in intervals.icu or your profile settings.',
-        warnings: profile.warnings,
+        warnings: enriched.warnings,
       }
     }
-    const athleteFTP = profile.ftp
-    const weightKg = profile.weight_kg
-
-    // Get current fitness
-    const parsed = parseAthleteContext(ctx.athleteContext)
-    let currentCTL = parsed.currentFitness?.ctl || 50
-    let currentATL = parsed.currentFitness?.atl || 50
-
-    if (ctx.flags.useLocalData && ctx.athleteId) {
-      try {
-        const localFitness = await getCurrentFitness(ctx.athleteId)
-        if (localFitness) {
-          currentCTL = localFitness.ctl
-          currentATL = localFitness.atl
-        }
-      } catch {
-        // Fall through
-      }
-    }
+    const currentCTL = enriched.ctl
+    const currentATL = enriched.atl
+    const athleteFTP = enriched.ftp
+    const weightKg = enriched.weight_kg
 
     // Apply modifications
     const weeklyHours = modifications.weeklyHours ?? existingPlan.weekly_hours_target ?? 8
