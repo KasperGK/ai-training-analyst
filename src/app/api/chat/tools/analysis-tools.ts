@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext } from './types'
+import { defineTool, resolveAthleteProfile } from './types'
 import { getSessions } from '@/lib/db/sessions'
 import { getFitnessHistory } from '@/lib/db/fitness'
 import { getDateRange, type IntervalsActivity } from '@/lib/intervals-icu'
@@ -31,10 +31,16 @@ export const analyzePowerCurve = defineTool<PowerCurveInput, unknown>({
       { secs: 1200, label: '20min', category: 'threshold' },
     ]
 
-    // Get FTP and weight from context
-    const parsed = parseAthleteContext(ctx.athleteContext)
-    const athleteFTP = parsed.athlete?.ftp || 250
-    const weightKg = parsed.athlete?.weight_kg || 70
+    // Resolve athlete profile — no hardcoded defaults
+    const profile = await resolveAthleteProfile(ctx)
+    if (!profile.ftp || !profile.weight_kg) {
+      return {
+        error: 'Power curve analysis requires both FTP and weight. Please set these in intervals.icu or your profile settings.',
+        warnings: profile.warnings,
+      }
+    }
+    const athleteFTP = profile.ftp
+    const weightKg = profile.weight_kg
 
     let currentPeaks: Record<string, number> = {}
     const previousPeaks: Record<string, number> = {}
