@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext } from './types'
+import { defineTool, parseAthleteContext, resolveAthleteProfile } from './types'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import { formatDateForApi } from '@/lib/intervals-icu'
 import { generateTrainingPlan as generatePlan, getAvailablePlans } from '@/lib/plans/generator'
@@ -49,10 +49,18 @@ The athlete can then review the calendar view and projection, ask for modificati
   inputSchema: proposePlanInputSchema,
 
   execute: async ({ goal, targetEventDate, weeklyHours, preferences }, ctx) => {
-    // Gather athlete context
+    // Resolve athlete profile from context or intervals.icu — no hardcoded defaults
+    const profile = await resolveAthleteProfile(ctx)
+    if (!profile.ftp) {
+      return {
+        error: 'Cannot create a training plan without your FTP. Please set your FTP in intervals.icu or your profile settings.',
+        warnings: profile.warnings,
+      }
+    }
+    const athleteFTP = profile.ftp
+    const weightKg = profile.weight_kg
+
     const parsed = parseAthleteContext(ctx.athleteContext)
-    const athleteFTP = parsed.athlete?.ftp || 250
-    const weightKg = parsed.athlete?.weight_kg || 70
     let currentCTL = parsed.currentFitness?.ctl || 50
     let currentATL = parsed.currentFitness?.atl || 50
     let fitnessSource = parsed.currentFitness ? 'context' : 'default'
@@ -125,7 +133,7 @@ The athlete can then review the calendar view and projection, ask for modificati
         ftp: athleteFTP,
         ctl: currentCTL,
         atl: currentATL,
-        weight_kg: weightKg,
+        weight_kg: weightKg ?? undefined,
       },
       patterns,
     })
@@ -256,9 +264,11 @@ The athlete can then review the calendar view and projection, ask for modificati
         ctl: Math.round(currentCTL),
         atl: Math.round(currentATL),
         ftp: athleteFTP,
+        weight_kg: weightKg,
+        profileSource: profile.source,
         fitnessSource,
       },
-      warnings: result.warnings,
+      warnings: [...(result.warnings || []), ...profile.warnings],
       // Canvas instructions for the AI to show widgets
       canvasWidgets: [
         {
@@ -323,12 +333,21 @@ export const modifyProposal = defineTool<ModifyProposalInput, unknown>({
       return { error: `Plan is already ${existingPlan.status}. Only draft plans can be modified.` }
     }
 
+    // Resolve athlete profile — no hardcoded defaults
+    const profile = await resolveAthleteProfile(ctx)
+    if (!profile.ftp) {
+      return {
+        error: 'Cannot modify the training plan without your FTP. Please set your FTP in intervals.icu or your profile settings.',
+        warnings: profile.warnings,
+      }
+    }
+    const athleteFTP = profile.ftp
+    const weightKg = profile.weight_kg
+
     // Get current fitness
     const parsed = parseAthleteContext(ctx.athleteContext)
     let currentCTL = parsed.currentFitness?.ctl || 50
     let currentATL = parsed.currentFitness?.atl || 50
-    const athleteFTP = parsed.athlete?.ftp || 250
-    const weightKg = parsed.athlete?.weight_kg || 70
 
     if (ctx.flags.useLocalData && ctx.athleteId) {
       try {
@@ -362,7 +381,7 @@ export const modifyProposal = defineTool<ModifyProposalInput, unknown>({
         ftp: athleteFTP,
         ctl: currentCTL,
         atl: currentATL,
-        weight_kg: weightKg,
+        weight_kg: weightKg ?? undefined,
       },
     })
 

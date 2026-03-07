@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext } from './types'
+import { defineTool, parseAthleteContext, resolveAthleteProfile } from './types'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import { formatDateForApi } from '@/lib/intervals-icu'
 import { generateTrainingPlan as generatePlan, getAvailablePlans } from '@/lib/plans/generator'
@@ -51,10 +51,18 @@ export const generateTrainingPlan = defineTool<GeneratePlanInput, unknown>({
     targetEventDate,
     showAvailablePlans = false,
   }, ctx) => {
-    // Gather athlete context
+    // Resolve athlete profile from context or intervals.icu — no hardcoded defaults
+    const profile = await resolveAthleteProfile(ctx)
+    if (!profile.ftp) {
+      return {
+        error: 'Cannot generate a training plan without your FTP. Please set your FTP in intervals.icu or your profile settings.',
+        warnings: profile.warnings,
+      }
+    }
+    const athleteFTP = profile.ftp
+    const weightKg = profile.weight_kg
+
     const parsed = parseAthleteContext(ctx.athleteContext)
-    const athleteFTP = parsed.athlete?.ftp || 250
-    const weightKg = parsed.athlete?.weight_kg || 70
     let currentCTL = parsed.currentFitness?.ctl || 50
     let currentATL = parsed.currentFitness?.atl || 50
     let fitnessSource = parsed.currentFitness ? 'context' : 'default'
@@ -138,7 +146,7 @@ export const generateTrainingPlan = defineTool<GeneratePlanInput, unknown>({
         ftp: athleteFTP,
         ctl: currentCTL,
         atl: currentATL,
-        weight_kg: weightKg,
+        weight_kg: weightKg ?? undefined,
       },
       patterns,
     })
@@ -272,9 +280,11 @@ export const generateTrainingPlan = defineTool<GeneratePlanInput, unknown>({
         ctl: Math.round(currentCTL),
         atl: Math.round(currentATL),
         ftp: athleteFTP,
+        weight_kg: weightKg,
+        profileSource: profile.source,
         fitnessSource,
       },
-      warnings: result.warnings,
+      warnings: [...(result.warnings || []), ...profile.warnings],
       tip: savedPlanId
         ? 'This plan has been saved and is now active. I\'ll track your progress as you complete workouts. Use "show my plan" to see details anytime.'
         : 'This plan is generated based on your current fitness. Review the week-by-week structure and let me know if you want to adjust intensity, add rest days, or modify any workouts.',

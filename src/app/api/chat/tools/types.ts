@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import type { intervalsClient } from '@/lib/intervals-icu'
+import { getAthleteMetrics } from '@/lib/intervals-icu'
+import { logger } from '@/lib/logger'
 
 // Type of the intervals.icu client singleton
 type IntervalsClient = typeof intervalsClient
@@ -94,4 +96,52 @@ export function parseAthleteContext(athleteContext: string | undefined): Athlete
   } catch {
     return {}
   }
+}
+
+export interface AthleteProfile {
+  ftp: number | null
+  weight_kg: number | null
+  source: 'context' | 'intervals_icu' | 'none'
+  warnings: string[]
+}
+
+/**
+ * Resolve athlete FTP and weight from context or intervals.icu.
+ * Never falls back to hardcoded defaults — returns null with warnings instead.
+ */
+export async function resolveAthleteProfile(ctx: ToolContext): Promise<AthleteProfile> {
+  const parsed = parseAthleteContext(ctx.athleteContext)
+  const warnings: string[] = []
+
+  let ftp: number | null = parsed.athlete?.ftp ?? null
+  let weight_kg: number | null = parsed.athlete?.weight_kg ?? null
+  let source: AthleteProfile['source'] = (ftp || weight_kg) ? 'context' : 'none'
+
+  // If either value is missing, try intervals.icu
+  if ((!ftp || !weight_kg) && ctx.intervalsConnected) {
+    try {
+      const athlete = await ctx.intervalsClient.getAthlete()
+      const metrics = getAthleteMetrics(athlete)
+
+      if (!ftp && metrics.ftp) {
+        ftp = metrics.ftp
+        source = 'intervals_icu'
+      }
+      if (!weight_kg && metrics.weight) {
+        weight_kg = metrics.weight
+        source = source === 'context' ? 'context' : 'intervals_icu'
+      }
+    } catch (error) {
+      logger.error('[resolveAthleteProfile] Failed to fetch from intervals.icu:', error)
+    }
+  }
+
+  if (!ftp) {
+    warnings.push('FTP is not set in your profile. Please update your FTP in intervals.icu or your profile settings for accurate training recommendations.')
+  }
+  if (!weight_kg) {
+    warnings.push('Weight is not set in your profile. Please update your weight in intervals.icu or your profile settings for accurate power-to-weight calculations.')
+  }
+
+  return { ftp, weight_kg, source, warnings }
 }

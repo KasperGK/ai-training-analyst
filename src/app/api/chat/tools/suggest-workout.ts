@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineTool, parseAthleteContext } from './types'
+import { defineTool, parseAthleteContext, resolveAthleteProfile } from './types'
 import { getCurrentFitness } from '@/lib/db/fitness'
 import { formatDateForApi } from '@/lib/intervals-icu'
 import { prescribeWorkout, suggestWorkoutType, type AthleteContext as WorkoutAthleteContext } from '@/lib/workouts/prescribe'
@@ -48,9 +48,11 @@ interface WorkoutResponse {
     currentCTL: number
     currentATL: number
     ftp: number
+    profileSource: string
     selectedBecause: string
     fitnessSource: string
   }
+  profileWarnings?: string[]
   alternatives?: Array<{
     id: string
     name: string
@@ -74,24 +76,23 @@ export const suggestWorkout = defineTool<Input, Output>({
   description: 'Generate an intelligent workout recommendation from a library of 34 structured workouts. Considers current fitness, fatigue, training phase, and preferences. Returns personalized power targets and detailed execution guidance.',
   inputSchema,
   execute: async ({ type, durationMinutes, targetTSS, showAlternatives = false }, ctx) => {
-    // Gather athlete context
-    let athleteFTP = 250
-    let weightKg = 70
-    let currentTSB = 0
-    let currentCTL = 0
-    let currentATL = 0
-    let fitnessSource = 'default'
-
-    // Try to get FTP and weight from athlete context
-    const parsed = parseAthleteContext(ctx.athleteContext)
-    if (parsed.athlete?.ftp) athleteFTP = parsed.athlete.ftp
-    if (parsed.athlete?.weight_kg) weightKg = parsed.athlete.weight_kg
-    if (parsed.currentFitness) {
-      currentTSB = parsed.currentFitness.tsb || 0
-      currentCTL = parsed.currentFitness.ctl || 0
-      currentATL = parsed.currentFitness.atl || 0
-      fitnessSource = 'context'
+    // Resolve athlete profile from context or intervals.icu — no hardcoded defaults
+    const profile = await resolveAthleteProfile(ctx)
+    if (!profile.ftp) {
+      return {
+        error: 'Cannot suggest a workout without your FTP. Please set your FTP in intervals.icu or your profile settings.',
+        warnings: profile.warnings,
+      } as unknown as Output
     }
+    const athleteFTP = profile.ftp
+    const weightKg = profile.weight_kg ?? undefined
+
+    // Get fitness context
+    const parsed = parseAthleteContext(ctx.athleteContext)
+    let currentTSB = parsed.currentFitness?.tsb || 0
+    let currentCTL = parsed.currentFitness?.ctl || 0
+    let currentATL = parsed.currentFitness?.atl || 0
+    let fitnessSource = parsed.currentFitness ? 'context' : 'default'
 
     // Try local Supabase
     if (ctx.flags.useLocalData && ctx.athleteId) {
@@ -206,11 +207,13 @@ export const suggestWorkout = defineTool<Input, Output>({
         currentCTL: Math.round(currentCTL),
         currentATL: Math.round(currentATL),
         ftp: athleteFTP,
+        profileSource: profile.source,
         selectedBecause: type === 'any'
           ? suggestedReason
           : `You requested a ${type} workout. Selected "${workout.name}" as best match (score: ${best.score}).`,
         fitnessSource,
       },
+      profileWarnings: profile.warnings.length > 0 ? profile.warnings : undefined,
       libraryStats: {
         totalWorkouts: workoutLibrary.length,
         availableCategories: ['recovery', 'endurance', 'tempo', 'sweetspot', 'threshold', 'vo2max', 'anaerobic', 'sprint'],
