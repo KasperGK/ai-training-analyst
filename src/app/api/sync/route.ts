@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { intervalsClient } from '@/lib/intervals-icu'
 import { syncAll, getSyncLog, isSyncNeeded } from '@/lib/sync/intervals-sync'
 import { generateInsights } from '@/lib/insights/insight-generator'
+import { generateSessionReports } from '@/lib/reports/report-generator'
 import { logger } from '@/lib/logger'
 
 /**
@@ -138,6 +139,23 @@ export async function POST(request: Request) {
       }
     }
     // === END PHASE 8.1 ===
+
+    // Generate session reports for newly synced sessions (fire-and-forget)
+    let reportsGenerated = 0
+    if (result.newSessionIds.length > 0) {
+      generateSessionReports(user.id, result.newSessionIds)
+        .then(reportResult => {
+          if (reportResult.reports_created > 0) {
+            logger.info(`[Sync] Generated ${reportResult.reports_created} session reports`)
+          }
+          if (reportResult.errors.length > 0) {
+            logger.warn('[Sync] Session report errors:', reportResult.errors)
+          }
+        })
+        .catch(error => {
+          logger.error('[Sync] Failed to generate session reports:', error)
+        })
+    }
 
     return NextResponse.json({
       success: result.success,
