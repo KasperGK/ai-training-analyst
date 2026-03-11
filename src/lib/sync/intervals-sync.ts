@@ -302,16 +302,17 @@ function transformWellness(wellness: IntervalsWellness, athleteId: string): Fitn
 export async function syncActivities(
   athleteId: string,
   options: SyncOptions = {}
-): Promise<{ synced: number; errors: string[] }> {
+): Promise<{ synced: number; newSessionIds: string[]; errors: string[] }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { synced: 0, errors: ['Supabase not configured'] }
+    return { synced: 0, newSessionIds: [], errors: ['Supabase not configured'] }
   }
 
   const syncLog = await getSyncLog(athleteId)
   const batchSize = options.batchSize || DEFAULT_BATCH_SIZE
   const errors: string[] = []
   let synced = 0
+  let newSessionIds: string[] = []
 
   // Determine date range
   let oldest: string
@@ -336,7 +337,7 @@ export async function syncActivities(
     const activities = await intervalsClient.getActivities(oldest, newest)
 
     if (!activities || activities.length === 0) {
-      return { synced: 0, errors: [] }
+      return { synced: 0, newSessionIds: [], errors: [] }
     }
 
     // Filter out STRAVA activities (blocked by API terms)
@@ -366,6 +367,16 @@ export async function syncActivities(
     }
     logger.info('[sync] After transform:', sessions.length, 'sessions ready for upsert')
 
+    // Query existing external_ids to identify truly new sessions after upsert
+    const externalIds = sessions.map(s => s.external_id)
+    const { data: existingRows } = await supabase
+      .from('sessions')
+      .select('external_id')
+      .eq('athlete_id', athleteId)
+      .in('external_id', externalIds)
+    const existingExternalIds = new Set((existingRows || []).map(r => r.external_id))
+    const newExternalIds = externalIds.filter(id => !existingExternalIds.has(id))
+
     // Upsert in batches with actual count tracking
     const totalBatches = Math.ceil(sessions.length / batchSize)
     for (let i = 0; i < sessions.length; i += batchSize) {
@@ -394,6 +405,19 @@ export async function syncActivities(
 
     logger.info('[sync] Sync complete:', synced, 'sessions upserted from', sessions.length, 'transformed')
 
+    // Resolve new session UUIDs
+    if (newExternalIds.length > 0) {
+      const { data: newRows } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('athlete_id', athleteId)
+        .in('external_id', newExternalIds)
+      if (newRows) {
+        newSessionIds.push(...newRows.map(r => r.id))
+      }
+      logger.info(`[sync] ${newSessionIds.length} new sessions (${synced - newSessionIds.length} updates)`)
+    }
+
     // Find the newest activity date for sync log
     const newestActivity = validActivities.reduce((newest, a) => {
       const date = a.start_date_local.split('T')[0]
@@ -419,7 +443,7 @@ export async function syncActivities(
     })
   }
 
-  return { synced, errors }
+  return { synced, newSessionIds, errors }
 }
 
 /**
@@ -700,6 +724,7 @@ export async function syncAll(
       wellnessSynced: 0,
       discrepanciesFound: 0,
       lastActivityDate: null,
+      newSessionIds: [],
       errors: ['Failed to create athlete record'],
       duration_ms: Date.now() - startTime,
     }
@@ -791,6 +816,7 @@ export async function syncAll(
     wellnessSynced: wellnessResult.synced,
     discrepanciesFound: 0,
     lastActivityDate: syncLog?.last_activity_date || null,
+    newSessionIds: activitiesResult.newSessionIds,
     errors: allErrors,
     duration_ms: Date.now() - startTime,
   }

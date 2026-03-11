@@ -24,6 +24,7 @@ export interface SyncResult {
   wellnessSynced: number
   discrepanciesFound: number
   lastActivityDate: string | null
+  newSessionIds: string[]
   errors: string[]
   duration_ms: number
 }
