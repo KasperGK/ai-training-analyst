@@ -459,6 +459,7 @@ export function CoachContent() {
     // Format recent sessions for AI context (last 20, most recent first)
     // AI can use findSessions tool for older sessions if needed
     const recentSessions = (sessions || [])
+      .filter(s => s.sport === 'cycling' || (s.normalized_power && s.normalized_power > 0))
       .slice(0, 20)
       .map(s => ({
         id: s.id,
