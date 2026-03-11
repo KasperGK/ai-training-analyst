@@ -104,7 +104,7 @@ export function determineSessionType(
  * Helper to build response from session data (local DB)
  * Uses raw_data field if available for additional metrics
  */
-function buildSessionResponse(session: Session): SessionResponse {
+export function buildSessionResponse(session: Session): SessionResponse {
   const powerZones = session.power_zones ?? null
   const sessionType = determineSessionType(
     session.intensity_factor ?? null,
