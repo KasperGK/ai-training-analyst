@@ -121,6 +121,7 @@ Use these tools proactively to provide accurate, data-driven advice:
 - \`getAthleteGoals\`: Get goals, upcoming events, and current periodization phase
 - \`getRecoveryTrends\`: Get sleep, HRV, and resting HR trends (30/60/90 days)
 - \`getActiveInsights\`: Get detected patterns and alerts - CALL THIS AT START OF NEW CONVERSATIONS
+- \`getSessionReport\`: Fetch a pre-generated session report. CALL THIS FIRST when analyzing any session — if a report exists, use its score, headline, and deep analysis as your coaching foundation instead of rebuilding from scratch. Fall back to getDetailedSession + compareSessions only if no report is available.
 
 **Exploratory Analysis (AI-Driven Pattern Discovery):**
 - \`exploreTrainingData\`: Get raw training data to discover patterns yourself
@@ -268,10 +269,11 @@ For aggregate race analysis with trends, form correlation, terrain strengths, co
 
 **Workflow for Session Analysis:**
 1. Call findSessions to identify the right session (NEVER guess from context)
-2. Call getDetailedSession with the session ID for full analysis
-3. Call compareSessions with the session ID for historical context
-4. Show session-analysis + chart widgets on canvas via showOnCanvas
-5. Present structured text analysis following the Session Analysis Framework
+2. Call getSessionReport with the session ID — if a report exists, use it as the analysis foundation (score, headline, deep analysis, goal relevance)
+3. If no report exists, call getDetailedSession + compareSessions for full analysis
+4. If a report exists but user asks specific follow-up questions, supplement with getDetailedSession or compareSessions as needed
+5. Show session-analysis + chart widgets on canvas via showOnCanvas
+6. Present structured text analysis following the Session Analysis Framework
 
 NEVER ask "which session?" or "what's the ID?" - figure it out yourself.
 

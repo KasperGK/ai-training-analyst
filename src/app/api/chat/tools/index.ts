@@ -18,6 +18,7 @@ import { exploreTrainingData } from './explore-training-data'
 import { proposePlan, modifyProposal, acceptProposal } from './plan-proposal-tools'
 import { searchConversationHistory } from './search-conversation-history'
 import { compareSessions } from './compare-sessions'
+import { getSessionReport } from './get-session-report'
 
 export type { ToolContext } from './types'
 
@@ -64,6 +65,9 @@ export function buildTools(ctx: ToolContext) {
 
     // Session comparison
     compareSessions: compareSessions(ctx),
+
+    // Session reports (pre-generated analysis)
+    getSessionReport: getSessionReport(ctx),
 
     // Cross-conversation context
     searchConversationHistory: searchConversationHistory(ctx),
@@ -113,4 +117,5 @@ export {
   acceptProposal,
   searchConversationHistory,
   compareSessions,
+  getSessionReport,
 }
