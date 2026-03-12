@@ -19,6 +19,7 @@ import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
 import { useSessionReports } from '@/hooks/use-session-reports'
 import { InsightFeed } from '@/components/insights/insight-feed'
+import { RaceReportWidget } from '@/components/dashboard/race-report-widget'
 import { WidgetConfigurator } from '@/components/dashboard/widget-configurator'
 import type { Session } from '@/types'
 import { logger } from '@/lib/logger'
@@ -169,6 +170,12 @@ export function DashboardContent() {
           {visibleWidgets.has('insights') && (
             <div key="insights" data-widget-id="insights" className="h-full">
               <InsightFeed maxItems={5} className="h-full" />
+            </div>
+          )}
+
+          {visibleWidgets.has('race-report') && (
+            <div key="race-report" data-widget-id="race-report" className="h-full">
+              <RaceReportWidget />
             </div>
           )}
 

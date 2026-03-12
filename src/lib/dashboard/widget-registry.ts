@@ -111,6 +111,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     defaultW: 4,
     defaultH: 6,
   },
+  'race-report': {
+    id: 'race-report',
+    name: 'Race Report',
+    description: 'Latest race analysis and coaching feedback',
+    minW: 3,
+    minH: 4,
+    maxW: 6,
+    maxH: 8,
+    defaultW: 4,
+    defaultH: 5,
+  },
   'ai-coach': {
     id: 'ai-coach',
     name: 'AI Coach',
