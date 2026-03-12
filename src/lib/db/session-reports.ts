@@ -58,6 +58,27 @@ export async function getSessionReports(
   return data.map((row) => rowToReport(row as SessionReportRow))
 }
 
+export async function getSessionReportsBySessionIds(
+  athleteId: string,
+  sessionIds: string[]
+): Promise<SessionReport[]> {
+  const supabase = await createClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from('session_reports')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .in('session_id', sessionIds)
+
+  if (error || !data) {
+    if (error) logger.error('[SessionReports] Error fetching reports by session IDs:', error)
+    return []
+  }
+
+  return data.map((row) => rowToReport(row as SessionReportRow))
+}
+
 export async function getSessionReport(
   sessionId: string
 ): Promise<SessionReport | null> {

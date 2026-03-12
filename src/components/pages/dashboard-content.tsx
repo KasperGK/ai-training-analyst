@@ -17,6 +17,7 @@ import {
 import { useIntervalsData } from '@/hooks/use-intervals-data'
 import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
+import { useSessionReports } from '@/hooks/use-session-reports'
 import { InsightFeed } from '@/components/insights/insight-feed'
 import { WidgetConfigurator } from '@/components/dashboard/widget-configurator'
 import type { Session } from '@/types'
@@ -72,6 +73,10 @@ export function DashboardContent() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [uploadedSessions, sessions]
   )
+
+  // Stable session IDs for reports hook
+  const sessionIds = useMemo(() => allSessions.map(s => s.id), [allSessions])
+  const { reports: sessionReports, unreadCount, markRead } = useSessionReports(sessionIds)
 
   const displayFitness = currentFitness
   const displaySessions = allSessions
@@ -187,7 +192,12 @@ export function DashboardContent() {
               {loading ? (
                 <SessionsTableSkeleton />
               ) : (
-                <SessionsTable sessions={displaySessions} />
+                <SessionsTable
+                  sessions={displaySessions}
+                  sessionReports={sessionReports}
+                  unreadCount={unreadCount}
+                  onMarkRead={markRead}
+                />
               )}
             </div>
           )}
