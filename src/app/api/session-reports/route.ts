@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getSessionReports } from '@/lib/db/session-reports'
+import { getSessionReports, getSessionReportsBySessionIds } from '@/lib/db/session-reports'
 
 /**
  * GET /api/session-reports
@@ -30,20 +30,11 @@ export async function GET(request: Request) {
   const unreadOnly = searchParams.get('unread_only') === 'true'
   const sessionIdsParam = searchParams.get('session_ids')
 
-  // If specific session_ids requested, query those directly
+  // If specific session_ids requested, query those via DAL
   if (sessionIdsParam) {
     const sessionIds = sessionIdsParam.split(',').filter(Boolean)
-    const { data, error } = await supabase
-      .from('session_reports')
-      .select('*')
-      .eq('athlete_id', user.id)
-      .in('session_id', sessionIds)
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ reports: data || [] })
+    const reports = await getSessionReportsBySessionIds(user.id, sessionIds)
+    return NextResponse.json({ reports })
   }
 
   const reports = await getSessionReports(user.id, { limit, unreadOnly })
