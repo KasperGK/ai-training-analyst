@@ -35,6 +35,7 @@ interface WeeklySummary {
   weekStart: string
   sessions: number
   totalHours: number
+  totalDistanceKm: number
   totalTSS: number
   avgPower: number | null
   avgHR: number | null
@@ -55,6 +56,7 @@ interface SessionDetail {
   type: string
   name: string
   durationMin: number
+  distanceKm: number | null
   tss: number | null
   avgPower: number | null
   normalizedPower: number | null
@@ -155,6 +157,7 @@ export const exploreTrainingData = defineTool<ExploreTrainingDataInput, unknown>
         type: s.workout_type || s.sport || 'unknown',
         name: s.workout_type || '',
         durationMin: Math.round((s.duration_seconds || 0) / 60),
+        distanceKm: s.distance_meters ? Math.round(s.distance_meters / 1000 * 10) / 10 : null,
         tss: s.tss ? Math.round(s.tss) : null,
         avgPower: s.avg_power ? Math.round(s.avg_power) : null,
         normalizedPower: s.normalized_power ? Math.round(s.normalized_power) : null,
@@ -197,6 +200,7 @@ export const exploreTrainingData = defineTool<ExploreTrainingDataInput, unknown>
           weekStart,
           sessions: weekSessions.length,
           totalHours: Math.round(weekSessions.reduce((sum, s) => sum + s.durationMin, 0) / 60 * 10) / 10,
+          totalDistanceKm: Math.round(weekSessions.reduce((sum, s) => sum + (s.distanceKm || 0), 0) * 10) / 10,
           totalTSS: weekSessions.reduce((sum, s) => sum + (s.tss || 0), 0),
           avgPower: sessionsWithPower.length > 0
             ? Math.round(sessionsWithPower.reduce((sum, s) => sum + s.avgPower!, 0) / sessionsWithPower.length)
@@ -237,6 +241,7 @@ export const exploreTrainingData = defineTool<ExploreTrainingDataInput, unknown>
     // Calculate aggregate statistics for context
     const totalSessions = sessions.length
     const totalHours = Math.round(sessions.reduce((sum, s) => sum + (s.duration_seconds || 0), 0) / 3600)
+    const totalDistanceKm = Math.round(sessions.reduce((sum, s) => sum + (s.distance_meters || 0), 0) / 1000 * 10) / 10
     const avgSessionsPerWeek = Math.round(totalSessions / (days / 7) * 10) / 10
     const avgHoursPerWeek = Math.round(totalHours / (days / 7) * 10) / 10
 
@@ -268,6 +273,7 @@ export const exploreTrainingData = defineTool<ExploreTrainingDataInput, unknown>
         endDate: new Date().toISOString().split('T')[0],
         totalSessions,
         totalHours,
+        totalDistanceKm,
         avgSessionsPerWeek,
         avgHoursPerWeek,
         dataQuality: {
