@@ -1,7 +1,5 @@
 'use client'
 
-import { RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
-
 interface SessionScoreGaugeProps {
   score: number | null
   size?: 'sm' | 'md'
@@ -14,58 +12,58 @@ function getScoreColor(score: number): string {
 }
 
 export function SessionScoreGauge({ score, size = 'sm' }: SessionScoreGaugeProps) {
-  const dims = size === 'sm' ? 32 : 48
-  const outerRadius = size === 'sm' ? 14 : 21
-  const innerRadius = size === 'sm' ? 10 : 16
-  const barSize = size === 'sm' ? 4 : 5
-  const fontSize = size === 'sm' ? '9px' : '12px'
-
   if (score === null) {
     return (
-      <div
-        className="flex items-center justify-center text-muted-foreground"
-        style={{ width: dims, height: dims }}
-      >
-        <span className="text-xs">···</span>
-      </div>
+      <span className="text-xs text-muted-foreground">···</span>
     )
   }
 
   const color = getScoreColor(score)
-  const chartData = [{ name: 'score', value: score, fill: color }]
+
+  if (size === 'sm') {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+        <span className="font-bold tabular-nums text-xs">{score}</span>
+      </span>
+    )
+  }
+
+  // SVG arc gauge — score determines how much of the circle is filled
+  const svgSize = 40
+  const strokeWidth = 2.5
+  const radius = (svgSize - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const filled = (score / 100) * circumference
+  const gap = circumference - filled
 
   return (
-    <div className="relative" style={{ width: dims, height: dims }}>
-      <RadialBarChart
-        width={dims}
-        height={dims}
-        cx={dims / 2}
-        cy={dims / 2}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius}
-        barSize={barSize}
-        data={chartData}
-        startAngle={90}
-        endAngle={-270}
-      >
-        <PolarAngleAxis
-          type="number"
-          domain={[0, 100]}
-          angleAxisId={0}
-          tick={false}
+    <div className="relative flex-shrink-0" style={{ width: svgSize, height: svgSize }}>
+      <svg width={svgSize} height={svgSize} className="-rotate-90">
+        {/* Background track */}
+        <circle
+          cx={svgSize / 2}
+          cy={svgSize / 2}
+          r={radius}
+          fill="none"
+          stroke="hsl(0 0% 20%)"
+          strokeWidth={strokeWidth}
         />
-        <RadialBar
-          background={{ fill: 'hsl(0 0% 20%)' }}
-          dataKey="value"
-          cornerRadius={10}
-          angleAxisId={0}
+        {/* Score arc */}
+        <circle
+          cx={svgSize / 2}
+          cy={svgSize / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${filled} ${gap}`}
+          strokeLinecap="round"
         />
-      </RadialBarChart>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-bold tabular-nums" style={{ fontSize }}>
-          {score}
-        </span>
-      </div>
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-bold tabular-nums text-sm">
+        {score}
+      </span>
     </div>
   )
 }

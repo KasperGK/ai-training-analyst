@@ -111,6 +111,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     defaultW: 4,
     defaultH: 6,
   },
+  'latest-report': {
+    id: 'latest-report',
+    name: 'Latest Session Report',
+    description: 'AI coaching report for your most recent session',
+    minW: 4,
+    minH: 4,
+    maxW: 6,
+    maxH: 8,
+    defaultW: 4,
+    defaultH: 4,
+  },
   'ai-coach': {
     id: 'ai-coach',
     name: 'AI Coach',

@@ -6,8 +6,9 @@ import { DEFAULT_LAYOUTS } from '@/lib/dashboard/default-layouts'
 import { WIDGET_REGISTRY } from '@/lib/dashboard/widget-registry'
 import { logger } from '@/lib/logger'
 
-const STORAGE_KEY = 'dashboard-layout-v13'
-const VISIBILITY_KEY = 'dashboard-visible-widgets-v1'
+const STORAGE_KEY = 'dashboard-layout-v14'
+const VISIBILITY_KEY = 'dashboard-visible-widgets-v2'
+const KNOWN_WIDGETS_KEY = 'dashboard-known-widgets-v1'
 
 /** All widget IDs that can appear on the dashboard (excludes ai-coach and customize) */
 const ALL_DASHBOARD_IDS = Object.keys(WIDGET_REGISTRY).filter(id => id !== 'ai-coach' && id !== 'customize')
@@ -47,9 +48,20 @@ export function useDashboardLayout() {
       if (savedVisibility) {
         const parsed = JSON.parse(savedVisibility) as string[]
         if (Array.isArray(parsed)) {
-          setVisibleWidgets(new Set(parsed))
+          const saved = new Set(parsed)
+          // Check for widgets added since last save
+          const knownRaw = localStorage.getItem(KNOWN_WIDGETS_KEY)
+          const known = knownRaw ? new Set(JSON.parse(knownRaw) as string[]) : new Set(parsed)
+          for (const id of ALL_DASHBOARD_IDS) {
+            if (!known.has(id)) {
+              saved.add(id) // New widget — show by default
+            }
+          }
+          setVisibleWidgets(saved)
         }
       }
+      // Always update known widgets to current registry
+      localStorage.setItem(KNOWN_WIDGETS_KEY, JSON.stringify(ALL_DASHBOARD_IDS))
     } catch (e) {
       logger.warn('Failed to load widget visibility:', e)
     }

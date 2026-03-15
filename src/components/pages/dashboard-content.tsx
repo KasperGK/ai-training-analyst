@@ -19,6 +19,7 @@ import { useSync } from '@/hooks/use-sync'
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
 import { useSessionReports } from '@/hooks/use-session-reports'
 import { InsightFeed } from '@/components/insights/insight-feed'
+import { LatestSessionReport } from '@/components/dashboard/latest-session-report'
 import { WidgetConfigurator } from '@/components/dashboard/widget-configurator'
 import type { Session } from '@/types'
 import { logger } from '@/lib/logger'
@@ -41,6 +42,7 @@ export function DashboardContent() {
   // Dashboard layout state
   const { layouts, onLayoutChange, resetLayout, visibleWidgets, toggleWidget } = useDashboardLayout()
 
+  const [configuratorOpen, setConfiguratorOpen] = useState(false)
   const [uploadedSessions, setUploadedSessions] = useState<Session[]>([])
   const [pmcTimeRange, setPmcTimeRange] = useState<TimeRangeKey>('6w')
   const [pmcDataState, setPmcDataState] = useState<typeof pmcData>(pmcData)
@@ -78,6 +80,15 @@ export function DashboardContent() {
   const sessionIds = useMemo(() => allSessions.map(s => s.id), [allSessions])
   const { reports: sessionReports, unreadCount, markRead } = useSessionReports(sessionIds)
 
+  // Find latest session with a report
+  const latestReportEntry = useMemo(() => {
+    for (const session of allSessions) {
+      const report = sessionReports.get(session.id)
+      if (report) return { session, report }
+    }
+    return null
+  }, [allSessions, sessionReports])
+
   const displayFitness = currentFitness
   const displaySessions = allSessions
   const displayPmcData = pmcDataState
@@ -101,6 +112,8 @@ export function DashboardContent() {
               visibleWidgets={visibleWidgets}
               onToggleWidget={toggleWidget}
               onReset={resetLayout}
+              open={configuratorOpen}
+              onOpenChange={setConfiguratorOpen}
             />
           </div>
           {visibleWidgets.has('fitness') && (
@@ -169,6 +182,15 @@ export function DashboardContent() {
           {visibleWidgets.has('insights') && (
             <div key="insights" data-widget-id="insights" className="h-full">
               <InsightFeed maxItems={5} className="h-full" />
+            </div>
+          )}
+
+          {visibleWidgets.has('latest-report') && (
+            <div key="latest-report" data-widget-id="latest-report" className="h-full">
+              <LatestSessionReport
+                report={latestReportEntry?.report ?? null}
+                session={latestReportEntry?.session ?? null}
+              />
             </div>
           )}
 

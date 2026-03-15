@@ -38,8 +38,10 @@ const lgLayout: LayoutItem[] = [
   createLayoutItem('upload', 2, 2, 2, 2),
   createLayoutItem('customize', 2, 4, 2, 2),
   createLayoutItem('sessions', 4, 2, 4, 4),
+  // Latest session report
+  createLayoutItem('latest-report', 8, 6, 4, 4),
   // PMC chart at bottom
-  createLayoutItem('chart', 0, 6, 12, 4),
+  createLayoutItem('chart', 0, 6, 8, 4),
 ]
 
 /**
@@ -57,7 +59,9 @@ const mdLayout: LayoutItem[] = [
   createLayoutItem('customize', 2, 4, 2, 2),
   createLayoutItem('sessions', 4, 2, 4, 4),
   // Insights
-  createLayoutItem('insights', 0, 6, 8, 4),
+  createLayoutItem('insights', 0, 6, 4, 4),
+  // Latest session report
+  createLayoutItem('latest-report', 4, 6, 4, 4),
   // Chart at bottom
   createLayoutItem('chart', 0, 10, 8, 4),
 ]
@@ -79,10 +83,12 @@ const smLayout: LayoutItem[] = [
   createLayoutItem('insights', 0, 9, 4, 4),
   // Sessions
   createLayoutItem('sessions', 0, 13, 4, 4),
+  // Latest session report
+  createLayoutItem('latest-report', 0, 17, 4, 4),
   // Customize
-  createLayoutItem('customize', 0, 17, 2, 2),
+  createLayoutItem('customize', 0, 21, 2, 2),
   // Chart
-  createLayoutItem('chart', 0, 19, 4, 4),
+  createLayoutItem('chart', 0, 23, 4, 4),
 ]
 
 /**

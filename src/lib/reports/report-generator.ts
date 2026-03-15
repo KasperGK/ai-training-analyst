@@ -20,20 +20,20 @@ import { logger } from '@/lib/logger'
 
 const deepAnalysisSchema = z.object({
   execution: z.object({
-    score: z.number().min(0).max(100),
+    score: z.number(),
     summary: z.string(),
     pacing_quality: z.string(),
     power_management: z.string(),
     hr_response: z.string().nullable(),
   }),
   training_value: z.object({
-    score: z.number().min(0).max(100),
+    score: z.number(),
     summary: z.string(),
     physiological_stimulus: z.string(),
     progression_context: z.string(),
   }),
   recovery: z.object({
-    score: z.number().min(0).max(100),
+    score: z.number(),
     summary: z.string(),
     fatigue_indicators: z.string(),
     recovery_recommendation: z.string(),
@@ -43,7 +43,7 @@ const deepAnalysisSchema = z.object({
 })
 
 const reportSchema = z.object({
-  score: z.number().min(0).max(100),
+  score: z.number(),
   headline: z.string(),
   quick_take: z.string(),
   deep_analysis: deepAnalysisSchema,
