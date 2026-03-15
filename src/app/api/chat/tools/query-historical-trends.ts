@@ -5,7 +5,7 @@ import { getFitnessHistory } from '@/lib/db/fitness'
 import { getDateRange, formatDateForApi } from '@/lib/intervals-icu'
 
 const inputSchema = z.object({
-  metric: z.enum(['tss', 'duration', 'intensity', 'fitness', 'volume']).describe('The metric to analyze'),
+  metric: z.enum(['tss', 'duration', 'intensity', 'fitness', 'volume', 'distance']).describe('The metric to analyze'),
   period: z.enum(['week', 'month', '3months', '6months', 'year']).describe('Time period to analyze'),
 })
 
@@ -33,6 +33,8 @@ interface TrendsResponse {
   avgTSSPerSession: number
   totalHours: number
   avgHoursPerSession: number
+  totalDistanceKm: number
+  avgDistanceKmPerSession: number
   avgIntensityFactor: number
   sessionsPerWeek: number
   fitnessData: FitnessData | null
@@ -79,6 +81,7 @@ export const queryHistoricalTrends = defineTool<Input, Output>({
           // Calculate statistics from local data
           const totalTSS = localSessions.reduce((sum, s) => sum + (s.tss || 0), 0)
           const totalDuration = localSessions.reduce((sum, s) => sum + s.duration_seconds, 0)
+          const totalDistanceM = localSessions.reduce((sum, s) => sum + (s.distance_meters || 0), 0)
           const sessionsWithIF = localSessions.filter(s => s.intensity_factor)
           const avgIF = sessionsWithIF.length > 0
             ? sessionsWithIF.reduce((sum, s) => sum + (s.intensity_factor || 0), 0) / sessionsWithIF.length
@@ -120,6 +123,8 @@ export const queryHistoricalTrends = defineTool<Input, Output>({
             avgTSSPerSession: Math.round(totalTSS / localSessions.length),
             totalHours: Math.round(totalDuration / 3600 * 10) / 10,
             avgHoursPerSession: Math.round(totalDuration / localSessions.length / 3600 * 10) / 10,
+            totalDistanceKm: Math.round(totalDistanceM / 1000 * 10) / 10,
+            avgDistanceKmPerSession: Math.round(totalDistanceM / localSessions.length / 1000 * 10) / 10,
             avgIntensityFactor: Math.round(avgIF * 100) / 100,
             sessionsPerWeek: Math.round(localSessions.length / (days / 7) * 10) / 10,
             fitnessData,
@@ -158,6 +163,7 @@ export const queryHistoricalTrends = defineTool<Input, Output>({
       // Calculate statistics
       const totalTSS = sessions.reduce((sum: number, s: { icu_training_load?: number }) => sum + (s.icu_training_load || 0), 0)
       const totalDuration = sessions.reduce((sum: number, s: { moving_time?: number }) => sum + (s.moving_time || 0), 0)
+      const totalDistanceM = sessions.reduce((sum: number, s: { distance?: number }) => sum + (s.distance || 0), 0)
       const sessionsWithIF = sessions.filter((s: { icu_intensity?: number }) => s.icu_intensity)
       const avgIF = sessionsWithIF.length > 0
         ? sessionsWithIF.reduce((sum: number, s: { icu_intensity?: number }) => sum + (s.icu_intensity || 0), 0) / sessionsWithIF.length
@@ -199,6 +205,8 @@ export const queryHistoricalTrends = defineTool<Input, Output>({
         avgTSSPerSession: Math.round(totalTSS / sessions.length),
         totalHours: Math.round(totalDuration / 3600 * 10) / 10,
         avgHoursPerSession: Math.round(totalDuration / sessions.length / 3600 * 10) / 10,
+        totalDistanceKm: Math.round(totalDistanceM / 1000 * 10) / 10,
+        avgDistanceKmPerSession: Math.round(totalDistanceM / sessions.length / 1000 * 10) / 10,
         avgIntensityFactor: Math.round(avgIF * 100) / 100,
         sessionsPerWeek: Math.round(sessions.length / (days / 7) * 10) / 10,
         fitnessData,
