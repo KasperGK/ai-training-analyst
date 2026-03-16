@@ -40,7 +40,7 @@ export function DashboardContent() {
   useSync({ autoSync: true })
 
   // Dashboard layout state
-  const { layouts, onLayoutChange, resetLayout, visibleWidgets, toggleWidget } = useDashboardLayout()
+  const { layouts, onLayoutChange, resetLayout, visibleWidgets, toggleWidget, setDragMode } = useDashboardLayout()
 
   const [uploadedSessions, setUploadedSessions] = useState<Session[]>([])
   const [pmcTimeRange, setPmcTimeRange] = useState<TimeRangeKey>('6w')
@@ -96,7 +96,7 @@ export function DashboardContent() {
         )}
 
         {/* Dashboard Grid */}
-        <DashboardGrid layouts={layouts} onLayoutChange={onLayoutChange}>
+        <DashboardGrid layouts={layouts} onLayoutChange={onLayoutChange} onDragModeChange={setDragMode}>
           <div key="customize" data-widget-id="customize" className="h-full">
             <WidgetConfigurator
               visibleWidgets={visibleWidgets}

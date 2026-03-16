@@ -79,7 +79,7 @@ export function PMCChart({ data, ctlTrend = 0, timeRange = '6w', onTimeRangeChan
   // Handle empty state
   if (!data || data.length === 0) {
     return (
-      <Card className="group h-full flex flex-col relative">
+      <Card className="group h-full flex flex-col relative overflow-hidden">
         <DragHandle />
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">

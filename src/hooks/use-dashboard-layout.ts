@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Layout, ResponsiveLayouts } from 'react-grid-layout/legacy'
 import { DEFAULT_LAYOUTS } from '@/lib/dashboard/default-layouts'
 import { WIDGET_REGISTRY } from '@/lib/dashboard/widget-registry'
@@ -55,13 +55,33 @@ export function useDashboardLayout() {
     }
   }, [])
 
-  // Save to localStorage
+  // Track drag mode to defer localStorage writes
+  const isDraggingRef = useRef(false)
+  const setDragMode = useCallback((v: boolean) => {
+    isDraggingRef.current = v
+    // Persist on drag end with latest layouts
+    if (!v) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(layoutsRef.current))
+      } catch (e) {
+        logger.warn('Failed to save dashboard layout:', e)
+      }
+    }
+  }, [])
+
+  // Keep a ref for saving on drag end
+  const layoutsRef = useRef(layouts)
+
+  // Save to localStorage (skips during drag)
   const saveLayouts = useCallback((newLayouts: ResponsiveLayouts) => {
     setLayouts(newLayouts)
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newLayouts))
-    } catch (e) {
-      logger.warn('Failed to save dashboard layout:', e)
+    layoutsRef.current = newLayouts
+    if (!isDraggingRef.current) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newLayouts))
+      } catch (e) {
+        logger.warn('Failed to save dashboard layout:', e)
+      }
     }
   }, [])
 
@@ -121,5 +141,6 @@ export function useDashboardLayout() {
     resetLayout,
     visibleWidgets,
     toggleWidget,
+    setDragMode,
   }
 }
