@@ -14,7 +14,7 @@ import { getActiveGoals } from '@/lib/db/goals'
 import { createSessionReport, hasReportForSession } from '@/lib/db/session-reports'
 import { buildSessionResponse } from '@/app/api/chat/tools/get-detailed-session'
 import { findSimilarSessions } from '@/lib/analysis/session-comparison'
-import { REPORT_SYSTEM_PROMPT, buildReportPrompt } from './prompts'
+import { REPORT_SYSTEM_PROMPT, buildReportPrompt, type SessionType } from './prompts'
 import type { DeepAnalysis, SessionReportInsert } from './types'
 import { logger } from '@/lib/logger'
 
@@ -135,12 +135,15 @@ export async function generateSessionReports(
         })) : null,
       }
 
+      // Extract session type for type-specific rubric
+      const sessionType = (sessionResponse.analysis.sessionType || 'unknown') as SessionType
+
       // Generate report using Claude Opus
       const result = await generateObject({
         model: anthropic('claude-opus-4-5-20251101'),
         schema: reportSchema,
         system: REPORT_SYSTEM_PROMPT,
-        prompt: buildReportPrompt(promptData),
+        prompt: buildReportPrompt(promptData, sessionType),
       })
 
       const report = result.object

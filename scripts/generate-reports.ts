@@ -7,7 +7,8 @@ import { createClient } from '@supabase/supabase-js'
 import { anthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { REPORT_SYSTEM_PROMPT, buildReportPrompt } from '../src/lib/reports/prompts'
+import { REPORT_SYSTEM_PROMPT, buildReportPrompt, type SessionType } from '../src/lib/reports/prompts'
+import { determineSessionType } from '../src/app/api/chat/tools/get-detailed-session'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -147,13 +148,20 @@ async function main() {
         active_goals: goals?.length ? goals : null,
       }
 
-      console.log(`  Scoring: ${session.date} | ${session.raw_data?.name || session.workout_type || 'ride'} | TSS: ${session.tss}...`)
+      const sessionType = determineSessionType(
+        session.intensity_factor ?? null,
+        session.tss ?? null,
+        session.duration_seconds ?? null,
+        session.raw_data?.name || session.workout_type || null,
+      ) as SessionType
+
+      console.log(`  Scoring: ${session.date} | ${session.raw_data?.name || session.workout_type || 'ride'} | type: ${sessionType} | TSS: ${session.tss}...`)
 
       const result = await generateObject({
         model: anthropic('claude-opus-4-5-20251101'),
         schema: reportSchema,
         system: REPORT_SYSTEM_PROMPT,
-        prompt: buildReportPrompt(promptData),
+        prompt: buildReportPrompt(promptData, sessionType),
       })
 
       const report = result.object
