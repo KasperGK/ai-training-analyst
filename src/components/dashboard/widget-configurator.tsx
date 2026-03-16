@@ -2,7 +2,7 @@
 
 import { Plus, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
 import { DragHandle } from '@/components/ui/drag-handle'
 import {
@@ -25,27 +25,29 @@ interface WidgetConfiguratorProps {
   visibleWidgets: Set<string>
   onToggleWidget: (id: string) => void
   onReset: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export function WidgetConfigurator({ visibleWidgets, onToggleWidget, onReset }: WidgetConfiguratorProps) {
+export function WidgetConfigurator({ visibleWidgets, onToggleWidget, onReset, open, onOpenChange }: WidgetConfiguratorProps) {
   return (
     <Card className="group relative h-full border-dashed border-muted-foreground/25">
       <DragHandle />
-      <Sheet>
+      <Sheet modal={true} open={open} onOpenChange={onOpenChange}>
         <SheetTrigger asChild>
           <button className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
             <Plus className="h-6 w-6" />
             <span className="text-sm font-medium">Add Widget</span>
           </button>
         </SheetTrigger>
-        <SheetContent>
+        <SheetContent className="z-[100]">
           <SheetHeader>
             <SheetTitle>Dashboard Widgets</SheetTitle>
             <SheetDescription>
               Toggle widgets to show or hide them on your dashboard.
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4">
             <div className="space-y-4">
               {TOGGLE_WIDGET_IDS.map(id => {
                 const widget = WIDGET_REGISTRY[id]
@@ -56,10 +58,23 @@ export function WidgetConfigurator({ visibleWidgets, onToggleWidget, onReset }: 
                       <p className="text-sm font-medium">{widget.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{widget.description}</p>
                     </div>
-                    <Switch
-                      checked={visibleWidgets.has(id)}
-                      onCheckedChange={() => onToggleWidget(id)}
-                    />
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={visibleWidgets.has(id)}
+                      onClick={() => onToggleWidget(id)}
+                      className={cn(
+                        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors',
+                        visibleWidgets.has(id) ? 'bg-primary' : 'bg-input'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform',
+                          visibleWidgets.has(id) ? 'translate-x-4' : 'translate-x-0'
+                        )}
+                      />
+                    </button>
                   </div>
                 )
               })}

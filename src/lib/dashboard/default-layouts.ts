@@ -40,6 +40,8 @@ const lgLayout: LayoutItem[] = [
   createLayoutItem('sessions', 4, 2, 4, 4),
   // Race report
   createLayoutItem('race-report', 8, 6, 4, 5),
+  // Latest session report
+  createLayoutItem('latest-report', 8, 11, 4, 4),
   // PMC chart at bottom
   createLayoutItem('chart', 0, 6, 8, 4),
 ]
@@ -62,6 +64,8 @@ const mdLayout: LayoutItem[] = [
   createLayoutItem('insights', 0, 6, 4, 4),
   // Race report
   createLayoutItem('race-report', 4, 6, 4, 5),
+  // Latest session report
+  createLayoutItem('latest-report', 0, 11, 4, 4),
   // Chart at bottom
   createLayoutItem('chart', 0, 11, 8, 4),
 ]
@@ -85,10 +89,12 @@ const smLayout: LayoutItem[] = [
   createLayoutItem('sessions', 0, 13, 4, 4),
   // Race report
   createLayoutItem('race-report', 0, 17, 4, 5),
+  // Latest session report
+  createLayoutItem('latest-report', 0, 22, 4, 4),
   // Customize
-  createLayoutItem('customize', 0, 22, 2, 2),
+  createLayoutItem('customize', 0, 26, 2, 2),
   // Chart
-  createLayoutItem('chart', 0, 24, 4, 4),
+  createLayoutItem('chart', 0, 28, 4, 4),
 ]
 
 /**
