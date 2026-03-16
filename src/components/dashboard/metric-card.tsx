@@ -55,7 +55,7 @@ export function MetricCard({
   return (
     <Card
       className={cn(
-        'group h-full flex flex-col p-5 relative',
+        'group h-full flex flex-col p-5 relative overflow-hidden',
         href && 'cursor-pointer hover:border-primary/50 transition-colors',
         className
       )}

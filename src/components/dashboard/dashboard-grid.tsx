@@ -15,9 +15,13 @@ import type { LayoutItem } from '@/types/dashboard-grid'
 // Create width-aware responsive grid
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
+// Minimum overlap ratio (of smaller widget area) to trigger a swap
+const SWAP_OVERLAP_THRESHOLD = 0.35
+
 interface DashboardGridProps {
   layouts: ResponsiveLayouts
   onLayoutChange: (currentLayout: Layout, allLayouts: ResponsiveLayouts) => void
+  onDragModeChange?: (isDragging: boolean) => void
   children: React.ReactNode
   className?: string
 }
@@ -25,31 +29,39 @@ interface DashboardGridProps {
 /**
  * Dashboard Grid Component
  *
- * Wraps children in a react-grid-layout responsive grid.
+ * Wraps children in a react-grid-layout responsive grid with iOS-like swap behavior.
  * Each child must have a `key` prop matching a layout item's `i` property.
- *
- * @example
- * <DashboardGrid layouts={layouts} onLayoutChange={onLayoutChange}>
- *   <div key="fitness"><FitnessCard /></div>
- *   <div key="chart"><PMCChart /></div>
- * </DashboardGrid>
  */
 export function DashboardGrid({
   layouts,
   onLayoutChange,
+  onDragModeChange,
   children,
   className,
 }: DashboardGridProps) {
   const [mounted, setMounted] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  // Just track the swap target ID, no pixel calculations needed
-  const [swapTarget, setSwapTarget] = useState<string | null>(null)
+
+  // Refs to avoid stale closures in drag callbacks
+  const layoutsRef = useRef(layouts)
+  const swapTargetRef = useRef<string | null>(null)
   const originalLayoutsRef = useRef<ResponsiveLayouts | null>(null)
-  const justSwappedRef = useRef(false)
+  const isDraggingRef = useRef(false)
+  const currentBreakpointRef = useRef<string>('lg')
+
+  // Keep layoutsRef in sync
+  useEffect(() => {
+    layoutsRef.current = layouts
+  }, [layouts])
 
   // SSR safety
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // Track current breakpoint for correct collision detection
+  const handleBreakpointChange = useCallback((newBreakpoint: string) => {
+    currentBreakpointRef.current = newBreakpoint
   }, [])
 
   // Capture state before drag starts
@@ -57,11 +69,13 @@ export function DashboardGrid({
     (_layout: Layout, oldItem: LayoutItem | null) => {
       if (!oldItem) return
       setIsDragging(true)
-      setSwapTarget(null)
+      isDraggingRef.current = true
+      swapTargetRef.current = null
       // Deep clone to preserve original positions
-      originalLayoutsRef.current = JSON.parse(JSON.stringify(layouts))
+      originalLayoutsRef.current = JSON.parse(JSON.stringify(layoutsRef.current))
+      onDragModeChange?.(true)
     },
-    [layouts]
+    [onDragModeChange]
   )
 
   // During drag, detect collision and perform live layout swap
@@ -75,36 +89,50 @@ export function DashboardGrid({
       if (!oldItem || !newItem || !originalLayoutsRef.current) return
 
       const originalLayouts = originalLayoutsRef.current
+      const bp = currentBreakpointRef.current
+      const bpOriginalLayout = originalLayouts[bp]
+      if (!bpOriginalLayout) return
 
-      // Find the item we're dragging over (from ORIGINAL positions)
-      const collidingItem = originalLayouts.lg?.find((item) => {
+      // Find the item we're dragging over (from ORIGINAL positions) with overlap threshold
+      const collidingItem = bpOriginalLayout.find((item) => {
         if (item.i === oldItem.i) return false
-        return (
-          newItem.x < item.x + item.w &&
-          newItem.x + newItem.w > item.x &&
-          newItem.y < item.y + item.h &&
-          newItem.y + newItem.h > item.y
+
+        // Calculate overlap area
+        const overlapX = Math.max(
+          0,
+          Math.min(newItem.x + newItem.w, item.x + item.w) - Math.max(newItem.x, item.x)
         )
+        const overlapY = Math.max(
+          0,
+          Math.min(newItem.y + newItem.h, item.y + item.h) - Math.max(newItem.y, item.y)
+        )
+        const overlapArea = overlapX * overlapY
+        if (overlapArea === 0) return false
+
+        // Require meaningful overlap relative to smaller widget
+        const smallerArea = Math.min(newItem.w * newItem.h, item.w * item.h)
+        return overlapArea / smallerArea > SWAP_OVERLAP_THRESHOLD
       })
 
-      if (collidingItem && collidingItem.i !== swapTarget) {
+      const currentSwapTarget = swapTargetRef.current
+
+      if (collidingItem && collidingItem.i !== currentSwapTarget) {
         // New collision - perform live swap
-        setSwapTarget(collidingItem.i)
+        swapTargetRef.current = collidingItem.i
 
-        const origDragged = originalLayouts.lg?.find((i) => i.i === oldItem.i)
-        if (!origDragged) return
+        const currentLayouts = layoutsRef.current
 
-        // Build swapped layout - move colliding item to dragged item's original spot
+        // Build swapped layout for all breakpoints
         const swappedLayouts: ResponsiveLayouts = {}
-        for (const bp of Object.keys(layouts) as Array<keyof ResponsiveLayouts>) {
-          const bpLayout = layouts[bp]
-          const origBp = originalLayouts[bp]
+        for (const bpKey of Object.keys(currentLayouts) as Array<keyof ResponsiveLayouts>) {
+          const bpLayout = currentLayouts[bpKey]
+          const origBp = originalLayouts[bpKey]
           if (!bpLayout || !origBp) continue
 
           const origDraggedBp = origBp.find((i) => i.i === oldItem.i)
           if (!origDraggedBp) continue
 
-          swappedLayouts[bp] = bpLayout.map((item) => {
+          swappedLayouts[bpKey] = bpLayout.map((item) => {
             if (item.i === collidingItem.i) {
               // Move colliding item to dragged item's original position
               return { ...item, x: origDraggedBp.x, y: origDraggedBp.y }
@@ -113,87 +141,80 @@ export function DashboardGrid({
           })
         }
 
-        // Trigger layout update - colliding widget will animate to new position
-        onLayoutChange(swappedLayouts.lg || _layout, swappedLayouts)
+        onLayoutChange(swappedLayouts[bp] || _layout, swappedLayouts)
 
-      } else if (!collidingItem && swapTarget) {
+      } else if (!collidingItem && currentSwapTarget) {
         // No longer colliding - revert the swap
-        setSwapTarget(null)
+        swapTargetRef.current = null
 
-        // Restore original layout for the previously swapped item
         const revertedLayouts: ResponsiveLayouts = {}
-        for (const bp of Object.keys(layouts) as Array<keyof ResponsiveLayouts>) {
-          const origBp = originalLayouts[bp]
+        for (const bpKey of Object.keys(originalLayouts) as Array<keyof ResponsiveLayouts>) {
+          const origBp = originalLayouts[bpKey]
           if (!origBp) continue
-          revertedLayouts[bp] = origBp.map((item) => ({ ...item }))
+          revertedLayouts[bpKey] = origBp.map((item) => ({ ...item }))
         }
-        onLayoutChange(revertedLayouts.lg || _layout, revertedLayouts)
+        onLayoutChange(revertedLayouts[bp] || _layout, revertedLayouts)
       }
     },
-    [layouts, onLayoutChange, swapTarget]
+    [onLayoutChange]
   )
 
   // Commit swap on drag stop
   const handleDragStop = useCallback(
     (_layout: Layout, oldItem: LayoutItem | null) => {
+      const swapTarget = swapTargetRef.current
+
       if (swapTarget && originalLayoutsRef.current && oldItem) {
+        const originalLayouts = originalLayoutsRef.current
+        const currentLayouts = layoutsRef.current
+        const bp = currentBreakpointRef.current
+
         // Finalize: place dragged item at colliding item's original position
         const swappedLayouts: ResponsiveLayouts = {}
-        const originalLayouts = originalLayoutsRef.current
 
-        for (const bp of Object.keys(layouts) as Array<keyof ResponsiveLayouts>) {
-          const bpLayout = layouts[bp]
-          const origBp = originalLayouts[bp]
+        for (const bpKey of Object.keys(currentLayouts) as Array<keyof ResponsiveLayouts>) {
+          const bpLayout = currentLayouts[bpKey]
+          const origBp = originalLayouts[bpKey]
           if (!bpLayout || !origBp) continue
 
           const origDragged = origBp.find((i) => i.i === oldItem.i)
           const origColliding = origBp.find((i) => i.i === swapTarget)
           if (!origDragged || !origColliding) continue
 
-          swappedLayouts[bp] = bpLayout.map((item) => {
+          swappedLayouts[bpKey] = bpLayout.map((item) => {
             if (item.i === oldItem.i) {
-              // Dragged item → colliding item's original position
               return { ...item, x: origColliding.x, y: origColliding.y }
             }
             if (item.i === swapTarget) {
-              // Colliding item stays at dragged item's original position (already moved)
               return { ...item, x: origDragged.x, y: origDragged.y }
             }
             return item
           })
         }
 
-        // Set flag to prevent RGL's onLayoutChange from overwriting our swap
-        justSwappedRef.current = true
-        onLayoutChange(swappedLayouts.lg || _layout, swappedLayouts)
-
-        // Clear flag after a tick (RGL's onLayoutChange fires synchronously after onDragStop)
-        setTimeout(() => {
-          justSwappedRef.current = false
-        }, 0)
+        onLayoutChange(swappedLayouts[bp] || _layout, swappedLayouts)
       }
 
       // Cleanup
-      setSwapTarget(null)
-      setIsDragging(false)
+      swapTargetRef.current = null
       originalLayoutsRef.current = null
+      isDraggingRef.current = false
+      setIsDragging(false)
+      onDragModeChange?.(false)
     },
-    [layouts, onLayoutChange, swapTarget]
+    [onLayoutChange, onDragModeChange]
   )
 
-  // Wrapper to intercept RGL's onLayoutChange and prevent it from overwriting our swap
+  // Suppress RGL's onLayoutChange during drag to prevent it overwriting our swap
   const handleLayoutChange = useCallback(
     (currentLayout: Layout, allLayouts: ResponsiveLayouts) => {
-      // If we just did a swap, ignore RGL's layout change (it would overwrite our swap)
-      if (justSwappedRef.current) {
-        return
-      }
+      if (isDraggingRef.current) return
       onLayoutChange(currentLayout, allLayouts)
     },
     [onLayoutChange]
   )
 
-  // SSR fallback - render children without grid
+  // SSR fallback
   if (!mounted) {
     return (
       <div className={className}>
@@ -214,6 +235,7 @@ export function DashboardGrid({
       margin={GRID_MARGIN}
       containerPadding={GRID_CONTAINER_PADDING}
       onLayoutChange={handleLayoutChange}
+      onBreakpointChange={handleBreakpointChange}
       onDragStart={handleDragStart}
       onDrag={handleDrag}
       onDragStop={handleDragStop}
@@ -221,8 +243,8 @@ export function DashboardGrid({
       isResizable={true}
       resizeHandles={['se']}
       draggableHandle=".drag-handle"
-      compactType={isDragging ? null : 'vertical'}
-      preventCollision={false}
+      compactType="vertical"
+      preventCollision={isDragging}
       useCSSTransforms={true}
       transformScale={1}
     >
