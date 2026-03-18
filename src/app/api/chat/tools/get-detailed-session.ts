@@ -84,6 +84,18 @@ export function determineSessionType(
     return 'race'
   }
 
+  // Check name for structured workout indicators (VO2, intervals, threshold, etc.)
+  // These often have lower blended IF due to rest periods, so name-based detection is more reliable
+  if (nameLower.includes('vo2') || nameLower.includes('interval') ||
+      nameLower.includes('threshold') || nameLower.includes('sweet spot') ||
+      nameLower.includes('sweetspot') || nameLower.includes('tempo') ||
+      nameLower.includes('ftp') || nameLower.includes('hiit') ||
+      nameLower.includes('tabata') || nameLower.includes('sprint') ||
+      nameLower.includes('anaerobic') || nameLower.includes('over-under') ||
+      nameLower.includes('over/under') || nameLower.includes('ramp')) {
+    return 'workout'
+  }
+
   if (!intensityFactor) return 'unknown'
 
   // High IF = race or hard workout
@@ -108,12 +120,19 @@ export function buildSessionResponse(session: Session): SessionResponse {
   const powerZones = session.power_zones ?? null
   const raw = session.raw_data as Record<string, unknown> | null
   const sessionName = (raw?.name as string | null) || session.workout_type || null
-  const sessionType = determineSessionType(
+  const intervalSummaryRaw = raw?.interval_summary as string[] | undefined
+  let sessionType = determineSessionType(
     session.intensity_factor ?? null,
     session.tss ?? null,
     session.duration_seconds,
     sessionName
   )
+
+  // If intervals.icu reports structured intervals with meaningful power, override endurance classification
+  // Interval sessions (e.g. VO2, threshold) often have blended IF < 0.85 due to rest periods
+  if (sessionType === 'endurance' && intervalSummaryRaw?.length && session.intensity_factor && session.intensity_factor >= 0.75) {
+    sessionType = 'workout'
+  }
 
   // Extract additional metrics from raw_data if available
   const avgCadence = raw?.average_cadence as number | undefined
