@@ -9,13 +9,15 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { getSession } from '@/lib/db/sessions'
-import { getFitnessForDate } from '@/lib/db/fitness'
+import { getFitnessNearDate } from '@/lib/db/fitness'
 import { getActiveGoals } from '@/lib/db/goals'
 import { createSessionReport, hasReportForSession } from '@/lib/db/session-reports'
 import { buildSessionResponse } from '@/app/api/chat/tools/get-detailed-session'
 import { findSimilarSessions } from '@/lib/analysis/session-comparison'
+import { enrichWithStreams } from '@/lib/analysis/power-analysis'
 import { REPORT_SYSTEM_PROMPT, buildReportPrompt } from './prompts'
 import type { DeepAnalysis, SessionReportInsert } from './types'
+import type { IntervalsICUClient } from '@/lib/intervals-icu'
 import { logger } from '@/lib/logger'
 
 const deepAnalysisSchema = z.object({
@@ -69,7 +71,8 @@ interface GenerationResult {
  */
 export async function generateSessionReports(
   athleteId: string,
-  sessionIds: string[]
+  sessionIds: string[],
+  intervalsClient?: IntervalsICUClient
 ): Promise<GenerationResult> {
   const errors: string[] = []
   let reportsCreated = 0
@@ -103,9 +106,16 @@ export async function generateSessionReports(
       // Build session response data
       const sessionResponse = buildSessionResponse(session)
 
+      // Enrich with stream data (peak powers, pacing) if intervals client available
+      if (intervalsClient && session.external_id) {
+        const raw = session.raw_data as Record<string, unknown> | null
+        const ftp = (raw?.icu_ftp as number) || null
+        await enrichWithStreams(sessionResponse, session.external_id, intervalsClient, ftp)
+      }
+
       // Fetch fitness context, goals, and similar sessions in parallel
       const [fitness, goals, comparison] = await Promise.all([
-        getFitnessForDate(athleteId, session.date),
+        getFitnessNearDate(athleteId, session.date),
         getActiveGoals(athleteId),
         findSimilarSessions(athleteId, session),
       ])
@@ -137,7 +147,7 @@ export async function generateSessionReports(
 
       // Generate report using Claude Opus
       const result = await generateObject({
-        model: anthropic('claude-opus-4-5-20251101'),
+        model: anthropic('claude-opus-4-6-20250610'),
         schema: reportSchema,
         system: REPORT_SYSTEM_PROMPT,
         prompt: buildReportPrompt(promptData),

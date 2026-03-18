@@ -143,7 +143,7 @@ export async function POST(request: Request) {
     // Generate session reports for newly synced sessions (fire-and-forget)
     let reportsGenerated = 0
     if (result.newSessionIds.length > 0) {
-      generateSessionReports(user.id, result.newSessionIds)
+      generateSessionReports(user.id, result.newSessionIds, intervalsClient)
         .then(reportResult => {
           if (reportResult.reports_created > 0) {
             logger.info(`[Sync] Generated ${reportResult.reports_created} session reports`)

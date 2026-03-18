@@ -44,6 +44,12 @@ ${SCORING_RUBRIC}
 - Tags should capture session characteristics (e.g., "endurance", "intervals", "race", "recovery", "threshold", "overreached", "negative-split", "well-paced")
 - If goal data is provided, note relevance to active goals
 - Use the athlete's fitness context (CTL/ATL/TSB) to assess recovery dimension
+- When peak powers are provided, use them to assess training value (compare to athlete averages and progression)
+- When pacing analysis is provided, use variability index (VI) and split data for execution scoring:
+  - VI < 1.05 = excellent power control, score execution higher
+  - VI 1.05-1.10 = good control for most ride types
+  - Negative split = disciplined pacing, score execution higher
+- If stream data (peak powers, pacing) is not available, do not penalize — score based on available metrics without assuming poor execution
 - All field names must use snake_case
 `
 

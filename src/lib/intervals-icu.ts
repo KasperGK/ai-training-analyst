@@ -143,7 +143,7 @@ interface CacheEntry {
   expiresAt: number
 }
 
-class IntervalsICUClient {
+export class IntervalsICUClient {
   private apiKey: string | null = null
   private athleteId: string | null = null
   private cache: Map<string, CacheEntry> = new Map()
