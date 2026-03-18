@@ -14,6 +14,7 @@ export function useSessionReports(sessionIds: string[]): UseSessionReportsResult
   const [reports, setReports] = useState<Map<string, SessionReport>>(new Map())
   const [loading, setLoading] = useState(false)
   const generationTriggered = useRef(false)
+  const pollCountRef = useRef(0)
 
   // Stabilize the dependency — only re-fetch when the actual IDs change
   const idsKey = useMemo(() => sessionIds.join(','), [sessionIds])
@@ -21,6 +22,7 @@ export function useSessionReports(sessionIds: string[]): UseSessionReportsResult
   useEffect(() => {
     if (!idsKey) return
     generationTriggered.current = false
+    pollCountRef.current = 0
 
     setLoading(true)
     fetch(`/api/session-reports?session_ids=${idsKey}`)
@@ -60,11 +62,10 @@ export function useSessionReports(sessionIds: string[]): UseSessionReportsResult
     }
 
     // Poll for the reports to appear
-    let pollCount = 0
     const maxPolls = 20
     const interval = setInterval(() => {
-      pollCount++
-      if (pollCount > maxPolls) {
+      pollCountRef.current++
+      if (pollCountRef.current > maxPolls) {
         clearInterval(interval)
         return
       }
