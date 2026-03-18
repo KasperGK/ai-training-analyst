@@ -179,6 +179,26 @@ export async function getUnreadReportCount(
   return count ?? 0
 }
 
+export async function deleteSessionReports(
+  athleteId: string,
+  sessionIds: string[]
+): Promise<boolean> {
+  const supabase = await createClient()
+  if (!supabase) return false
+
+  const { error } = await supabase
+    .from('session_reports')
+    .delete()
+    .eq('athlete_id', athleteId)
+    .in('session_id', sessionIds)
+
+  if (error) {
+    logger.error('[SessionReports] Error deleting reports:', error)
+    return false
+  }
+  return true
+}
+
 export async function hasReportForSession(
   sessionId: string
 ): Promise<boolean> {

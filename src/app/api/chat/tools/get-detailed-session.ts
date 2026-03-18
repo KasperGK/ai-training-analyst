@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { defineTool } from './types'
 import { getSession } from '@/lib/db/sessions'
 import { getNormalizedPower, getAveragePower } from '@/lib/transforms'
-import { calculatePeakPower, analyzePacing } from '@/lib/analysis/power-analysis'
+import { calculatePeakPower, analyzePacing, enrichWithStreams, buildPacingAssessment } from '@/lib/analysis/power-analysis'
 import type { PeakPowers, PacingAnalysis } from '@/lib/analysis/power-analysis'
 import type { Session } from '@/types'
 
@@ -106,15 +106,16 @@ export function determineSessionType(
  */
 export function buildSessionResponse(session: Session): SessionResponse {
   const powerZones = session.power_zones ?? null
+  const raw = session.raw_data as Record<string, unknown> | null
+  const sessionName = (raw?.name as string | null) || session.workout_type || null
   const sessionType = determineSessionType(
     session.intensity_factor ?? null,
     session.tss ?? null,
     session.duration_seconds,
-    session.workout_type ?? null
+    sessionName
   )
 
   // Extract additional metrics from raw_data if available
-  const raw = session.raw_data as Record<string, unknown> | null
   const avgCadence = raw?.average_cadence as number | undefined
   const elevationGain = raw?.total_elevation_gain as number | undefined
   const decoupling = raw?.decoupling as number | undefined
@@ -185,46 +186,9 @@ Use this after finding a session with findSessions. Includes:
 
           // If streams requested and intervals.icu connected, fetch peak powers & pacing
           if (includeStreams && ctx.intervalsConnected && localSession.external_id) {
-            try {
-              const raw = localSession.raw_data as Record<string, unknown> | null
-              const ftp = (raw?.icu_ftp as number) || null
-              const streams = await ctx.intervalsClient.getActivityStreams(localSession.external_id, ['watts'])
-              if (streams.watts && streams.watts.length > 0) {
-                response.session.peakPowers = {
-                  peak_5s: calculatePeakPower(streams.watts, 5),
-                  peak_30s: calculatePeakPower(streams.watts, 30),
-                  peak_1min: calculatePeakPower(streams.watts, 60),
-                  peak_5min: calculatePeakPower(streams.watts, 300),
-                  peak_20min: calculatePeakPower(streams.watts, 1200),
-                }
-                response.session.pacing = analyzePacing(streams.watts, ftp)
-
-                // Add pacing assessment
-                const pacing = response.session.pacing
-                if (pacing) {
-                  let pacingAssessment: string | undefined
-                  if (pacing.variabilityIndex && pacing.variabilityIndex > 1.1) {
-                    pacingAssessment = `Variable pacing (VI: ${pacing.variabilityIndex}) - power fluctuated significantly`
-                  } else if (pacing.variabilityIndex && pacing.variabilityIndex < 1.02) {
-                    pacingAssessment = `Very steady pacing (VI: ${pacing.variabilityIndex}) - excellent power control`
-                  }
-                  if (pacing.negativeSplit && pacing.splitDifferencePercent) {
-                    pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
-                      `Negative split (+${pacing.splitDifferencePercent}% second half) - strong finish`
-                  } else if (!pacing.negativeSplit && pacing.splitDifferencePercent && pacing.splitDifferencePercent < -5) {
-                    pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
-                      `Positive split (${pacing.splitDifferencePercent}% fade) - started too hard`
-                  }
-                  if (pacing.matchBurns > 5) {
-                    pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
-                      `${pacing.matchBurns} match burns - high anaerobic cost`
-                  }
-                  response.analysis.pacingAssessment = pacingAssessment
-                }
-              }
-            } catch {
-              // Streams not available, continue without
-            }
+            const rawData = localSession.raw_data as Record<string, unknown> | null
+            const ftp = (rawData?.icu_ftp as number) || null
+            await enrichWithStreams(response, localSession.external_id, ctx.intervalsClient, ftp)
           }
 
           return response
@@ -321,27 +285,7 @@ Use this after finding a session with findSessions. Includes:
       }
 
       // Generate pacing assessment
-      let pacingAssessment: string | undefined
-      if (pacing) {
-        if (pacing.variabilityIndex && pacing.variabilityIndex > 1.1) {
-          pacingAssessment = `Variable pacing (VI: ${pacing.variabilityIndex}) - power fluctuated significantly`
-        } else if (pacing.variabilityIndex && pacing.variabilityIndex < 1.02) {
-          pacingAssessment = `Very steady pacing (VI: ${pacing.variabilityIndex}) - excellent power control`
-        }
-
-        if (pacing.negativeSplit && pacing.splitDifferencePercent) {
-          pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
-            `Negative split (+${pacing.splitDifferencePercent}% second half) - strong finish`
-        } else if (!pacing.negativeSplit && pacing.splitDifferencePercent && pacing.splitDifferencePercent < -5) {
-          pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
-            `Positive split (${pacing.splitDifferencePercent}% fade) - started too hard`
-        }
-
-        if (pacing.matchBurns > 5) {
-          pacingAssessment = (pacingAssessment ? pacingAssessment + '. ' : '') +
-            `${pacing.matchBurns} match burns - high anaerobic cost`
-        }
-      }
+      const pacingAssessment = pacing ? buildPacingAssessment(pacing) : undefined
 
       return {
         session,

@@ -109,3 +109,61 @@ export function analyzePacing(watts: number[], ftp: number | null): PacingAnalys
     matchBurns,
   }
 }
+
+/**
+ * Build a pacing assessment string from pacing analysis data
+ */
+export function buildPacingAssessment(pacing: PacingAnalysis): string | undefined {
+  let assessment: string | undefined
+
+  if (pacing.variabilityIndex && pacing.variabilityIndex > 1.1) {
+    assessment = `Variable pacing (VI: ${pacing.variabilityIndex}) - power fluctuated significantly`
+  } else if (pacing.variabilityIndex && pacing.variabilityIndex < 1.02) {
+    assessment = `Very steady pacing (VI: ${pacing.variabilityIndex}) - excellent power control`
+  }
+
+  if (pacing.negativeSplit && pacing.splitDifferencePercent) {
+    assessment = (assessment ? assessment + '. ' : '') +
+      `Negative split (+${pacing.splitDifferencePercent}% second half) - strong finish`
+  } else if (!pacing.negativeSplit && pacing.splitDifferencePercent && pacing.splitDifferencePercent < -5) {
+    assessment = (assessment ? assessment + '. ' : '') +
+      `Positive split (${pacing.splitDifferencePercent}% fade) - started too hard`
+  }
+
+  if (pacing.matchBurns > 5) {
+    assessment = (assessment ? assessment + '. ' : '') +
+      `${pacing.matchBurns} match burns - high anaerobic cost`
+  }
+
+  return assessment
+}
+
+/**
+ * Enrich a session response with stream-based analysis (peak powers, pacing).
+ * Fetches power streams from intervals.icu and adds computed metrics.
+ * Fails silently if streams unavailable — caller gets original response unchanged.
+ */
+export async function enrichWithStreams(
+  response: { session: Record<string, unknown>; analysis: Record<string, unknown> },
+  externalId: string,
+  intervalsClient: { getActivityStreams: (id: string, types: string[]) => Promise<{ watts?: number[] }> },
+  ftp: number | null
+): Promise<void> {
+  try {
+    const streams = await intervalsClient.getActivityStreams(externalId, ['watts'])
+    if (!streams.watts || streams.watts.length === 0) return
+
+    response.session.peakPowers = {
+      peak_5s: calculatePeakPower(streams.watts, 5),
+      peak_30s: calculatePeakPower(streams.watts, 30),
+      peak_1min: calculatePeakPower(streams.watts, 60),
+      peak_5min: calculatePeakPower(streams.watts, 300),
+      peak_20min: calculatePeakPower(streams.watts, 1200),
+    }
+    const pacing = analyzePacing(streams.watts, ftp)
+    response.session.pacing = pacing
+    response.analysis.pacingAssessment = buildPacingAssessment(pacing)
+  } catch {
+    // Streams not available, continue without
+  }
+}

@@ -157,6 +157,35 @@ export async function getFitnessForDate(
   return rowToFitness(data as FitnessRow)
 }
 
+/**
+ * Get fitness data for a specific date, falling back to the most recent date before it.
+ * Prevents null fitness context when exact date row is missing.
+ */
+export async function getFitnessNearDate(
+  athleteId: string,
+  date: string
+): Promise<FitnessHistory | null> {
+  // Try exact date first
+  const exact = await getFitnessForDate(athleteId, date)
+  if (exact) return exact
+
+  // Fall back to most recent date before the target
+  const supabase = await createClient()
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('fitness_history')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .lte('date', date)
+    .order('date', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !data) return null
+  return rowToFitness(data as FitnessRow)
+}
+
 export async function upsertFitness(fitness: {
   athlete_id: string
   date: string
