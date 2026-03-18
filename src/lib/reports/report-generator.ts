@@ -15,27 +15,27 @@ import { createSessionReport, hasReportForSession } from '@/lib/db/session-repor
 import { buildSessionResponse } from '@/app/api/chat/tools/get-detailed-session'
 import { findSimilarSessions } from '@/lib/analysis/session-comparison'
 import { enrichWithStreams } from '@/lib/analysis/power-analysis'
-import { REPORT_SYSTEM_PROMPT, buildReportPrompt } from './prompts'
+import { REPORT_SYSTEM_PROMPT, buildReportPrompt, type SessionType } from './prompts'
 import type { DeepAnalysis, SessionReportInsert } from './types'
 import type { IntervalsICUClient } from '@/lib/intervals-icu'
 import { logger } from '@/lib/logger'
 
 const deepAnalysisSchema = z.object({
   execution: z.object({
-    score: z.number().min(0).max(100),
+    score: z.number(),
     summary: z.string(),
     pacing_quality: z.string(),
     power_management: z.string(),
     hr_response: z.string().nullable(),
   }),
   training_value: z.object({
-    score: z.number().min(0).max(100),
+    score: z.number(),
     summary: z.string(),
     physiological_stimulus: z.string(),
     progression_context: z.string(),
   }),
   recovery: z.object({
-    score: z.number().min(0).max(100),
+    score: z.number(),
     summary: z.string(),
     fatigue_indicators: z.string(),
     recovery_recommendation: z.string(),
@@ -45,7 +45,7 @@ const deepAnalysisSchema = z.object({
 })
 
 const reportSchema = z.object({
-  score: z.number().min(0).max(100),
+  score: z.number(),
   headline: z.string(),
   quick_take: z.string(),
   deep_analysis: deepAnalysisSchema,
@@ -145,12 +145,15 @@ export async function generateSessionReports(
         })) : null,
       }
 
+      // Extract session type for type-specific rubric
+      const sessionType = (sessionResponse.analysis.sessionType || 'unknown') as SessionType
+
       // Generate report using Claude Opus
       const result = await generateObject({
         model: anthropic('claude-opus-4-6-20250610'),
         schema: reportSchema,
         system: REPORT_SYSTEM_PROMPT,
-        prompt: buildReportPrompt(promptData),
+        prompt: buildReportPrompt(promptData, sessionType),
       })
 
       const report = result.object

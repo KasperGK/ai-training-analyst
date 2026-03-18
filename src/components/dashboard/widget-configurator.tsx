@@ -25,13 +25,15 @@ interface WidgetConfiguratorProps {
   visibleWidgets: Set<string>
   onToggleWidget: (id: string) => void
   onReset: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export function WidgetConfigurator({ visibleWidgets, onToggleWidget, onReset }: WidgetConfiguratorProps) {
+export function WidgetConfigurator({ visibleWidgets, onToggleWidget, onReset, open, onOpenChange }: WidgetConfiguratorProps) {
   return (
     <Card className="group relative h-full border-dashed border-muted-foreground/25">
       <DragHandle />
-      <Sheet>
+      <Sheet modal={true} open={open} onOpenChange={onOpenChange}>
         <SheetTrigger asChild>
           <button className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
             <Plus className="h-6 w-6" />
@@ -45,7 +47,7 @@ export function WidgetConfigurator({ visibleWidgets, onToggleWidget, onReset }: 
               Toggle widgets to show or hide them on your dashboard.
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4">
             <div className="space-y-4">
               {TOGGLE_WIDGET_IDS.map(id => {
                 const widget = WIDGET_REGISTRY[id]
